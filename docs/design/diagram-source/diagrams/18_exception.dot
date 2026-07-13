@@ -1,0 +1,23 @@
+digraph G {
+      graph [rankdir=TB, bgcolor="white", pad="0.18", nodesep="0.3", ranksep="0.48", splines=spline, fontname="Noto Sans CJK SC", labelloc="t"];
+      node [shape=box, style="rounded,filled", fontname="Noto Sans CJK SC", fontsize=10.5, color="#D6DCE4", fillcolor="white", fontcolor="#1F2937", margin="0.12,0.08"];
+      edge [fontname="Noto Sans CJK SC", fontsize=8.5, color="#6B7280", fontcolor="#374151", arrowsize=0.7];
+graph [label="跨域例外处理与补偿", fontsize=15];
+s [label="业务事件或监控检测异常", shape=oval, fillcolor="#EAF2FF", color="#2A6FDB"];
+r [label="规则匹配严重度与 SLA", fillcolor="#E8EDFF", color="#596BB3"];
+case [label="创建例外工单并路由责任人", fillcolor="#FFFFFF"];
+act [label="通知、冻结、重试或人工处理", shape=diamond, fillcolor="#FFF4D6", color="#C58B00"];
+comp [label="执行补偿/改派/调整/重放", fillcolor="#FFFFFF"];
+verify [label="验证业务状态与数据一致性", shape=diamond, fillcolor="#FFF4D6", color="#C58B00"];
+e [label="关闭工单并沉淀根因", shape=oval, fillcolor="#E8F5E9", color="#087F8C"];
+esc [label="升级、加急和管理层告警", fillcolor="#FDECEC", color="#B42318"];
+s -> r;
+r -> case;
+case -> act;
+act -> comp [label="可处置"];
+act -> esc [label="超时/高严重度"];
+esc -> comp;
+comp -> verify;
+verify -> e [label="通过"];
+verify -> case [label="未修复"];
+}

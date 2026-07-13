@@ -1,0 +1,30 @@
+digraph G {
+      graph [rankdir=TB, bgcolor="white", pad="0.18", nodesep="0.3", ranksep="0.55", splines=spline, fontname="Noto Sans CJK SC", labelloc="t"];
+      node [shape=box, style="rounded,filled", fontname="Noto Sans CJK SC", fontsize=10.5, color="#D6DCE4", fillcolor="white", fontcolor="#1F2937", margin="0.12,0.08"];
+      edge [fontname="Noto Sans CJK SC", fontsize=8.5, color="#6B7280", fontcolor="#374151", arrowsize=0.7];
+graph [label="领域聚合与上下文边界", fontsize=15];
+IAM [label="IAM / Tenant / Org", fillcolor="#E8F5E9", width=2.4, height=.65];
+MDM [label="Master Data / Config", fillcolor="#E8F5E9", width=2.4, height=.65];
+OMS [label="OMS 订单", fillcolor="#EAF2FF", width=2.4, height=.65];
+WMS [label="WMS 仓储", fillcolor="#EAF2FF", width=2.4, height=.65];
+TMS [label="TMS 运输", fillcolor="#EAF2FF", width=2.4, height=.65];
+AMS [label="AMS 预约", fillcolor="#EAF2FF", width=2.4, height=.65];
+BILL [label="Billing / Settlement", fillcolor="#E8EDFF", width=2.4, height=.65];
+CTL [label="Control Tower / BI", fillcolor="#E8EDFF", width=2.4, height=.65];
+INT [label="Integration / Document", fillcolor="#E8EDFF", width=2.4, height=.65];
+IAM -> OMS [label="授权上下文"];
+MDM -> OMS [label="主数据快照"];
+OMS -> WMS [label="履约单/事件"];
+OMS -> TMS [label="运输需求"];
+OMS -> AMS [label="预约需求"];
+WMS -> TMS [label="可提货/装车"];
+AMS -> WMS [label="到场/靠台"];
+WMS -> BILL [label="仓储计费事实"];
+TMS -> BILL [label="运输计费事实"];
+AMS -> BILL [label="预约/爽约事实"];
+OMS -> CTL [label="订单事件"];
+WMS -> CTL [label="库存与作业事件"];
+TMS -> CTL [label="轨迹与异常"];
+INT -> OMS [label="API/EDI"];
+INT -> TMS [label="GPS/POD"];
+}

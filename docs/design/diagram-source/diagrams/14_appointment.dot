@@ -1,0 +1,27 @@
+digraph G {
+      graph [rankdir=TB, bgcolor="white", pad="0.18", nodesep="0.3", ranksep="0.48", splines=spline, fontname="Noto Sans CJK SC", labelloc="t"];
+      node [shape=box, style="rounded,filled", fontname="Noto Sans CJK SC", fontsize=10.5, color="#D6DCE4", fillcolor="white", fontcolor="#1F2937", margin="0.12,0.08"];
+      edge [fontname="Noto Sans CJK SC", fontsize=8.5, color="#6B7280", fontcolor="#374151", arrowsize=0.7];
+graph [label="AMS：预约、排队、靠台与出场", fontsize=15];
+s [label="关联订单或无单预约", shape=oval, fillcolor="#EAF2FF", color="#2A6FDB"];
+cap [label="计算工作量与可用时隙", fillcolor="#E8EDFF", color="#596BB3"];
+lock [label="并发锁定容量", shape=diamond, fillcolor="#FFF4D6", color="#C58B00"];
+app [label="提交/自动确认/审批", fillcolor="#FFFFFF"];
+rem [label="提醒与到场准备", fillcolor="#FFFFFF"];
+in [label="门岗签到与证件校验", shape=diamond, fillcolor="#FFF4D6", color="#C58B00"];
+q [label="排队叫号与月台分配", fillcolor="#FFFFFF"];
+op [label="装卸作业事件", fillcolor="#FFFFFF"];
+out [label="出场、关闭与绩效统计", shape=oval, fillcolor="#E8F5E9", color="#087F8C"];
+x [label="冲突、迟到、爽约、超时", fillcolor="#FDECEC", color="#B42318"];
+s -> cap;
+cap -> lock;
+lock -> app [label="锁定成功"];
+lock -> x [label="容量冲突"];
+app -> rem [label="确认"];
+rem -> in;
+in -> q [label="校验通过"];
+in -> x [label="拒绝/异常"];
+q -> op [label="靠台"];
+op -> out;
+rem -> x [label="未到/迟到"];
+}

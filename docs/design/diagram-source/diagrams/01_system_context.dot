@@ -1,0 +1,17 @@
+digraph G {
+      graph [rankdir=LR, bgcolor="white", pad="0.18", nodesep="0.45", ranksep="0.85", splines=spline, fontname="Noto Sans CJK SC", labelloc="t"];
+      node [shape=box, style="rounded,filled", fontname="Noto Sans CJK SC", fontsize=10.5, color="#D6DCE4", fillcolor="white", fontcolor="#1F2937", margin="0.12,0.08"];
+      edge [fontname="Noto Sans CJK SC", fontsize=8.5, color="#6B7280", fontcolor="#374151", arrowsize=0.7];
+
+      internal [label="内部用户\n订单客服 / 仓库 / 运输 / 财务 / 管理层", fillcolor="#EAF2FF", color="#2A6FDB"];
+      partner [label="外部协同方\n客户 / 供应商 / 承运商 / 司机", fillcolor="#DDF7F4", color="#087F8C"];
+      platform [label="供应链协同云平台\nOMS · WMS · TMS · AMS · 结算 · 控制塔", fillcolor="#DCE9FF", color="#2A6FDB", penwidth=2.1, fontsize=13, width=3.2, height=1.0];
+      enterprise [label="企业系统\nERP / MES / 电商 / 财务 / 主数据", fillcolor="#F3F5F7"];
+      device [label="现场设备与 IoT\nRF / 打印 / 称重 / 门禁 / GPS / 温控", fillcolor="#FFF4D6", color="#C58B00"];
+      service [label="外部服务\n地图 / 短信 / 邮件 / 微信 / 推送", fillcolor="#F3F5F7"];
+      internal -> platform [label="Web / RF / APP"];
+      partner -> platform [label="门户 / APP / 小程序"];
+      enterprise -> platform [dir=both, label="API / EDI / 文件"];
+      device -> platform [dir=both, label="遥测 / 指令"];
+      service -> platform [dir=both, label="通知 / 地图 / 轨迹"];
+    }

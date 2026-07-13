@@ -1,0 +1,55 @@
+digraph G {
+      graph [rankdir=LR, bgcolor="white", pad="0.18", nodesep="0.14", ranksep="0.36", splines=spline, fontname="Noto Sans CJK SC", labelloc="t"];
+      node [shape=box, style="rounded,filled", fontname="Noto Sans CJK SC", fontsize=10.5, color="#D6DCE4", fillcolor="white", fontcolor="#1F2937", margin="0.12,0.08"];
+      edge [fontname="Noto Sans CJK SC", fontsize=8.5, color="#6B7280", fontcolor="#374151", arrowsize=0.7];
+graph [label="类图：计费、控制塔、工作流与集成", fontsize=15];
+Rule [shape=plain, label=<<TABLE BORDER="1" CELLBORDER="0" CELLSPACING="0" CELLPADDING="5" COLOR="#AAB4C3">
+      <TR><TD BGCOLOR="#F7EAF8"><B>ChargeRule 计费规则</B></TD></TR><TR><TD ALIGN="LEFT"><FONT POINT-SIZE="9">id/rateCardId: UUID</FONT></TD></TR><TR><TD ALIGN="LEFT"><FONT POINT-SIZE="9">chargeCode/scope: String</FONT></TD></TR><TR><TD ALIGN="LEFT"><FONT POINT-SIZE="9">basis: QTY/WEIGHT/VOLUME/DISTANCE/TIME</FONT></TD></TR><TR><TD ALIGN="LEFT"><FONT POINT-SIZE="9">expression: DSL/JSON</FONT></TD></TR><TR><TD ALIGN="LEFT"><FONT POINT-SIZE="9">priority/status: Int/Enum</FONT></TD></TR></TABLE>>];
+Calc [shape=plain, label=<<TABLE BORDER="1" CELLBORDER="0" CELLSPACING="0" CELLPADDING="5" COLOR="#AAB4C3">
+      <TR><TD BGCOLOR="white"><B>ChargeCalculation 计算</B></TD></TR><TR><TD ALIGN="LEFT"><FONT POINT-SIZE="9">id/businessType/businessId: UUID/String</FONT></TD></TR><TR><TD ALIGN="LEFT"><FONT POINT-SIZE="9">ruleId/rateVersion: UUID</FONT></TD></TR><TR><TD ALIGN="LEFT"><FONT POINT-SIZE="9">inputFacts: JSON</FONT></TD></TR><TR><TD ALIGN="LEFT"><FONT POINT-SIZE="9">amount/tax: Money</FONT></TD></TR><TR><TD ALIGN="LEFT"><FONT POINT-SIZE="9">calculationTrace: JSON</FONT></TD></TR><TR><TD ALIGN="LEFT"><FONT POINT-SIZE="9">status: CalcStatus</FONT></TD></TR></TABLE>>];
+Voucher [shape=plain, label=<<TABLE BORDER="1" CELLBORDER="0" CELLSPACING="0" CELLPADDING="5" COLOR="#AAB4C3">
+      <TR><TD BGCOLOR="white"><B>SettlementVoucher 凭证</B></TD></TR><TR><TD ALIGN="LEFT"><FONT POINT-SIZE="9">id/voucherNo: UUID/String</FONT></TD></TR><TR><TD ALIGN="LEFT"><FONT POINT-SIZE="9">type: AR/AP/ACCRUAL/ADJUSTMENT</FONT></TD></TR><TR><TD ALIGN="LEFT"><FONT POINT-SIZE="9">partyId/period: UUID/String</FONT></TD></TR><TR><TD ALIGN="LEFT"><FONT POINT-SIZE="9">amount/taxAmount: Money</FONT></TD></TR><TR><TD ALIGN="LEFT"><FONT POINT-SIZE="9">status: VoucherStatus</FONT></TD></TR></TABLE>>];
+VLine [shape=plain, label=<<TABLE BORDER="1" CELLBORDER="0" CELLSPACING="0" CELLPADDING="5" COLOR="#AAB4C3">
+      <TR><TD BGCOLOR="white"><B>VoucherLine</B></TD></TR><TR><TD ALIGN="LEFT"><FONT POINT-SIZE="9">id/voucherId/calcId: UUID</FONT></TD></TR><TR><TD ALIGN="LEFT"><FONT POINT-SIZE="9">chargeCode/businessRef: String</FONT></TD></TR><TR><TD ALIGN="LEFT"><FONT POINT-SIZE="9">amount/tax: Money</FONT></TD></TR></TABLE>>];
+Recon [shape=plain, label=<<TABLE BORDER="1" CELLBORDER="0" CELLSPACING="0" CELLPADDING="5" COLOR="#AAB4C3">
+      <TR><TD BGCOLOR="white"><B>ReconciliationStatement 对账单</B></TD></TR><TR><TD ALIGN="LEFT"><FONT POINT-SIZE="9">id/statementNo: UUID/String</FONT></TD></TR><TR><TD ALIGN="LEFT"><FONT POINT-SIZE="9">partyId/period: UUID/String</FONT></TD></TR><TR><TD ALIGN="LEFT"><FONT POINT-SIZE="9">totalAmount: Money</FONT></TD></TR><TR><TD ALIGN="LEFT"><FONT POINT-SIZE="9">status: ReconciliationStatus</FONT></TD></TR></TABLE>>];
+Invoice [shape=plain, label=<<TABLE BORDER="1" CELLBORDER="0" CELLSPACING="0" CELLPADDING="5" COLOR="#AAB4C3">
+      <TR><TD BGCOLOR="white"><B>Invoice 发票</B></TD></TR><TR><TD ALIGN="LEFT"><FONT POINT-SIZE="9">id/invoiceNo: UUID/String</FONT></TD></TR><TR><TD ALIGN="LEFT"><FONT POINT-SIZE="9">statementId: UUID</FONT></TD></TR><TR><TD ALIGN="LEFT"><FONT POINT-SIZE="9">direction: AR/AP</FONT></TD></TR><TR><TD ALIGN="LEFT"><FONT POINT-SIZE="9">amount/tax: Money</FONT></TD></TR><TR><TD ALIGN="LEFT"><FONT POINT-SIZE="9">status: InvoiceStatus</FONT></TD></TR></TABLE>>];
+Payment [shape=plain, label=<<TABLE BORDER="1" CELLBORDER="0" CELLSPACING="0" CELLPADDING="5" COLOR="#AAB4C3">
+      <TR><TD BGCOLOR="white"><B>Payment 收付款</B></TD></TR><TR><TD ALIGN="LEFT"><FONT POINT-SIZE="9">id/invoiceId: UUID</FONT></TD></TR><TR><TD ALIGN="LEFT"><FONT POINT-SIZE="9">paymentNo: String</FONT></TD></TR><TR><TD ALIGN="LEFT"><FONT POINT-SIZE="9">amount: Money</FONT></TD></TR><TR><TD ALIGN="LEFT"><FONT POINT-SIZE="9">paidAt: Instant</FONT></TD></TR><TR><TD ALIGN="LEFT"><FONT POINT-SIZE="9">status: PaymentStatus</FONT></TD></TR></TABLE>>];
+Event [shape=plain, label=<<TABLE BORDER="1" CELLBORDER="0" CELLSPACING="0" CELLPADDING="5" COLOR="#AAB4C3">
+      <TR><TD BGCOLOR="#E8EDFF"><B>BusinessEvent 业务事件</B></TD></TR><TR><TD ALIGN="LEFT"><FONT POINT-SIZE="9">eventId/tenantId: UUID</FONT></TD></TR><TR><TD ALIGN="LEFT"><FONT POINT-SIZE="9">aggregateType/id/version: String</FONT></TD></TR><TR><TD ALIGN="LEFT"><FONT POINT-SIZE="9">eventType/traceId: String</FONT></TD></TR><TR><TD ALIGN="LEFT"><FONT POINT-SIZE="9">occurredAt: Instant</FONT></TD></TR><TR><TD ALIGN="LEFT"><FONT POINT-SIZE="9">payload: JSON</FONT></TD></TR></TABLE>>];
+AlertRule [shape=plain, label=<<TABLE BORDER="1" CELLBORDER="0" CELLSPACING="0" CELLPADDING="5" COLOR="#AAB4C3">
+      <TR><TD BGCOLOR="white"><B>AlertRule 预警规则</B></TD></TR><TR><TD ALIGN="LEFT"><FONT POINT-SIZE="9">id/eventType: UUID/String</FONT></TD></TR><TR><TD ALIGN="LEFT"><FONT POINT-SIZE="9">condition: DSL/JSON</FONT></TD></TR><TR><TD ALIGN="LEFT"><FONT POINT-SIZE="9">severity/slaMinutes: String/Int</FONT></TD></TR><TR><TD ALIGN="LEFT"><FONT POINT-SIZE="9">routingPolicy: JSON</FONT></TD></TR></TABLE>>];
+Alert [shape=plain, label=<<TABLE BORDER="1" CELLBORDER="0" CELLSPACING="0" CELLPADDING="5" COLOR="#AAB4C3">
+      <TR><TD BGCOLOR="white"><B>AlertCase 例外工单</B></TD></TR><TR><TD ALIGN="LEFT"><FONT POINT-SIZE="9">id/ruleId: UUID</FONT></TD></TR><TR><TD ALIGN="LEFT"><FONT POINT-SIZE="9">businessRef/severity/status: String</FONT></TD></TR><TR><TD ALIGN="LEFT"><FONT POINT-SIZE="9">ownerId: UUID?</FONT></TD></TR><TR><TD ALIGN="LEFT"><FONT POINT-SIZE="9">detected/resolvedAt: Instant</FONT></TD></TR><TR><TD ALIGN="LEFT"><FONT POINT-SIZE="9">rootCause/resolution: JSON</FONT></TD></TR></TABLE>>];
+Notification [shape=plain, label=<<TABLE BORDER="1" CELLBORDER="0" CELLSPACING="0" CELLPADDING="5" COLOR="#AAB4C3">
+      <TR><TD BGCOLOR="white"><B>Notification 通知</B></TD></TR><TR><TD ALIGN="LEFT"><FONT POINT-SIZE="9">id/alertCaseId: UUID?</FONT></TD></TR><TR><TD ALIGN="LEFT"><FONT POINT-SIZE="9">channel/recipient/templateId: String</FONT></TD></TR><TR><TD ALIGN="LEFT"><FONT POINT-SIZE="9">status: SendStatus</FONT></TD></TR></TABLE>>];
+Metric [shape=plain, label=<<TABLE BORDER="1" CELLBORDER="0" CELLSPACING="0" CELLPADDING="5" COLOR="#AAB4C3">
+      <TR><TD BGCOLOR="white"><B>MetricDefinition 指标</B></TD></TR><TR><TD ALIGN="LEFT"><FONT POINT-SIZE="9">id/code/name: UUID/String</FONT></TD></TR><TR><TD ALIGN="LEFT"><FONT POINT-SIZE="9">formula: DSL/SQL</FONT></TD></TR><TR><TD ALIGN="LEFT"><FONT POINT-SIZE="9">dimensions/refreshPolicy: JSON/String</FONT></TD></TR></TABLE>>];
+Snapshot [shape=plain, label=<<TABLE BORDER="1" CELLBORDER="0" CELLSPACING="0" CELLPADDING="5" COLOR="#AAB4C3">
+      <TR><TD BGCOLOR="white"><B>MetricSnapshot</B></TD></TR><TR><TD ALIGN="LEFT"><FONT POINT-SIZE="9">id/metricId: UUID</FONT></TD></TR><TR><TD ALIGN="LEFT"><FONT POINT-SIZE="9">timeBucket: Instant</FONT></TD></TR><TR><TD ALIGN="LEFT"><FONT POINT-SIZE="9">dimensions: JSON</FONT></TD></TR><TR><TD ALIGN="LEFT"><FONT POINT-SIZE="9">value: Decimal</FONT></TD></TR></TABLE>>];
+Workflow [shape=plain, label=<<TABLE BORDER="1" CELLBORDER="0" CELLSPACING="0" CELLPADDING="5" COLOR="#AAB4C3">
+      <TR><TD BGCOLOR="white"><B>WorkflowDefinition 工作流</B></TD></TR><TR><TD ALIGN="LEFT"><FONT POINT-SIZE="9">id/code/version: UUID/String</FONT></TD></TR><TR><TD ALIGN="LEFT"><FONT POINT-SIZE="9">businessType: String</FONT></TD></TR><TR><TD ALIGN="LEFT"><FONT POINT-SIZE="9">definition: BPMN/JSON</FONT></TD></TR><TR><TD ALIGN="LEFT"><FONT POINT-SIZE="9">status: DefinitionStatus</FONT></TD></TR></TABLE>>];
+Instance [shape=plain, label=<<TABLE BORDER="1" CELLBORDER="0" CELLSPACING="0" CELLPADDING="5" COLOR="#AAB4C3">
+      <TR><TD BGCOLOR="white"><B>WorkflowInstance</B></TD></TR><TR><TD ALIGN="LEFT"><FONT POINT-SIZE="9">id/definitionId: UUID</FONT></TD></TR><TR><TD ALIGN="LEFT"><FONT POINT-SIZE="9">businessRef/currentNode: String</FONT></TD></TR><TR><TD ALIGN="LEFT"><FONT POINT-SIZE="9">status: WorkflowStatus</FONT></TD></TR><TR><TD ALIGN="LEFT"><FONT POINT-SIZE="9">variables: JSON</FONT></TD></TR></TABLE>>];
+Task [shape=plain, label=<<TABLE BORDER="1" CELLBORDER="0" CELLSPACING="0" CELLPADDING="5" COLOR="#AAB4C3">
+      <TR><TD BGCOLOR="white"><B>WorkflowTask</B></TD></TR><TR><TD ALIGN="LEFT"><FONT POINT-SIZE="9">id/instanceId: UUID</FONT></TD></TR><TR><TD ALIGN="LEFT"><FONT POINT-SIZE="9">nodeKey/assigneeId: String</FONT></TD></TR><TR><TD ALIGN="LEFT"><FONT POINT-SIZE="9">dueAt: Instant</FONT></TD></TR><TR><TD ALIGN="LEFT"><FONT POINT-SIZE="9">status: TaskStatus</FONT></TD></TR></TABLE>>];
+Endpoint [shape=plain, label=<<TABLE BORDER="1" CELLBORDER="0" CELLSPACING="0" CELLPADDING="5" COLOR="#AAB4C3">
+      <TR><TD BGCOLOR="white"><B>IntegrationEndpoint 集成端点</B></TD></TR><TR><TD ALIGN="LEFT"><FONT POINT-SIZE="9">id/code/name: UUID/String</FONT></TD></TR><TR><TD ALIGN="LEFT"><FONT POINT-SIZE="9">type: REST/EDI/SFTP/WEBHOOK</FONT></TD></TR><TR><TD ALIGN="LEFT"><FONT POINT-SIZE="9">authConfigRef/mappingVersion: String</FONT></TD></TR><TR><TD ALIGN="LEFT"><FONT POINT-SIZE="9">status: Status</FONT></TD></TR></TABLE>>];
+Message [shape=plain, label=<<TABLE BORDER="1" CELLBORDER="0" CELLSPACING="0" CELLPADDING="5" COLOR="#AAB4C3">
+      <TR><TD BGCOLOR="white"><B>IntegrationMessage 集成消息</B></TD></TR><TR><TD ALIGN="LEFT"><FONT POINT-SIZE="9">id/endpointId: UUID</FONT></TD></TR><TR><TD ALIGN="LEFT"><FONT POINT-SIZE="9">direction: IN/OUT</FONT></TD></TR><TR><TD ALIGN="LEFT"><FONT POINT-SIZE="9">businessKey/correlationId: String</FONT></TD></TR><TR><TD ALIGN="LEFT"><FONT POINT-SIZE="9">payloadObjectId: UUID</FONT></TD></TR><TR><TD ALIGN="LEFT"><FONT POINT-SIZE="9">status/retryCount: Enum/Int</FONT></TD></TR></TABLE>>];
+Rule -> Calc [label="0..*", arrowhead=none];
+Calc -> VLine [label="0..1", arrowhead=none];
+Voucher -> VLine [label="1..*", arrowhead=none];
+Voucher -> Recon [label="0..1", arrowhead=none];
+Recon -> Invoice [label="0..*", arrowhead=none];
+Invoice -> Payment [label="0..*", arrowhead=none];
+Event -> AlertRule [label="matches", arrowhead=none];
+AlertRule -> Alert [label="0..*", arrowhead=none];
+Alert -> Notification [label="0..*", arrowhead=none];
+Metric -> Snapshot [label="0..*", arrowhead=none];
+Workflow -> Instance [label="0..*", arrowhead=none];
+Instance -> Task [label="1..*", arrowhead=none];
+Endpoint -> Message [label="0..*", arrowhead=none];
+}

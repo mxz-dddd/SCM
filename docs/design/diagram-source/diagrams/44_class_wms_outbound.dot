@@ -1,0 +1,48 @@
+digraph G {
+      graph [rankdir=TB, bgcolor="white", pad="0.18", nodesep="0.16", ranksep="0.4", splines=spline, fontname="Noto Sans CJK SC", labelloc="t"];
+      node [shape=box, style="rounded,filled", fontname="Noto Sans CJK SC", fontsize=10.5, color="#D6DCE4", fillcolor="white", fontcolor="#1F2937", margin="0.12,0.08"];
+      edge [fontname="Noto Sans CJK SC", fontsize=8.5, color="#6B7280", fontcolor="#374151", arrowsize=0.7];
+graph [label="类图：WMS 出库与作业", fontsize=15];
+Outbound [shape=plain, label=<<TABLE BORDER="1" CELLBORDER="0" CELLSPACING="0" CELLPADDING="5" COLOR="#AAB4C3">
+      <TR><TD BGCOLOR="#E8F5E9"><B>OutboundOrder 出库单</B></TD></TR><TR><TD ALIGN="LEFT"><FONT POINT-SIZE="9">id/outboundNo: UUID/String</FONT></TD></TR><TR><TD ALIGN="LEFT"><FONT POINT-SIZE="9">sourceOrderId/warehouseId/ownerId: UUID</FONT></TD></TR><TR><TD ALIGN="LEFT"><FONT POINT-SIZE="9">type: SALES/TRANSFER/RETURN</FONT></TD></TR><TR><TD ALIGN="LEFT"><FONT POINT-SIZE="9">shipWindow: TimeWindow</FONT></TD></TR><TR><TD ALIGN="LEFT"><FONT POINT-SIZE="9">status: OutboundStatus</FONT></TD></TR></TABLE>>];
+OutboundLine [shape=plain, label=<<TABLE BORDER="1" CELLBORDER="0" CELLSPACING="0" CELLPADDING="5" COLOR="#AAB4C3">
+      <TR><TD BGCOLOR="white"><B>OutboundLine</B></TD></TR><TR><TD ALIGN="LEFT"><FONT POINT-SIZE="9">id/outboundId/productId: UUID</FONT></TD></TR><TR><TD ALIGN="LEFT"><FONT POINT-SIZE="9">requested/allocated/picked/shippedQty: Decimal</FONT></TD></TR><TR><TD ALIGN="LEFT"><FONT POINT-SIZE="9">status: Status</FONT></TD></TR></TABLE>>];
+Wave [shape=plain, label=<<TABLE BORDER="1" CELLBORDER="0" CELLSPACING="0" CELLPADDING="5" COLOR="#AAB4C3">
+      <TR><TD BGCOLOR="white"><B>Wave 波次</B></TD></TR><TR><TD ALIGN="LEFT"><FONT POINT-SIZE="9">id/waveNo: UUID/String</FONT></TD></TR><TR><TD ALIGN="LEFT"><FONT POINT-SIZE="9">templateId/warehouseId: UUID</FONT></TD></TR><TR><TD ALIGN="LEFT"><FONT POINT-SIZE="9">plannedStartAt: Instant</FONT></TD></TR><TR><TD ALIGN="LEFT"><FONT POINT-SIZE="9">status: WaveStatus</FONT></TD></TR></TABLE>>];
+WaveOrder [shape=plain, label=<<TABLE BORDER="1" CELLBORDER="0" CELLSPACING="0" CELLPADDING="5" COLOR="#AAB4C3">
+      <TR><TD BGCOLOR="white"><B>WaveOrder</B></TD></TR><TR><TD ALIGN="LEFT"><FONT POINT-SIZE="9">waveId/outboundId: UUID</FONT></TD></TR><TR><TD ALIGN="LEFT"><FONT POINT-SIZE="9">sequence: Int</FONT></TD></TR></TABLE>>];
+AllocationDetail [shape=plain, label=<<TABLE BORDER="1" CELLBORDER="0" CELLSPACING="0" CELLPADDING="5" COLOR="#AAB4C3">
+      <TR><TD BGCOLOR="white"><B>AllocationDetail 分配明细</B></TD></TR><TR><TD ALIGN="LEFT"><FONT POINT-SIZE="9">id/outboundLineId/balanceId: UUID</FONT></TD></TR><TR><TD ALIGN="LEFT"><FONT POINT-SIZE="9">allocatedQty: Decimal</FONT></TD></TR><TR><TD ALIGN="LEFT"><FONT POINT-SIZE="9">strategyTrace: JSON</FONT></TD></TR></TABLE>>];
+PickTask [shape=plain, label=<<TABLE BORDER="1" CELLBORDER="0" CELLSPACING="0" CELLPADDING="5" COLOR="#AAB4C3">
+      <TR><TD BGCOLOR="white"><B>PickTask 拣选任务</B></TD></TR><TR><TD ALIGN="LEFT"><FONT POINT-SIZE="9">id/taskNo: UUID/String</FONT></TD></TR><TR><TD ALIGN="LEFT"><FONT POINT-SIZE="9">waveId/assigneeId/deviceId: UUID?</FONT></TD></TR><TR><TD ALIGN="LEFT"><FONT POINT-SIZE="9">routeSeq: Int</FONT></TD></TR><TR><TD ALIGN="LEFT"><FONT POINT-SIZE="9">status: TaskStatus</FONT></TD></TR></TABLE>>];
+PickLine [shape=plain, label=<<TABLE BORDER="1" CELLBORDER="0" CELLSPACING="0" CELLPADDING="5" COLOR="#AAB4C3">
+      <TR><TD BGCOLOR="white"><B>PickTaskLine</B></TD></TR><TR><TD ALIGN="LEFT"><FONT POINT-SIZE="9">id/pickTaskId/allocationId: UUID</FONT></TD></TR><TR><TD ALIGN="LEFT"><FONT POINT-SIZE="9">fromLocationId/targetHuId: UUID</FONT></TD></TR><TR><TD ALIGN="LEFT"><FONT POINT-SIZE="9">qty/confirmedQty: Decimal</FONT></TD></TR></TABLE>>];
+PackTask [shape=plain, label=<<TABLE BORDER="1" CELLBORDER="0" CELLSPACING="0" CELLPADDING="5" COLOR="#AAB4C3">
+      <TR><TD BGCOLOR="white"><B>PackTask 包装任务</B></TD></TR><TR><TD ALIGN="LEFT"><FONT POINT-SIZE="9">id/packNo: UUID/String</FONT></TD></TR><TR><TD ALIGN="LEFT"><FONT POINT-SIZE="9">outboundId/stationId: UUID</FONT></TD></TR><TR><TD ALIGN="LEFT"><FONT POINT-SIZE="9">status: TaskStatus</FONT></TD></TR><TR><TD ALIGN="LEFT"><FONT POINT-SIZE="9">weight/volume: Decimal</FONT></TD></TR></TABLE>>];
+Package [shape=plain, label=<<TABLE BORDER="1" CELLBORDER="0" CELLSPACING="0" CELLPADDING="5" COLOR="#AAB4C3">
+      <TR><TD BGCOLOR="white"><B>PackageUnit 包裹/LPN</B></TD></TR><TR><TD ALIGN="LEFT"><FONT POINT-SIZE="9">id/packageNo: UUID/String</FONT></TD></TR><TR><TD ALIGN="LEFT"><FONT POINT-SIZE="9">outboundId/parentId: UUID?</FONT></TD></TR><TR><TD ALIGN="LEFT"><FONT POINT-SIZE="9">labelNo: String</FONT></TD></TR><TR><TD ALIGN="LEFT"><FONT POINT-SIZE="9">weight/volume: Decimal</FONT></TD></TR><TR><TD ALIGN="LEFT"><FONT POINT-SIZE="9">status: PackageStatus</FONT></TD></TR></TABLE>>];
+Staging [shape=plain, label=<<TABLE BORDER="1" CELLBORDER="0" CELLSPACING="0" CELLPADDING="5" COLOR="#AAB4C3">
+      <TR><TD BGCOLOR="white"><B>StagingTask 集货任务</B></TD></TR><TR><TD ALIGN="LEFT"><FONT POINT-SIZE="9">id/outboundId/stagingLocationId: UUID</FONT></TD></TR><TR><TD ALIGN="LEFT"><FONT POINT-SIZE="9">route/shipmentId: UUID?</FONT></TD></TR><TR><TD ALIGN="LEFT"><FONT POINT-SIZE="9">status: TaskStatus</FONT></TD></TR></TABLE>>];
+Load [shape=plain, label=<<TABLE BORDER="1" CELLBORDER="0" CELLSPACING="0" CELLPADDING="5" COLOR="#AAB4C3">
+      <TR><TD BGCOLOR="white"><B>LoadTask 装车任务</B></TD></TR><TR><TD ALIGN="LEFT"><FONT POINT-SIZE="9">id/loadNo: UUID/String</FONT></TD></TR><TR><TD ALIGN="LEFT"><FONT POINT-SIZE="9">shipmentId/dockId/vehicleId: UUID?</FONT></TD></TR><TR><TD ALIGN="LEFT"><FONT POINT-SIZE="9">sealNo: String</FONT></TD></TR><TR><TD ALIGN="LEFT"><FONT POINT-SIZE="9">status: TaskStatus</FONT></TD></TR></TABLE>>];
+VAS [shape=plain, label=<<TABLE BORDER="1" CELLBORDER="0" CELLSPACING="0" CELLPADDING="5" COLOR="#AAB4C3">
+      <TR><TD BGCOLOR="white"><B>ValueAddedOrder 增值服务</B></TD></TR><TR><TD ALIGN="LEFT"><FONT POINT-SIZE="9">id/vasNo: UUID/String</FONT></TD></TR><TR><TD ALIGN="LEFT"><FONT POINT-SIZE="9">type: LABEL/REPACK/KIT/ASSEMBLY</FONT></TD></TR><TR><TD ALIGN="LEFT"><FONT POINT-SIZE="9">sourceOrderId: UUID</FONT></TD></TR><TR><TD ALIGN="LEFT"><FONT POINT-SIZE="9">status: VasStatus</FONT></TD></TR></TABLE>>];
+Labor [shape=plain, label=<<TABLE BORDER="1" CELLBORDER="0" CELLSPACING="0" CELLPADDING="5" COLOR="#AAB4C3">
+      <TR><TD BGCOLOR="white"><B>LaborTask 劳务任务</B></TD></TR><TR><TD ALIGN="LEFT"><FONT POINT-SIZE="9">id/taskType/businessTaskId: UUID/String</FONT></TD></TR><TR><TD ALIGN="LEFT"><FONT POINT-SIZE="9">worker/teamId: UUID</FONT></TD></TR><TR><TD ALIGN="LEFT"><FONT POINT-SIZE="9">standard/actualMinutes: Decimal</FONT></TD></TR><TR><TD ALIGN="LEFT"><FONT POINT-SIZE="9">score: Decimal</FONT></TD></TR></TABLE>>];
+Replen [shape=plain, label=<<TABLE BORDER="1" CELLBORDER="0" CELLSPACING="0" CELLPADDING="5" COLOR="#AAB4C3">
+      <TR><TD BGCOLOR="white"><B>ReplenishmentTask 补货</B></TD></TR><TR><TD ALIGN="LEFT"><FONT POINT-SIZE="9">id/from/toLocationId: UUID</FONT></TD></TR><TR><TD ALIGN="LEFT"><FONT POINT-SIZE="9">productId/lotId: UUID</FONT></TD></TR><TR><TD ALIGN="LEFT"><FONT POINT-SIZE="9">qty: Decimal</FONT></TD></TR><TR><TD ALIGN="LEFT"><FONT POINT-SIZE="9">triggerType/status: Enum</FONT></TD></TR></TABLE>>];
+Outbound -> OutboundLine [label="1..*", arrowhead=none];
+Wave -> WaveOrder [label="1..*", arrowhead=none];
+Outbound -> WaveOrder [label="0..*", arrowhead=none];
+OutboundLine -> AllocationDetail [label="0..*", arrowhead=none];
+Wave -> PickTask [label="0..*", arrowhead=none];
+PickTask -> PickLine [label="1..*", arrowhead=none];
+AllocationDetail -> PickLine [label="1", arrowhead=none];
+Outbound -> PackTask [label="0..*", arrowhead=none];
+PackTask -> Package [label="1..*", arrowhead=none];
+Outbound -> Staging [label="0..*", arrowhead=none];
+Staging -> Load [label="0..*", arrowhead=none];
+Outbound -> VAS [label="0..*", arrowhead=none];
+PickTask -> Labor [label="0..*", arrowhead=none];
+AllocationDetail -> Replen [label="0..1", arrowhead=none];
+}

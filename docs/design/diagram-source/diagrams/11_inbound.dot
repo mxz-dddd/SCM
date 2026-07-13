@@ -1,0 +1,25 @@
+digraph G {
+      graph [rankdir=TB, bgcolor="white", pad="0.18", nodesep="0.3", ranksep="0.48", splines=spline, fontname="Noto Sans CJK SC", labelloc="t"];
+      node [shape=box, style="rounded,filled", fontname="Noto Sans CJK SC", fontsize=10.5, color="#D6DCE4", fillcolor="white", fontcolor="#1F2937", margin="0.12,0.08"];
+      edge [fontname="Noto Sans CJK SC", fontsize=8.5, color="#6B7280", fontcolor="#374151", arrowsize=0.7];
+graph [label="WMS 入库：预报到上架", fontsize=15];
+s [label="采购单/ASN/调拨预报", shape=oval, fillcolor="#EAF2FF", color="#2A6FDB"];
+ap [label="预约与到场签到", fillcolor="#FFFFFF"];
+r [label="收货任务与扫描", fillcolor="#FFFFFF"];
+d [label="数量/包装/批次是否一致", shape=diamond, fillcolor="#FFF4D6", color="#C58B00"];
+q [label="质检/隔离/处置", shape=diamond, fillcolor="#FFF4D6", color="#C58B00"];
+l [label="生成 LPN 与上架任务", fillcolor="#FFFFFF"];
+p [label="按策略推荐库位", fillcolor="#E8EDFF", color="#596BB3"];
+c [label="上架确认并增加可用库存", shape=oval, fillcolor="#E8F5E9", color="#087F8C"];
+x [label="差异、破损、拒收、补收", fillcolor="#FDECEC", color="#B42318"];
+s -> ap;
+ap -> r;
+r -> d;
+d -> q [label="一致/需检"];
+d -> x [label="差异"];
+q -> l [label="放行"];
+q -> x [label="不合格"];
+l -> p;
+p -> c;
+x -> r [label="补收/复检"];
+}

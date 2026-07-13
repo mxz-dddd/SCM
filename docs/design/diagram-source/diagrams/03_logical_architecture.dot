@@ -1,0 +1,36 @@
+digraph G {
+      graph [rankdir=TB, bgcolor="white", pad="0.18", nodesep="0.2", ranksep="0.38", splines=spline, fontname="Noto Sans CJK SC", labelloc="t"];
+      node [shape=box, style="rounded,filled", fontname="Noto Sans CJK SC", fontsize=10.5, color="#D6DCE4", fillcolor="white", fontcolor="#1F2937", margin="0.12,0.08"];
+      edge [fontname="Noto Sans CJK SC", fontsize=8.5, color="#6B7280", fontcolor="#374151", arrowsize=0.7];
+
+      subgraph cluster_channel { label="体验与渠道层"; color="#D6DCE4"; style="rounded";
+        web [label="管理工作台 Web", fillcolor="#EAF2FF"];
+        rf [label="WMS RF / PDA", fillcolor="#EAF2FF"];
+        apps [label="司机 / 承运商 / 客户 APP", fillcolor="#EAF2FF"];
+        portal [label="伙伴门户 / 小程序", fillcolor="#EAF2FF"];
+        screen [label="控制塔大屏 / BI", fillcolor="#EAF2FF"];
+      }
+      access [label="CDN / WAF / API Gateway / SSO / Tenant Resolver / Rate Limit", fillcolor="#DCE9FF", color="#2A6FDB", penwidth=1.5];
+      subgraph cluster_app { label="应用编排层"; color="#D6DCE4"; style="rounded";
+        workbff [label="Workbench BFF"]; mobilebff [label="Mobile BFF"]; query [label="Query / Search API"]; realtime [label="Realtime Gateway"];
+      }
+      subgraph cluster_domain { label="领域服务层（逻辑服务化；首期可模块化单体）"; color="#2A6FDB"; style="rounded"; penwidth=1.4;
+        iam [label="IAM / Tenant / Org"]; mdm [label="MDM / Config"]; oms [label="OMS"]; wms [label="WMS"]; tms [label="TMS"]; ams [label="AMS"]; bill [label="Billing / Settlement"]; ctl [label="Event / Exception / Control Tower"]; doc [label="Document / Print / POD"]; notify [label="Notification"]; integ [label="Integration Hub"]; opt [label="Optimization / AI"];
+      }
+      subgraph cluster_platform { label="平台基础能力"; color="#D6DCE4"; style="rounded";
+        flow [label="Workflow / Rule Engine"]; job [label="Scheduler / Async Job"]; bus [label="Event Bus / Outbox / Inbox", fillcolor="#FFF4D6"]; obs [label="Audit / Logs / Metrics / Traces"]; flag [label="Feature Flag / Tenant Config"];
+      }
+      subgraph cluster_data { label="数据与基础设施"; color="#D6DCE4"; style="rounded";
+        db [label="事务数据库（按域 / Schema 隔离）"]; redis [label="Redis Cache / Lock"]; obj [label="Object Storage"]; search [label="Search / GIS / Time-series"]; lake [label="CDC / Data Lake / OLAP"];
+      }
+      web -> access; rf -> access; apps -> access; portal -> access; screen -> access;
+      access -> workbff; access -> mobilebff; access -> query; access -> realtime;
+      workbff -> oms; workbff -> wms; workbff -> tms; workbff -> ams; workbff -> bill; workbff -> ctl;
+      mobilebff -> wms; mobilebff -> tms; mobilebff -> ams;
+      query -> search; realtime -> bus;
+      iam -> db; mdm -> db; oms -> db; wms -> db; tms -> db; ams -> db; bill -> db;
+      oms -> bus; wms -> bus; tms -> bus; ams -> bus; bill -> bus; ctl -> bus;
+      flow -> oms; flow -> wms; flow -> tms; flow -> ams; flow -> bill;
+      integ -> bus; doc -> obj; notify -> bus; opt -> bus; bus -> lake; db -> lake [label="CDC"];
+      obs -> oms [style=dashed, constraint=false]; obs -> wms [style=dashed, constraint=false]; obs -> tms [style=dashed, constraint=false];
+    }

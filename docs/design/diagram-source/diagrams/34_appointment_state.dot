@@ -1,0 +1,36 @@
+digraph G {
+      graph [rankdir=LR, bgcolor="white", pad="0.18", nodesep="0.22", ranksep="0.48", splines=spline, fontname="Noto Sans CJK SC", labelloc="t"];
+      node [shape=box, style="rounded,filled", fontname="Noto Sans CJK SC", fontsize=10.5, color="#D6DCE4", fillcolor="white", fontcolor="#1F2937", margin="0.12,0.08"];
+      edge [fontname="Noto Sans CJK SC", fontsize=8.5, color="#6B7280", fontcolor="#374151", arrowsize=0.7];
+graph [label="预约状态机", fontsize=15];
+Draft [label="草稿", fillcolor="#EAF2FF"];
+Submitted [label="已提交", fillcolor="white"];
+Pending [label="待审批", fillcolor="white"];
+Confirmed [label="已确认", fillcolor="white"];
+Rescheduled [label="已改期", fillcolor="white"];
+CheckedIn [label="已签到", fillcolor="white"];
+Queued [label="排队中", fillcolor="white"];
+Docked [label="已靠台", fillcolor="white"];
+Operating [label="作业中", fillcolor="white"];
+CheckedOut [label="已出场", fillcolor="white"];
+Completed [label="已完成", fillcolor="#E8F5E9"];
+NoShow [label="爽约", fillcolor="#FDECEC"];
+Rejected [label="已拒绝", fillcolor="#FDECEC"];
+Cancelled [label="已取消", fillcolor="#FDECEC"];
+Draft -> Submitted [label="提交"];
+Submitted -> Pending [label="需审批"];
+Submitted -> Confirmed [label="自动确认"];
+Pending -> Confirmed [label="批准"];
+Pending -> Rejected [label="拒绝"];
+Confirmed -> Rescheduled [label="改期"];
+Rescheduled -> Confirmed [label="确认新时段"];
+Confirmed -> CheckedIn [label="签到"];
+CheckedIn -> Queued [label="排队"];
+CheckedIn -> Docked [label="直接靠台"];
+Queued -> Docked [label="叫号"];
+Docked -> Operating [label="开始装卸"];
+Operating -> CheckedOut [label="完成出场"];
+CheckedOut -> Completed [label="关闭"];
+Confirmed -> NoShow [label="超时未到"];
+Draft -> Cancelled [label="取消"];
+}

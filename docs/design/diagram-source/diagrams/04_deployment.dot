@@ -1,0 +1,23 @@
+digraph G {
+      graph [rankdir=TB, bgcolor="white", pad="0.18", nodesep="0.28", ranksep="0.48", splines=spline, fontname="Noto Sans CJK SC", labelloc="t"];
+      node [shape=box, style="rounded,filled", fontname="Noto Sans CJK SC", fontsize=10.5, color="#D6DCE4", fillcolor="white", fontcolor="#1F2937", margin="0.12,0.08"];
+      edge [fontname="Noto Sans CJK SC", fontsize=8.5, color="#6B7280", fontcolor="#374151", arrowsize=0.7];
+
+      internet [label="Internet / 企业专线 / 移动网络", shape=oval, fillcolor="#F3F5F7"];
+      subgraph cluster_edge { label="边缘与接入区"; color="#D6DCE4"; style="rounded";
+        waf [label="WAF / CDN / DDoS"]; lb [label="Load Balancer / API Gateway"]; idp [label="Identity Provider / SSO"];
+      }
+      subgraph cluster_app { label="应用集群（无状态、水平扩展）"; color="#2A6FDB"; style="rounded";
+        webpod [label="Web / BFF Pods × N", fillcolor="#EAF2FF"]; domain [label="Domain Service Pods × N", fillcolor="#EAF2FF"]; worker [label="Async Worker / Scheduler × N", fillcolor="#EAF2FF"]; realtime [label="Realtime / Push × N", fillcolor="#EAF2FF"];
+      }
+      subgraph cluster_data { label="数据区（多可用区）"; color="#087F8C"; style="rounded";
+        dbp [label="Primary DB / HA"]; dbr [label="Read Replica / Reporting"]; redis [label="Redis Cluster"]; mq [label="Message Broker Cluster"]; storage [label="Object Storage / Backup"]; search [label="Search / GIS / Time-series"]; olap [label="OLAP / Data Lake"];
+      }
+      subgraph cluster_ops { label="运维与安全"; color="#D6DCE4"; style="rounded";
+        observ [label="Central Logs / Metrics / Traces"]; sec [label="Secrets / KMS / Certificate"]; cicd [label="CI/CD / IaC / Registry"]; dr [label="Cross-region Backup / DR"];
+      }
+      internet -> waf -> lb; idp -> lb; lb -> webpod; lb -> realtime; webpod -> domain; domain -> worker;
+      domain -> dbp; domain -> redis; domain -> mq; domain -> storage; domain -> search; worker -> dbp; worker -> mq; realtime -> mq;
+      dbp -> dbr; dbp -> olap [label="CDC"]; mq -> olap; storage -> dr; dbp -> dr;
+      observ -> domain [style=dashed]; sec -> domain [style=dashed]; cicd -> webpod [style=dashed]; cicd -> domain [style=dashed];
+    }

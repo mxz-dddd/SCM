@@ -1,0 +1,47 @@
+digraph G {
+      graph [rankdir=LR, bgcolor="white", pad="0.18", nodesep="0.16", ranksep="0.4", splines=spline, fontname="Noto Sans CJK SC", labelloc="t"];
+      node [shape=box, style="rounded,filled", fontname="Noto Sans CJK SC", fontsize=10.5, color="#D6DCE4", fillcolor="white", fontcolor="#1F2937", margin="0.12,0.08"];
+      edge [fontname="Noto Sans CJK SC", fontsize=8.5, color="#6B7280", fontcolor="#374151", arrowsize=0.7];
+graph [label="类图：WMS 入库与库存", fontsize=15];
+Inbound [shape=plain, label=<<TABLE BORDER="1" CELLBORDER="0" CELLSPACING="0" CELLPADDING="5" COLOR="#AAB4C3">
+      <TR><TD BGCOLOR="#E8F5E9"><B>InboundOrder 入库单</B></TD></TR><TR><TD ALIGN="LEFT"><FONT POINT-SIZE="9">id/inboundNo: UUID/String</FONT></TD></TR><TR><TD ALIGN="LEFT"><FONT POINT-SIZE="9">sourceOrderId/warehouseId/ownerId: UUID</FONT></TD></TR><TR><TD ALIGN="LEFT"><FONT POINT-SIZE="9">type: PURCHASE/RETURN/TRANSFER</FONT></TD></TR><TR><TD ALIGN="LEFT"><FONT POINT-SIZE="9">expectedAt: Instant</FONT></TD></TR><TR><TD ALIGN="LEFT"><FONT POINT-SIZE="9">status: InboundStatus</FONT></TD></TR></TABLE>>];
+InboundLine [shape=plain, label=<<TABLE BORDER="1" CELLBORDER="0" CELLSPACING="0" CELLPADDING="5" COLOR="#AAB4C3">
+      <TR><TD BGCOLOR="white"><B>InboundLine</B></TD></TR><TR><TD ALIGN="LEFT"><FONT POINT-SIZE="9">id/inboundId: UUID</FONT></TD></TR><TR><TD ALIGN="LEFT"><FONT POINT-SIZE="9">productId: UUID</FONT></TD></TR><TR><TD ALIGN="LEFT"><FONT POINT-SIZE="9">expected/received/acceptedQty: Decimal</FONT></TD></TR><TR><TD ALIGN="LEFT"><FONT POINT-SIZE="9">lotRule: JSON</FONT></TD></TR><TR><TD ALIGN="LEFT"><FONT POINT-SIZE="9">status: Status</FONT></TD></TR></TABLE>>];
+ReceiptTask [shape=plain, label=<<TABLE BORDER="1" CELLBORDER="0" CELLSPACING="0" CELLPADDING="5" COLOR="#AAB4C3">
+      <TR><TD BGCOLOR="white"><B>ReceiptTask 收货任务</B></TD></TR><TR><TD ALIGN="LEFT"><FONT POINT-SIZE="9">id/taskNo: UUID/String</FONT></TD></TR><TR><TD ALIGN="LEFT"><FONT POINT-SIZE="9">inboundId/dockId/assigneeId: UUID?</FONT></TD></TR><TR><TD ALIGN="LEFT"><FONT POINT-SIZE="9">started/completedAt: Instant</FONT></TD></TR><TR><TD ALIGN="LEFT"><FONT POINT-SIZE="9">status: TaskStatus</FONT></TD></TR></TABLE>>];
+ReceiptLine [shape=plain, label=<<TABLE BORDER="1" CELLBORDER="0" CELLSPACING="0" CELLPADDING="5" COLOR="#AAB4C3">
+      <TR><TD BGCOLOR="white"><B>ReceiptLine</B></TD></TR><TR><TD ALIGN="LEFT"><FONT POINT-SIZE="9">id/receiptTaskId/inboundLineId: UUID</FONT></TD></TR><TR><TD ALIGN="LEFT"><FONT POINT-SIZE="9">handlingUnitId/lotId: UUID?</FONT></TD></TR><TR><TD ALIGN="LEFT"><FONT POINT-SIZE="9">receivedQty: Decimal</FONT></TD></TR><TR><TD ALIGN="LEFT"><FONT POINT-SIZE="9">condition: String</FONT></TD></TR></TABLE>>];
+Inspection [shape=plain, label=<<TABLE BORDER="1" CELLBORDER="0" CELLSPACING="0" CELLPADDING="5" COLOR="#AAB4C3">
+      <TR><TD BGCOLOR="white"><B>Inspection 质检</B></TD></TR><TR><TD ALIGN="LEFT"><FONT POINT-SIZE="9">id/sourceLineId: UUID</FONT></TD></TR><TR><TD ALIGN="LEFT"><FONT POINT-SIZE="9">planId: UUID</FONT></TD></TR><TR><TD ALIGN="LEFT"><FONT POINT-SIZE="9">sampleQty/accepted/rejected: Decimal</FONT></TD></TR><TR><TD ALIGN="LEFT"><FONT POINT-SIZE="9">result/status: Enum</FONT></TD></TR></TABLE>>];
+Putaway [shape=plain, label=<<TABLE BORDER="1" CELLBORDER="0" CELLSPACING="0" CELLPADDING="5" COLOR="#AAB4C3">
+      <TR><TD BGCOLOR="white"><B>PutawayTask 上架任务</B></TD></TR><TR><TD ALIGN="LEFT"><FONT POINT-SIZE="9">id/taskNo: UUID/String</FONT></TD></TR><TR><TD ALIGN="LEFT"><FONT POINT-SIZE="9">handlingUnitId: UUID</FONT></TD></TR><TR><TD ALIGN="LEFT"><FONT POINT-SIZE="9">from/toLocationId: UUID</FONT></TD></TR><TR><TD ALIGN="LEFT"><FONT POINT-SIZE="9">qty: Decimal</FONT></TD></TR><TR><TD ALIGN="LEFT"><FONT POINT-SIZE="9">strategyTrace: JSON</FONT></TD></TR><TR><TD ALIGN="LEFT"><FONT POINT-SIZE="9">status: TaskStatus</FONT></TD></TR></TABLE>>];
+HandlingUnit [shape=plain, label=<<TABLE BORDER="1" CELLBORDER="0" CELLSPACING="0" CELLPADDING="5" COLOR="#AAB4C3">
+      <TR><TD BGCOLOR="white"><B>HandlingUnit LPN</B></TD></TR><TR><TD ALIGN="LEFT"><FONT POINT-SIZE="9">id/warehouseId: UUID</FONT></TD></TR><TR><TD ALIGN="LEFT"><FONT POINT-SIZE="9">lpn: String</FONT></TD></TR><TR><TD ALIGN="LEFT"><FONT POINT-SIZE="9">parentId: UUID?</FONT></TD></TR><TR><TD ALIGN="LEFT"><FONT POINT-SIZE="9">type/status: Enum</FONT></TD></TR><TR><TD ALIGN="LEFT"><FONT POINT-SIZE="9">weight/volume: Decimal</FONT></TD></TR></TABLE>>];
+Lot [shape=plain, label=<<TABLE BORDER="1" CELLBORDER="0" CELLSPACING="0" CELLPADDING="5" COLOR="#AAB4C3">
+      <TR><TD BGCOLOR="white"><B>InventoryLot 批次</B></TD></TR><TR><TD ALIGN="LEFT"><FONT POINT-SIZE="9">id/productId/ownerId: UUID</FONT></TD></TR><TR><TD ALIGN="LEFT"><FONT POINT-SIZE="9">lotNo: String</FONT></TD></TR><TR><TD ALIGN="LEFT"><FONT POINT-SIZE="9">mfg/expiryDate: Date</FONT></TD></TR><TR><TD ALIGN="LEFT"><FONT POINT-SIZE="9">attributes: JSON</FONT></TD></TR></TABLE>>];
+Serial [shape=plain, label=<<TABLE BORDER="1" CELLBORDER="0" CELLSPACING="0" CELLPADDING="5" COLOR="#AAB4C3">
+      <TR><TD BGCOLOR="white"><B>SerialNumber 序列号</B></TD></TR><TR><TD ALIGN="LEFT"><FONT POINT-SIZE="9">id/productId: UUID</FONT></TD></TR><TR><TD ALIGN="LEFT"><FONT POINT-SIZE="9">serialNo: String</FONT></TD></TR><TR><TD ALIGN="LEFT"><FONT POINT-SIZE="9">status: SerialStatus</FONT></TD></TR><TR><TD ALIGN="LEFT"><FONT POINT-SIZE="9">currentHu/locationId: UUID</FONT></TD></TR></TABLE>>];
+Balance [shape=plain, label=<<TABLE BORDER="1" CELLBORDER="0" CELLSPACING="0" CELLPADDING="5" COLOR="#AAB4C3">
+      <TR><TD BGCOLOR="#EAF2FF"><B>InventoryBalance 库存余额</B></TD></TR><TR><TD ALIGN="LEFT"><FONT POINT-SIZE="9">id/warehouse/location/product/owner/lot: UUID</FONT></TD></TR><TR><TD ALIGN="LEFT"><FONT POINT-SIZE="9">onHand/available/allocated/hold: Decimal</FONT></TD></TR><TR><TD ALIGN="LEFT"><FONT POINT-SIZE="9">version: Long</FONT></TD></TR></TABLE>>];
+Movement [shape=plain, label=<<TABLE BORDER="1" CELLBORDER="0" CELLSPACING="0" CELLPADDING="5" COLOR="#AAB4C3">
+      <TR><TD BGCOLOR="white"><B>InventoryMovement 库存流水</B></TD></TR><TR><TD ALIGN="LEFT"><FONT POINT-SIZE="9">id: UUID</FONT></TD></TR><TR><TD ALIGN="LEFT"><FONT POINT-SIZE="9">type: RECEIVE/PUTAWAY/PICK/ADJUST/TRANSFER</FONT></TD></TR><TR><TD ALIGN="LEFT"><FONT POINT-SIZE="9">businessRef: String</FONT></TD></TR><TR><TD ALIGN="LEFT"><FONT POINT-SIZE="9">from/to: JSON</FONT></TD></TR><TR><TD ALIGN="LEFT"><FONT POINT-SIZE="9">qty: Decimal</FONT></TD></TR><TR><TD ALIGN="LEFT"><FONT POINT-SIZE="9">occurredAt: Instant</FONT></TD></TR></TABLE>>];
+Count [shape=plain, label=<<TABLE BORDER="1" CELLBORDER="0" CELLSPACING="0" CELLPADDING="5" COLOR="#AAB4C3">
+      <TR><TD BGCOLOR="white"><B>CountOrder 盘点单</B></TD></TR><TR><TD ALIGN="LEFT"><FONT POINT-SIZE="9">id/countNo: UUID/String</FONT></TD></TR><TR><TD ALIGN="LEFT"><FONT POINT-SIZE="9">scope: JSON</FONT></TD></TR><TR><TD ALIGN="LEFT"><FONT POINT-SIZE="9">freezePolicy: Enum</FONT></TD></TR><TR><TD ALIGN="LEFT"><FONT POINT-SIZE="9">status: CountStatus</FONT></TD></TR></TABLE>>];
+CountLine [shape=plain, label=<<TABLE BORDER="1" CELLBORDER="0" CELLSPACING="0" CELLPADDING="5" COLOR="#AAB4C3">
+      <TR><TD BGCOLOR="white"><B>CountLine</B></TD></TR><TR><TD ALIGN="LEFT"><FONT POINT-SIZE="9">id/countId/balanceKey: UUID/JSON</FONT></TD></TR><TR><TD ALIGN="LEFT"><FONT POINT-SIZE="9">bookQty/countQty/diffQty: Decimal</FONT></TD></TR><TR><TD ALIGN="LEFT"><FONT POINT-SIZE="9">reasonCode: String</FONT></TD></TR></TABLE>>];
+Adjustment [shape=plain, label=<<TABLE BORDER="1" CELLBORDER="0" CELLSPACING="0" CELLPADDING="5" COLOR="#AAB4C3">
+      <TR><TD BGCOLOR="white"><B>Adjustment 库存调整</B></TD></TR><TR><TD ALIGN="LEFT"><FONT POINT-SIZE="9">id/adjustNo: UUID/String</FONT></TD></TR><TR><TD ALIGN="LEFT"><FONT POINT-SIZE="9">reasonCode: String</FONT></TD></TR><TR><TD ALIGN="LEFT"><FONT POINT-SIZE="9">lines: JSON</FONT></TD></TR><TR><TD ALIGN="LEFT"><FONT POINT-SIZE="9">status: ApprovalStatus</FONT></TD></TR></TABLE>>];
+Inbound -> InboundLine [label="1..*", arrowhead=none];
+Inbound -> ReceiptTask [label="0..*", arrowhead=none];
+ReceiptTask -> ReceiptLine [label="1..*", arrowhead=none];
+ReceiptLine -> Inspection [label="0..1", arrowhead=none];
+ReceiptLine -> HandlingUnit [label="0..1", arrowhead=none];
+HandlingUnit -> Putaway [label="0..*", arrowhead=none];
+HandlingUnit -> Balance [label="0..*", arrowhead=none];
+Lot -> Balance [label="0..*", arrowhead=none];
+Serial -> HandlingUnit [label="0..*", arrowhead=none];
+Balance -> Movement [label="0..*", arrowhead=none];
+Count -> CountLine [label="1..*", arrowhead=none];
+CountLine -> Adjustment [label="0..1", arrowhead=none];
+Adjustment -> Movement [label="1..*", arrowhead=none];
+}

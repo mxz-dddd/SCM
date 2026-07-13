@@ -1,0 +1,41 @@
+digraph G {
+      graph [rankdir=TB, bgcolor="white", pad="0.18", nodesep="0.16", ranksep="0.42", splines=spline, fontname="Noto Sans CJK SC", labelloc="t"];
+      node [shape=box, style="rounded,filled", fontname="Noto Sans CJK SC", fontsize=10.5, color="#D6DCE4", fillcolor="white", fontcolor="#1F2937", margin="0.12,0.08"];
+      edge [fontname="Noto Sans CJK SC", fontsize=8.5, color="#6B7280", fontcolor="#374151", arrowsize=0.7];
+graph [label="类图：OMS 订单与履约", fontsize=15];
+BusinessOrder [shape=plain, label=<<TABLE BORDER="1" CELLBORDER="0" CELLSPACING="0" CELLPADDING="5" COLOR="#AAB4C3">
+      <TR><TD BGCOLOR="#EAF2FF"><B>BusinessOrder 业务订单</B></TD></TR><TR><TD ALIGN="LEFT"><FONT POINT-SIZE="9">id/tenantId: UUID</FONT></TD></TR><TR><TD ALIGN="LEFT"><FONT POINT-SIZE="9">orderNo/externalNo: String</FONT></TD></TR><TR><TD ALIGN="LEFT"><FONT POINT-SIZE="9">type/channel: Enum</FONT></TD></TR><TR><TD ALIGN="LEFT"><FONT POINT-SIZE="9">customerId/supplierId: UUID?</FONT></TD></TR><TR><TD ALIGN="LEFT"><FONT POINT-SIZE="9">status: OrderStatus</FONT></TD></TR><TR><TD ALIGN="LEFT"><FONT POINT-SIZE="9">priority: Int</FONT></TD></TR><TR><TD ALIGN="LEFT"><FONT POINT-SIZE="9">requestedAt: Instant</FONT></TD></TR><TR><TD ALIGN="LEFT"><FONT POINT-SIZE="9">version: Long</FONT></TD></TR></TABLE>>];
+OrderLine [shape=plain, label=<<TABLE BORDER="1" CELLBORDER="0" CELLSPACING="0" CELLPADDING="5" COLOR="#AAB4C3">
+      <TR><TD BGCOLOR="white"><B>OrderLine 订单行</B></TD></TR><TR><TD ALIGN="LEFT"><FONT POINT-SIZE="9">id/orderId: UUID</FONT></TD></TR><TR><TD ALIGN="LEFT"><FONT POINT-SIZE="9">lineNo: Int</FONT></TD></TR><TR><TD ALIGN="LEFT"><FONT POINT-SIZE="9">productId: UUID</FONT></TD></TR><TR><TD ALIGN="LEFT"><FONT POINT-SIZE="9">orderedQty: Decimal</FONT></TD></TR><TR><TD ALIGN="LEFT"><FONT POINT-SIZE="9">unitPrice: Money?</FONT></TD></TR><TR><TD ALIGN="LEFT"><FONT POINT-SIZE="9">lot/serial requirements: JSON</FONT></TD></TR><TR><TD ALIGN="LEFT"><FONT POINT-SIZE="9">status: LineStatus</FONT></TD></TR></TABLE>>];
+OrderAddress [shape=plain, label=<<TABLE BORDER="1" CELLBORDER="0" CELLSPACING="0" CELLPADDING="5" COLOR="#AAB4C3">
+      <TR><TD BGCOLOR="white"><B>OrderAddress</B></TD></TR><TR><TD ALIGN="LEFT"><FONT POINT-SIZE="9">id/orderId: UUID</FONT></TD></TR><TR><TD ALIGN="LEFT"><FONT POINT-SIZE="9">type: SHIP_FROM/TO/BILL</FONT></TD></TR><TR><TD ALIGN="LEFT"><FONT POINT-SIZE="9">addressId: UUID</FONT></TD></TR><TR><TD ALIGN="LEFT"><FONT POINT-SIZE="9">contactSnapshot: JSON</FONT></TD></TR></TABLE>>];
+OrderParty [shape=plain, label=<<TABLE BORDER="1" CELLBORDER="0" CELLSPACING="0" CELLPADDING="5" COLOR="#AAB4C3">
+      <TR><TD BGCOLOR="white"><B>OrderParty</B></TD></TR><TR><TD ALIGN="LEFT"><FONT POINT-SIZE="9">id/orderId: UUID</FONT></TD></TR><TR><TD ALIGN="LEFT"><FONT POINT-SIZE="9">role: PartnerRole</FONT></TD></TR><TR><TD ALIGN="LEFT"><FONT POINT-SIZE="9">partnerId: UUID</FONT></TD></TR><TR><TD ALIGN="LEFT"><FONT POINT-SIZE="9">snapshot: JSON</FONT></TD></TR></TABLE>>];
+OrderHold [shape=plain, label=<<TABLE BORDER="1" CELLBORDER="0" CELLSPACING="0" CELLPADDING="5" COLOR="#AAB4C3">
+      <TR><TD BGCOLOR="white"><B>OrderHold 冻结</B></TD></TR><TR><TD ALIGN="LEFT"><FONT POINT-SIZE="9">id/orderId: UUID</FONT></TD></TR><TR><TD ALIGN="LEFT"><FONT POINT-SIZE="9">reasonCode: String</FONT></TD></TR><TR><TD ALIGN="LEFT"><FONT POINT-SIZE="9">holdAt/releasedAt: Instant</FONT></TD></TR><TR><TD ALIGN="LEFT"><FONT POINT-SIZE="9">createdBy: UUID</FONT></TD></TR></TABLE>>];
+OrderEvent [shape=plain, label=<<TABLE BORDER="1" CELLBORDER="0" CELLSPACING="0" CELLPADDING="5" COLOR="#AAB4C3">
+      <TR><TD BGCOLOR="white"><B>OrderEvent 时间线</B></TD></TR><TR><TD ALIGN="LEFT"><FONT POINT-SIZE="9">id/orderId: UUID</FONT></TD></TR><TR><TD ALIGN="LEFT"><FONT POINT-SIZE="9">eventType: String</FONT></TD></TR><TR><TD ALIGN="LEFT"><FONT POINT-SIZE="9">occurredAt: Instant</FONT></TD></TR><TR><TD ALIGN="LEFT"><FONT POINT-SIZE="9">source/payload: JSON</FONT></TD></TR></TABLE>>];
+Allocation [shape=plain, label=<<TABLE BORDER="1" CELLBORDER="0" CELLSPACING="0" CELLPADDING="5" COLOR="#AAB4C3">
+      <TR><TD BGCOLOR="white"><B>Allocation 分配</B></TD></TR><TR><TD ALIGN="LEFT"><FONT POINT-SIZE="9">id/orderLineId: UUID</FONT></TD></TR><TR><TD ALIGN="LEFT"><FONT POINT-SIZE="9">warehouseId/ownerId: UUID</FONT></TD></TR><TR><TD ALIGN="LEFT"><FONT POINT-SIZE="9">allocatedQty: Decimal</FONT></TD></TR><TR><TD ALIGN="LEFT"><FONT POINT-SIZE="9">ruleId: UUID?</FONT></TD></TR><TR><TD ALIGN="LEFT"><FONT POINT-SIZE="9">status: AllocationStatus</FONT></TD></TR></TABLE>>];
+Fulfillment [shape=plain, label=<<TABLE BORDER="1" CELLBORDER="0" CELLSPACING="0" CELLPADDING="5" COLOR="#AAB4C3">
+      <TR><TD BGCOLOR="white"><B>FulfillmentOrder 履约单</B></TD></TR><TR><TD ALIGN="LEFT"><FONT POINT-SIZE="9">id/fulfillmentNo: UUID/String</FONT></TD></TR><TR><TD ALIGN="LEFT"><FONT POINT-SIZE="9">sourceOrderId/warehouseId: UUID</FONT></TD></TR><TR><TD ALIGN="LEFT"><FONT POINT-SIZE="9">type: INBOUND/OUTBOUND/TRANSFER</FONT></TD></TR><TR><TD ALIGN="LEFT"><FONT POINT-SIZE="9">status: FulfillmentStatus</FONT></TD></TR><TR><TD ALIGN="LEFT"><FONT POINT-SIZE="9">plannedDate: Date</FONT></TD></TR></TABLE>>];
+FulfillmentLine [shape=plain, label=<<TABLE BORDER="1" CELLBORDER="0" CELLSPACING="0" CELLPADDING="5" COLOR="#AAB4C3">
+      <TR><TD BGCOLOR="white"><B>FulfillmentLine</B></TD></TR><TR><TD ALIGN="LEFT"><FONT POINT-SIZE="9">id/fulfillmentId/sourceLineId: UUID</FONT></TD></TR><TR><TD ALIGN="LEFT"><FONT POINT-SIZE="9">productId: UUID</FONT></TD></TR><TR><TD ALIGN="LEFT"><FONT POINT-SIZE="9">qty: Decimal</FONT></TD></TR><TR><TD ALIGN="LEFT"><FONT POINT-SIZE="9">status: Status</FONT></TD></TR></TABLE>>];
+ShipmentRequest [shape=plain, label=<<TABLE BORDER="1" CELLBORDER="0" CELLSPACING="0" CELLPADDING="5" COLOR="#AAB4C3">
+      <TR><TD BGCOLOR="white"><B>ShipmentRequest 运输需求</B></TD></TR><TR><TD ALIGN="LEFT"><FONT POINT-SIZE="9">id/requestNo: UUID/String</FONT></TD></TR><TR><TD ALIGN="LEFT"><FONT POINT-SIZE="9">orderId: UUID</FONT></TD></TR><TR><TD ALIGN="LEFT"><FONT POINT-SIZE="9">origin/destination: UUID</FONT></TD></TR><TR><TD ALIGN="LEFT"><FONT POINT-SIZE="9">pickup/deliveryWindow: TimeWindow</FONT></TD></TR><TR><TD ALIGN="LEFT"><FONT POINT-SIZE="9">weight/volume: Decimal</FONT></TD></TR><TR><TD ALIGN="LEFT"><FONT POINT-SIZE="9">status: RequestStatus</FONT></TD></TR></TABLE>>];
+RMA [shape=plain, label=<<TABLE BORDER="1" CELLBORDER="0" CELLSPACING="0" CELLPADDING="5" COLOR="#AAB4C3">
+      <TR><TD BGCOLOR="white"><B>ReturnAuthorization 退货授权</B></TD></TR><TR><TD ALIGN="LEFT"><FONT POINT-SIZE="9">id/rmaNo: UUID/String</FONT></TD></TR><TR><TD ALIGN="LEFT"><FONT POINT-SIZE="9">originalOrderId: UUID</FONT></TD></TR><TR><TD ALIGN="LEFT"><FONT POINT-SIZE="9">reasonCode: String</FONT></TD></TR><TR><TD ALIGN="LEFT"><FONT POINT-SIZE="9">status: RmaStatus</FONT></TD></TR><TR><TD ALIGN="LEFT"><FONT POINT-SIZE="9">resolution: Refund/Replace/Repair</FONT></TD></TR></TABLE>>];
+SettlementRequest [shape=plain, label=<<TABLE BORDER="1" CELLBORDER="0" CELLSPACING="0" CELLPADDING="5" COLOR="#AAB4C3">
+      <TR><TD BGCOLOR="white"><B>SettlementRequest 结算请求</B></TD></TR><TR><TD ALIGN="LEFT"><FONT POINT-SIZE="9">id/orderId: UUID</FONT></TD></TR><TR><TD ALIGN="LEFT"><FONT POINT-SIZE="9">chargeFacts: JSON</FONT></TD></TR><TR><TD ALIGN="LEFT"><FONT POINT-SIZE="9">status: Status</FONT></TD></TR></TABLE>>];
+BusinessOrder -> OrderLine [label="1..*", arrowhead=none];
+BusinessOrder -> OrderAddress [label="1..*", arrowhead=none];
+BusinessOrder -> OrderParty [label="1..*", arrowhead=none];
+BusinessOrder -> OrderHold [label="0..*", arrowhead=none];
+BusinessOrder -> OrderEvent [label="0..*", arrowhead=none];
+OrderLine -> Allocation [label="0..*", arrowhead=none];
+BusinessOrder -> Fulfillment [label="0..*", arrowhead=none];
+Fulfillment -> FulfillmentLine [label="1..*", arrowhead=none];
+BusinessOrder -> ShipmentRequest [label="0..*", arrowhead=none];
+BusinessOrder -> RMA [label="0..*", arrowhead=none];
+BusinessOrder -> SettlementRequest [label="0..*", arrowhead=none];
+}

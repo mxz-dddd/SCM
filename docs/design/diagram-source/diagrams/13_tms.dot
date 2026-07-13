@@ -1,0 +1,28 @@
+digraph G {
+      graph [rankdir=TB, bgcolor="white", pad="0.18", nodesep="0.3", ranksep="0.48", splines=spline, fontname="Noto Sans CJK SC", labelloc="t"];
+      node [shape=box, style="rounded,filled", fontname="Noto Sans CJK SC", fontsize=10.5, color="#D6DCE4", fillcolor="white", fontcolor="#1F2937", margin="0.12,0.08"];
+      edge [fontname="Noto Sans CJK SC", fontsize=8.5, color="#6B7280", fontcolor="#374151", arrowsize=0.7];
+graph [label="TMS：计划、委托、执行与回单", fontsize=15];
+s [label="运输需求/订单", shape=oval, fillcolor="#EAF2FF", color="#2A6FDB"];
+pl [label="合单、设备与路线计划", fillcolor="#FFFFFF"];
+ap [label="计划审批", shape=diamond, fillcolor="#FFF4D6", color="#C58B00"];
+te [label="承运商委托/竞价/报价", fillcolor="#FFFFFF"];
+ac [label="承运商是否接受", shape=diamond, fillcolor="#FFF4D6", color="#C58B00"];
+d [label="车辆司机指派与发运", fillcolor="#FFFFFF"];
+tr [label="GPS/APP/EDI 跟踪", fillcolor="#E8EDFF", color="#596BB3"];
+pod [label="到达、签收与 POD 审核", fillcolor="#FFFFFF"];
+e [label="结算事实与运输关闭", shape=oval, fillcolor="#E8F5E9", color="#087F8C"];
+x [label="拒单、延误、偏航、货损", fillcolor="#FDECEC", color="#B42318"];
+s -> pl;
+pl -> ap;
+ap -> te [label="通过"];
+ap -> pl [label="驳回"];
+te -> ac;
+ac -> d [label="接受"];
+ac -> pl [label="拒绝/超时"];
+d -> tr;
+tr -> pod;
+tr -> x [label="异常"];
+x -> tr [label="处置后继续"];
+pod -> e;
+}

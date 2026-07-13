@@ -1,0 +1,28 @@
+digraph G {
+      graph [rankdir=LR, bgcolor="white", pad="0.18", nodesep="0.22", ranksep="0.48", splines=spline, fontname="Noto Sans CJK SC", labelloc="t"];
+      node [shape=box, style="rounded,filled", fontname="Noto Sans CJK SC", fontsize=10.5, color="#D6DCE4", fillcolor="white", fontcolor="#1F2937", margin="0.12,0.08"];
+      edge [fontname="Noto Sans CJK SC", fontsize=8.5, color="#6B7280", fontcolor="#374151", arrowsize=0.7];
+graph [label="结算凭证状态机", fontsize=15];
+Draft [label="草稿", fillcolor="#EAF2FF"];
+Calculated [label="已计算", fillcolor="white"];
+Validated [label="已校验", fillcolor="white"];
+Approved [label="已审核", fillcolor="white"];
+Reconciled [label="已对账", fillcolor="white"];
+Invoiced [label="已开/收票", fillcolor="white"];
+Paid [label="已收/付款", fillcolor="white"];
+Closed [label="已关闭", fillcolor="#E8F5E9"];
+Disputed [label="争议中", fillcolor="white"];
+Adjusted [label="已调整", fillcolor="white"];
+Voided [label="已作废", fillcolor="#FDECEC"];
+Draft -> Calculated [label="计费"];
+Calculated -> Validated [label="校验"];
+Validated -> Approved [label="审核"];
+Approved -> Reconciled [label="对账确认"];
+Approved -> Disputed [label="争议"];
+Disputed -> Adjusted [label="调整"];
+Adjusted -> Validated [label="重校验"];
+Reconciled -> Invoiced [label="开/收票"];
+Invoiced -> Paid [label="收付款"];
+Paid -> Closed [label="期间关闭"];
+Draft -> Voided [label="作废"];
+}

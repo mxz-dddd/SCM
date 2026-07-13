@@ -1,0 +1,28 @@
+digraph G {
+      graph [rankdir=LR, bgcolor="white", pad="0.18", nodesep="0.22", ranksep="0.48", splines=spline, fontname="Noto Sans CJK SC", labelloc="t"];
+      node [shape=box, style="rounded,filled", fontname="Noto Sans CJK SC", fontsize=10.5, color="#D6DCE4", fillcolor="white", fontcolor="#1F2937", margin="0.12,0.08"];
+      edge [fontname="Noto Sans CJK SC", fontsize=8.5, color="#6B7280", fontcolor="#374151", arrowsize=0.7];
+graph [label="订单状态机", fontsize=15];
+Draft [label="草稿", fillcolor="#EAF2FF"];
+Open [label="已创建", fillcolor="#EAF2FF"];
+Approved [label="已审核", fillcolor="white"];
+Allocated [label="已分配", fillcolor="white"];
+Released [label="已释放", fillcolor="white"];
+Executing [label="履约中", fillcolor="white"];
+Completed [label="已完成", fillcolor="#E8F5E9"];
+Closed [label="已关闭", fillcolor="#E8F5E9"];
+Hold [label="已冻结", fillcolor="white"];
+Cancelled [label="已取消", fillcolor="#FDECEC"];
+Draft -> Open [label="提交"];
+Open -> Approved [label="审核"];
+Approved -> Allocated [label="分配"];
+Allocated -> Released [label="释放"];
+Released -> Executing [label="首个执行事件"];
+Executing -> Completed [label="全部交付"];
+Completed -> Closed [label="结算/归档"];
+Open -> Hold [label="冻结"];
+Approved -> Hold [label="冻结"];
+Hold -> Open [label="解冻/回退"];
+Open -> Cancelled [label="取消"];
+Approved -> Cancelled [label="撤销后取消"];
+}

@@ -1,0 +1,19 @@
+digraph G {
+      graph [rankdir=TB, bgcolor="white", pad="0.18", nodesep="0.38", ranksep="0.55", splines=spline, fontname="Noto Sans CJK SC", labelloc="t"];
+      node [shape=box, style="rounded,filled", fontname="Noto Sans CJK SC", fontsize=10.5, color="#D6DCE4", fillcolor="white", fontcolor="#1F2937", margin="0.12,0.08"];
+      edge [fontname="Noto Sans CJK SC", fontsize=8.5, color="#6B7280", fontcolor="#374151", arrowsize=0.7];
+
+      source [label="业务命令\nAPI / UI / 导入 / 设备", fillcolor="#EAF2FF"];
+      aggregate [label="领域聚合\n校验 · 状态机 · 事务", fillcolor="#DCE9FF", color="#2A6FDB"];
+      db [label="业务表 + Outbox\n同一事务提交", fillcolor="#E8F5E9"];
+      relay [label="Outbox Relay\n发布并记录偏移"];
+      bus [label="事件总线\n按租户 / 领域 / 聚合键分区", fillcolor="#FFF4D6", color="#C58B00", width=3.5];
+      inbox [label="消费者 Inbox\n幂等去重", fillcolor="#E8F5E9"];
+      consumers [label="WMS / TMS / AMS / 结算 / 控制塔\n异步订阅、Saga 与补偿"];
+      read [label="查询投影\n时间线 / 搜索 / KPI / 大屏", fillcolor="#E8EDFF"];
+      dlq [label="重试 / 延迟队列 / 死信\n人工修复与重放", fillcolor="#FDECEC", color="#B42318"];
+      source -> aggregate -> db -> relay -> bus;
+      bus -> inbox; bus -> read; inbox -> consumers; inbox -> dlq [label="处理失败"];
+      dlq -> inbox [label="修复后重放", style=dashed, constraint=false]; consumers -> bus [label="后续领域事件", style=dashed, constraint=false];
+      {rank=same; inbox; read;}
+    }

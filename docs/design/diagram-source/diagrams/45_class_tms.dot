@@ -1,0 +1,47 @@
+digraph G {
+      graph [rankdir=TB, bgcolor="white", pad="0.18", nodesep="0.16", ranksep="0.4", splines=spline, fontname="Noto Sans CJK SC", labelloc="t"];
+      node [shape=box, style="rounded,filled", fontname="Noto Sans CJK SC", fontsize=10.5, color="#D6DCE4", fillcolor="white", fontcolor="#1F2937", margin="0.12,0.08"];
+      edge [fontname="Noto Sans CJK SC", fontsize=8.5, color="#6B7280", fontcolor="#374151", arrowsize=0.7];
+graph [label="类图：TMS 计划、执行与回单", fontsize=15];
+TO [shape=plain, label=<<TABLE BORDER="1" CELLBORDER="0" CELLSPACING="0" CELLPADDING="5" COLOR="#AAB4C3">
+      <TR><TD BGCOLOR="#FFF4D6"><B>TransportOrder 运输订单</B></TD></TR><TR><TD ALIGN="LEFT"><FONT POINT-SIZE="9">id/transportNo: UUID/String</FONT></TD></TR><TR><TD ALIGN="LEFT"><FONT POINT-SIZE="9">sourceOrderId: UUID?</FONT></TD></TR><TR><TD ALIGN="LEFT"><FONT POINT-SIZE="9">mode: TransportMode</FONT></TD></TR><TR><TD ALIGN="LEFT"><FONT POINT-SIZE="9">origin/destination: UUID</FONT></TD></TR><TR><TD ALIGN="LEFT"><FONT POINT-SIZE="9">pickup/deliveryWindow: TimeWindow</FONT></TD></TR><TR><TD ALIGN="LEFT"><FONT POINT-SIZE="9">status: TransportOrderStatus</FONT></TD></TR></TABLE>>];
+TOL [shape=plain, label=<<TABLE BORDER="1" CELLBORDER="0" CELLSPACING="0" CELLPADDING="5" COLOR="#AAB4C3">
+      <TR><TD BGCOLOR="white"><B>TransportOrderLine</B></TD></TR><TR><TD ALIGN="LEFT"><FONT POINT-SIZE="9">id/transportOrderId: UUID</FONT></TD></TR><TR><TD ALIGN="LEFT"><FONT POINT-SIZE="9">productId: UUID?</FONT></TD></TR><TR><TD ALIGN="LEFT"><FONT POINT-SIZE="9">packageCount/weight/volume: Decimal</FONT></TD></TR><TR><TD ALIGN="LEFT"><FONT POINT-SIZE="9">temperatureBand: String</FONT></TD></TR></TABLE>>];
+Leg [shape=plain, label=<<TABLE BORDER="1" CELLBORDER="0" CELLSPACING="0" CELLPADDING="5" COLOR="#AAB4C3">
+      <TR><TD BGCOLOR="white"><B>TransportLeg 运输段</B></TD></TR><TR><TD ALIGN="LEFT"><FONT POINT-SIZE="9">id/transportOrderId: UUID</FONT></TD></TR><TR><TD ALIGN="LEFT"><FONT POINT-SIZE="9">seq: Int</FONT></TD></TR><TR><TD ALIGN="LEFT"><FONT POINT-SIZE="9">from/toStop: UUID</FONT></TD></TR><TR><TD ALIGN="LEFT"><FONT POINT-SIZE="9">mode: TransportMode</FONT></TD></TR><TR><TD ALIGN="LEFT"><FONT POINT-SIZE="9">status: LegStatus</FONT></TD></TR></TABLE>>];
+Plan [shape=plain, label=<<TABLE BORDER="1" CELLBORDER="0" CELLSPACING="0" CELLPADDING="5" COLOR="#AAB4C3">
+      <TR><TD BGCOLOR="white"><B>LoadPlan 配载计划</B></TD></TR><TR><TD ALIGN="LEFT"><FONT POINT-SIZE="9">id/planNo/planningBatchId: UUID/String</FONT></TD></TR><TR><TD ALIGN="LEFT"><FONT POINT-SIZE="9">equipmentTypeId: UUID</FONT></TD></TR><TR><TD ALIGN="LEFT"><FONT POINT-SIZE="9">weight/volumeUtilization: Decimal</FONT></TD></TR><TR><TD ALIGN="LEFT"><FONT POINT-SIZE="9">status: PlanStatus</FONT></TD></TR></TABLE>>];
+Shipment [shape=plain, label=<<TABLE BORDER="1" CELLBORDER="0" CELLSPACING="0" CELLPADDING="5" COLOR="#AAB4C3">
+      <TR><TD BGCOLOR="white"><B>Shipment/Waybill 运单</B></TD></TR><TR><TD ALIGN="LEFT"><FONT POINT-SIZE="9">id/shipmentNo: UUID/String</FONT></TD></TR><TR><TD ALIGN="LEFT"><FONT POINT-SIZE="9">loadPlanId/carrierId: UUID?</FONT></TD></TR><TR><TD ALIGN="LEFT"><FONT POINT-SIZE="9">status: ShipmentStatus</FONT></TD></TR><TR><TD ALIGN="LEFT"><FONT POINT-SIZE="9">planned/actual times: JSON</FONT></TD></TR></TABLE>>];
+ShipmentItem [shape=plain, label=<<TABLE BORDER="1" CELLBORDER="0" CELLSPACING="0" CELLPADDING="5" COLOR="#AAB4C3">
+      <TR><TD BGCOLOR="white"><B>ShipmentItem</B></TD></TR><TR><TD ALIGN="LEFT"><FONT POINT-SIZE="9">id/shipmentId/transportOrderLineId: UUID</FONT></TD></TR><TR><TD ALIGN="LEFT"><FONT POINT-SIZE="9">qty/weight/volume: Decimal</FONT></TD></TR></TABLE>>];
+Stop [shape=plain, label=<<TABLE BORDER="1" CELLBORDER="0" CELLSPACING="0" CELLPADDING="5" COLOR="#AAB4C3">
+      <TR><TD BGCOLOR="white"><B>Stop 节点</B></TD></TR><TR><TD ALIGN="LEFT"><FONT POINT-SIZE="9">id/shipmentId: UUID</FONT></TD></TR><TR><TD ALIGN="LEFT"><FONT POINT-SIZE="9">seq: Int</FONT></TD></TR><TR><TD ALIGN="LEFT"><FONT POINT-SIZE="9">type: PICKUP/DELIVERY/HUB</FONT></TD></TR><TR><TD ALIGN="LEFT"><FONT POINT-SIZE="9">addressId: UUID</FONT></TD></TR><TR><TD ALIGN="LEFT"><FONT POINT-SIZE="9">planned/actual times: JSON</FONT></TD></TR><TR><TD ALIGN="LEFT"><FONT POINT-SIZE="9">status: StopStatus</FONT></TD></TR></TABLE>>];
+Tender [shape=plain, label=<<TABLE BORDER="1" CELLBORDER="0" CELLSPACING="0" CELLPADDING="5" COLOR="#AAB4C3">
+      <TR><TD BGCOLOR="white"><B>CarrierTender 委托/投标</B></TD></TR><TR><TD ALIGN="LEFT"><FONT POINT-SIZE="9">id/shipmentId/carrierId: UUID</FONT></TD></TR><TR><TD ALIGN="LEFT"><FONT POINT-SIZE="9">method: DIRECT/BID/QUOTE</FONT></TD></TR><TR><TD ALIGN="LEFT"><FONT POINT-SIZE="9">offeredPrice: Money?</FONT></TD></TR><TR><TD ALIGN="LEFT"><FONT POINT-SIZE="9">status: TenderStatus</FONT></TD></TR><TR><TD ALIGN="LEFT"><FONT POINT-SIZE="9">expiresAt: Instant</FONT></TD></TR></TABLE>>];
+Assign [shape=plain, label=<<TABLE BORDER="1" CELLBORDER="0" CELLSPACING="0" CELLPADDING="5" COLOR="#AAB4C3">
+      <TR><TD BGCOLOR="white"><B>VehicleAssignment</B></TD></TR><TR><TD ALIGN="LEFT"><FONT POINT-SIZE="9">id/shipmentId/vehicleId/driverId: UUID</FONT></TD></TR><TR><TD ALIGN="LEFT"><FONT POINT-SIZE="9">assignedAt: Instant</FONT></TD></TR><TR><TD ALIGN="LEFT"><FONT POINT-SIZE="9">status: AssignmentStatus</FONT></TD></TR></TABLE>>];
+Route [shape=plain, label=<<TABLE BORDER="1" CELLBORDER="0" CELLSPACING="0" CELLPADDING="5" COLOR="#AAB4C3">
+      <TR><TD BGCOLOR="white"><B>RoutePlan 路线计划</B></TD></TR><TR><TD ALIGN="LEFT"><FONT POINT-SIZE="9">id/shipmentId: UUID</FONT></TD></TR><TR><TD ALIGN="LEFT"><FONT POINT-SIZE="9">polyline: GeoJson</FONT></TD></TR><TR><TD ALIGN="LEFT"><FONT POINT-SIZE="9">distance/duration: Decimal</FONT></TD></TR><TR><TD ALIGN="LEFT"><FONT POINT-SIZE="9">optimizationTrace: JSON</FONT></TD></TR></TABLE>>];
+Track [shape=plain, label=<<TABLE BORDER="1" CELLBORDER="0" CELLSPACING="0" CELLPADDING="5" COLOR="#AAB4C3">
+      <TR><TD BGCOLOR="white"><B>TrackingEvent 跟踪事件</B></TD></TR><TR><TD ALIGN="LEFT"><FONT POINT-SIZE="9">id/shipmentId/stopId: UUID?</FONT></TD></TR><TR><TD ALIGN="LEFT"><FONT POINT-SIZE="9">eventType: TrackingType</FONT></TD></TR><TR><TD ALIGN="LEFT"><FONT POINT-SIZE="9">occurredAt: Instant</FONT></TD></TR><TR><TD ALIGN="LEFT"><FONT POINT-SIZE="9">location: GeoPoint</FONT></TD></TR><TR><TD ALIGN="LEFT"><FONT POINT-SIZE="9">source/payload: JSON</FONT></TD></TR></TABLE>>];
+Ex [shape=plain, label=<<TABLE BORDER="1" CELLBORDER="0" CELLSPACING="0" CELLPADDING="5" COLOR="#AAB4C3">
+      <TR><TD BGCOLOR="white"><B>TransportException 异常</B></TD></TR><TR><TD ALIGN="LEFT"><FONT POINT-SIZE="9">id/shipmentId: UUID</FONT></TD></TR><TR><TD ALIGN="LEFT"><FONT POINT-SIZE="9">type/severity/status: String</FONT></TD></TR><TR><TD ALIGN="LEFT"><FONT POINT-SIZE="9">ownerId: UUID?</FONT></TD></TR><TR><TD ALIGN="LEFT"><FONT POINT-SIZE="9">detected/resolvedAt: Instant</FONT></TD></TR><TR><TD ALIGN="LEFT"><FONT POINT-SIZE="9">resolution: JSON</FONT></TD></TR></TABLE>>];
+POD [shape=plain, label=<<TABLE BORDER="1" CELLBORDER="0" CELLSPACING="0" CELLPADDING="5" COLOR="#AAB4C3">
+      <TR><TD BGCOLOR="white"><B>ProofOfDelivery 回单</B></TD></TR><TR><TD ALIGN="LEFT"><FONT POINT-SIZE="9">id/shipmentId: UUID</FONT></TD></TR><TR><TD ALIGN="LEFT"><FONT POINT-SIZE="9">signedAt/signer: String</FONT></TD></TR><TR><TD ALIGN="LEFT"><FONT POINT-SIZE="9">signatureObjectId: UUID?</FONT></TD></TR><TR><TD ALIGN="LEFT"><FONT POINT-SIZE="9">attachments: Set</FONT></TD></TR><TR><TD ALIGN="LEFT"><FONT POINT-SIZE="9">status: PodStatus</FONT></TD></TR></TABLE>>];
+Fact [shape=plain, label=<<TABLE BORDER="1" CELLBORDER="0" CELLSPACING="0" CELLPADDING="5" COLOR="#AAB4C3">
+      <TR><TD BGCOLOR="white"><B>FreightChargeFact 计费事实</B></TD></TR><TR><TD ALIGN="LEFT"><FONT POINT-SIZE="9">id/shipmentId: UUID</FONT></TD></TR><TR><TD ALIGN="LEFT"><FONT POINT-SIZE="9">distance/weight/volume/duration: Decimal</FONT></TD></TR><TR><TD ALIGN="LEFT"><FONT POINT-SIZE="9">accessorials: JSON</FONT></TD></TR><TR><TD ALIGN="LEFT"><FONT POINT-SIZE="9">confirmedAt: Instant</FONT></TD></TR></TABLE>>];
+TO -> TOL [label="1..*", arrowhead=none];
+TO -> Leg [label="1..*", arrowhead=none];
+Plan -> Shipment [label="1..*", arrowhead=none];
+Shipment -> ShipmentItem [label="1..*", arrowhead=none];
+TOL -> ShipmentItem [label="0..*", arrowhead=none];
+Shipment -> Stop [label="2..*", arrowhead=none];
+Shipment -> Tender [label="0..*", arrowhead=none];
+Shipment -> Assign [label="0..1", arrowhead=none];
+Shipment -> Route [label="0..1", arrowhead=none];
+Shipment -> Track [label="0..*", arrowhead=none];
+Shipment -> Ex [label="0..*", arrowhead=none];
+Shipment -> POD [label="0..1", arrowhead=none];
+Shipment -> Fact [label="0..*", arrowhead=none];
+}

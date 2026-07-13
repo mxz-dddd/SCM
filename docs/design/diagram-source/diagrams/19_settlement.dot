@@ -1,0 +1,25 @@
+digraph G {
+      graph [rankdir=TB, bgcolor="white", pad="0.18", nodesep="0.3", ranksep="0.48", splines=spline, fontname="Noto Sans CJK SC", labelloc="t"];
+      node [shape=box, style="rounded,filled", fontname="Noto Sans CJK SC", fontsize=10.5, color="#D6DCE4", fillcolor="white", fontcolor="#1F2937", margin="0.12,0.08"];
+      edge [fontname="Noto Sans CJK SC", fontsize=8.5, color="#6B7280", fontcolor="#374151", arrowsize=0.7];
+graph [label="计费、对账、开票与收付款", fontsize=15];
+s [label="业务完成产生计费事实", shape=oval, fillcolor="#EAF2FF", color="#2A6FDB"];
+rate [label="匹配合同/费率/税率版本", fillcolor="#E8EDFF", color="#596BB3"];
+calc [label="计算阶梯、最低费、附加费", fillcolor="#FFFFFF"];
+val [label="规则与金额校验", shape=diamond, fillcolor="#FFF4D6", color="#C58B00"];
+v [label="生成应收/应付/预提凭证", fillcolor="#FFFFFF"];
+rec [label="对账与差异协同", shape=diamond, fillcolor="#FFF4D6", color="#C58B00"];
+inv [label="开票/收票与财务过账", fillcolor="#FFFFFF"];
+pay [label="收付款、核销与期间关闭", shape=oval, fillcolor="#E8F5E9", color="#087F8C"];
+x [label="费率缺失、争议、调整", fillcolor="#FDECEC", color="#B42318"];
+s -> rate;
+rate -> calc;
+calc -> val;
+val -> v [label="通过"];
+val -> x [label="失败"];
+v -> rec;
+rec -> inv [label="确认"];
+rec -> x [label="争议"];
+x -> calc [label="调整后重算"];
+inv -> pay;
+}

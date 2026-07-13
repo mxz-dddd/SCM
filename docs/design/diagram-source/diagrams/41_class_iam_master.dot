@@ -1,0 +1,39 @@
+digraph G {
+      graph [rankdir=TB, bgcolor="white", pad="0.18", nodesep="0.18", ranksep="0.42", splines=spline, fontname="Noto Sans CJK SC", labelloc="t"];
+      node [shape=box, style="rounded,filled", fontname="Noto Sans CJK SC", fontsize=10.5, color="#D6DCE4", fillcolor="white", fontcolor="#1F2937", margin="0.12,0.08"];
+      edge [fontname="Noto Sans CJK SC", fontsize=8.5, color="#6B7280", fontcolor="#374151", arrowsize=0.7];
+graph [label="类图：租户、权限与主数据", fontsize=15];
+Tenant [shape=plain, label=<<TABLE BORDER="1" CELLBORDER="0" CELLSPACING="0" CELLPADDING="5" COLOR="#AAB4C3">
+      <TR><TD BGCOLOR="#EAF2FF"><B>Tenant 租户</B></TD></TR><TR><TD ALIGN="LEFT"><FONT POINT-SIZE="9">id: UUID</FONT></TD></TR><TR><TD ALIGN="LEFT"><FONT POINT-SIZE="9">code/name: String</FONT></TD></TR><TR><TD ALIGN="LEFT"><FONT POINT-SIZE="9">status: TenantStatus</FONT></TD></TR><TR><TD ALIGN="LEFT"><FONT POINT-SIZE="9">timezone/currency: String</FONT></TD></TR><TR><TD ALIGN="LEFT"><FONT POINT-SIZE="9">configVersion: Long</FONT></TD></TR></TABLE>>];
+Organization [shape=plain, label=<<TABLE BORDER="1" CELLBORDER="0" CELLSPACING="0" CELLPADDING="5" COLOR="#AAB4C3">
+      <TR><TD BGCOLOR="white"><B>Organization 组织</B></TD></TR><TR><TD ALIGN="LEFT"><FONT POINT-SIZE="9">id/tenantId/parentId: UUID</FONT></TD></TR><TR><TD ALIGN="LEFT"><FONT POINT-SIZE="9">type: OrgType</FONT></TD></TR><TR><TD ALIGN="LEFT"><FONT POINT-SIZE="9">path: String</FONT></TD></TR><TR><TD ALIGN="LEFT"><FONT POINT-SIZE="9">status: Status</FONT></TD></TR></TABLE>>];
+User [shape=plain, label=<<TABLE BORDER="1" CELLBORDER="0" CELLSPACING="0" CELLPADDING="5" COLOR="#AAB4C3">
+      <TR><TD BGCOLOR="white"><B>User 用户</B></TD></TR><TR><TD ALIGN="LEFT"><FONT POINT-SIZE="9">id/tenantId: UUID</FONT></TD></TR><TR><TD ALIGN="LEFT"><FONT POINT-SIZE="9">loginName/displayName: String</FONT></TD></TR><TR><TD ALIGN="LEFT"><FONT POINT-SIZE="9">status: UserStatus</FONT></TD></TR><TR><TD ALIGN="LEFT"><FONT POINT-SIZE="9">identityProvider: String</FONT></TD></TR></TABLE>>];
+Role [shape=plain, label=<<TABLE BORDER="1" CELLBORDER="0" CELLSPACING="0" CELLPADDING="5" COLOR="#AAB4C3">
+      <TR><TD BGCOLOR="white"><B>Role 角色</B></TD></TR><TR><TD ALIGN="LEFT"><FONT POINT-SIZE="9">id/tenantId: UUID</FONT></TD></TR><TR><TD ALIGN="LEFT"><FONT POINT-SIZE="9">code/name: String</FONT></TD></TR><TR><TD ALIGN="LEFT"><FONT POINT-SIZE="9">status: Status</FONT></TD></TR></TABLE>>];
+Permission [shape=plain, label=<<TABLE BORDER="1" CELLBORDER="0" CELLSPACING="0" CELLPADDING="5" COLOR="#AAB4C3">
+      <TR><TD BGCOLOR="white"><B>Permission 权限</B></TD></TR><TR><TD ALIGN="LEFT"><FONT POINT-SIZE="9">id: UUID</FONT></TD></TR><TR><TD ALIGN="LEFT"><FONT POINT-SIZE="9">resource/action/field: String</FONT></TD></TR><TR><TD ALIGN="LEFT"><FONT POINT-SIZE="9">effect: ALLOW/DENY</FONT></TD></TR></TABLE>>];
+DataScope [shape=plain, label=<<TABLE BORDER="1" CELLBORDER="0" CELLSPACING="0" CELLPADDING="5" COLOR="#AAB4C3">
+      <TR><TD BGCOLOR="white"><B>DataScope 数据范围</B></TD></TR><TR><TD ALIGN="LEFT"><FONT POINT-SIZE="9">id: UUID</FONT></TD></TR><TR><TD ALIGN="LEFT"><FONT POINT-SIZE="9">roleId: UUID</FONT></TD></TR><TR><TD ALIGN="LEFT"><FONT POINT-SIZE="9">dimension: ORG/WAREHOUSE/OWNER</FONT></TD></TR><TR><TD ALIGN="LEFT"><FONT POINT-SIZE="9">expression: JSON</FONT></TD></TR></TABLE>>];
+Product [shape=plain, label=<<TABLE BORDER="1" CELLBORDER="0" CELLSPACING="0" CELLPADDING="5" COLOR="#AAB4C3">
+      <TR><TD BGCOLOR="#E8F5E9"><B>Product 商品</B></TD></TR><TR><TD ALIGN="LEFT"><FONT POINT-SIZE="9">id/tenantId: UUID</FONT></TD></TR><TR><TD ALIGN="LEFT"><FONT POINT-SIZE="9">sku/name: String</FONT></TD></TR><TR><TD ALIGN="LEFT"><FONT POINT-SIZE="9">baseUom: String</FONT></TD></TR><TR><TD ALIGN="LEFT"><FONT POINT-SIZE="9">lot/serial rules: JSON</FONT></TD></TR><TR><TD ALIGN="LEFT"><FONT POINT-SIZE="9">status: Status</FONT></TD></TR></TABLE>>];
+Partner [shape=plain, label=<<TABLE BORDER="1" CELLBORDER="0" CELLSPACING="0" CELLPADDING="5" COLOR="#AAB4C3">
+      <TR><TD BGCOLOR="#E8F5E9"><B>Partner 伙伴</B></TD></TR><TR><TD ALIGN="LEFT"><FONT POINT-SIZE="9">id/tenantId: UUID</FONT></TD></TR><TR><TD ALIGN="LEFT"><FONT POINT-SIZE="9">type: CUSTOMER/SUPPLIER/CARRIER</FONT></TD></TR><TR><TD ALIGN="LEFT"><FONT POINT-SIZE="9">code/name: String</FONT></TD></TR><TR><TD ALIGN="LEFT"><FONT POINT-SIZE="9">credit/certificates: JSON</FONT></TD></TR></TABLE>>];
+Warehouse [shape=plain, label=<<TABLE BORDER="1" CELLBORDER="0" CELLSPACING="0" CELLPADDING="5" COLOR="#AAB4C3">
+      <TR><TD BGCOLOR="#E8F5E9"><B>Warehouse 仓库</B></TD></TR><TR><TD ALIGN="LEFT"><FONT POINT-SIZE="9">id/orgId: UUID</FONT></TD></TR><TR><TD ALIGN="LEFT"><FONT POINT-SIZE="9">code/name: String</FONT></TD></TR><TR><TD ALIGN="LEFT"><FONT POINT-SIZE="9">addressId: UUID</FONT></TD></TR><TR><TD ALIGN="LEFT"><FONT POINT-SIZE="9">timezone: String</FONT></TD></TR></TABLE>>];
+Location [shape=plain, label=<<TABLE BORDER="1" CELLBORDER="0" CELLSPACING="0" CELLPADDING="5" COLOR="#AAB4C3">
+      <TR><TD BGCOLOR="#E8F5E9"><B>Location 库位/月台</B></TD></TR><TR><TD ALIGN="LEFT"><FONT POINT-SIZE="9">id/warehouseId: UUID</FONT></TD></TR><TR><TD ALIGN="LEFT"><FONT POINT-SIZE="9">code/type/zone: String</FONT></TD></TR><TR><TD ALIGN="LEFT"><FONT POINT-SIZE="9">capacity: JSON</FONT></TD></TR><TR><TD ALIGN="LEFT"><FONT POINT-SIZE="9">status: Status</FONT></TD></TR></TABLE>>];
+Contract [shape=plain, label=<<TABLE BORDER="1" CELLBORDER="0" CELLSPACING="0" CELLPADDING="5" COLOR="#AAB4C3">
+      <TR><TD BGCOLOR="#E8F5E9"><B>Contract 合同</B></TD></TR><TR><TD ALIGN="LEFT"><FONT POINT-SIZE="9">id/partyId: UUID</FONT></TD></TR><TR><TD ALIGN="LEFT"><FONT POINT-SIZE="9">type: SALES/PURCHASE/FREIGHT/WAREHOUSE</FONT></TD></TR><TR><TD ALIGN="LEFT"><FONT POINT-SIZE="9">validFrom/To: Date</FONT></TD></TR><TR><TD ALIGN="LEFT"><FONT POINT-SIZE="9">status: Status</FONT></TD></TR></TABLE>>];
+RateCard [shape=plain, label=<<TABLE BORDER="1" CELLBORDER="0" CELLSPACING="0" CELLPADDING="5" COLOR="#AAB4C3">
+      <TR><TD BGCOLOR="#E8F5E9"><B>RateCard 费率</B></TD></TR><TR><TD ALIGN="LEFT"><FONT POINT-SIZE="9">id/contractId: UUID</FONT></TD></TR><TR><TD ALIGN="LEFT"><FONT POINT-SIZE="9">version: String</FONT></TD></TR><TR><TD ALIGN="LEFT"><FONT POINT-SIZE="9">currency/taxMode: String</FONT></TD></TR><TR><TD ALIGN="LEFT"><FONT POINT-SIZE="9">effectiveAt: Instant</FONT></TD></TR></TABLE>>];
+Tenant -> Organization [label="1..*", arrowhead=none];
+Tenant -> User [label="1..*", arrowhead=none];
+User -> Role [label="*..*", arrowhead=none];
+Role -> Permission [label="*..*", arrowhead=none];
+Role -> DataScope [label="1..*", arrowhead=none];
+Organization -> Warehouse [label="1..*", arrowhead=none];
+Warehouse -> Location [label="1..*", arrowhead=none];
+Partner -> Contract [label="0..*", arrowhead=none];
+Contract -> RateCard [label="1..*", arrowhead=none];
+}

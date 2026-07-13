@@ -1,0 +1,27 @@
+digraph G {
+      graph [rankdir=TB, bgcolor="white", pad="0.18", nodesep="0.3", ranksep="0.48", splines=spline, fontname="Noto Sans CJK SC", labelloc="t"];
+      node [shape=box, style="rounded,filled", fontname="Noto Sans CJK SC", fontsize=10.5, color="#D6DCE4", fillcolor="white", fontcolor="#1F2937", margin="0.12,0.08"];
+      edge [fontname="Noto Sans CJK SC", fontsize=8.5, color="#6B7280", fontcolor="#374151", arrowsize=0.7];
+graph [label="端到端：订单到交付与结算", fontsize=15];
+s [label="多渠道订单进入", shape=oval, fillcolor="#EAF2FF", color="#2A6FDB"];
+v [label="OMS 校验、幂等与审核", fillcolor="#FFFFFF"];
+a [label="库存/仓库/伙伴分配", shape=diamond, fillcolor="#FFF4D6", color="#C58B00"];
+w [label="WMS 入库或出库履约", fillcolor="#E8EDFF", color="#596BB3"];
+t [label="TMS 计划、委托与运输", fillcolor="#E8EDFF", color="#596BB3"];
+p [label="签收 / POD / 差异", shape=diamond, fillcolor="#FFF4D6", color="#C58B00"];
+b [label="计费、对账、财务过账", fillcolor="#E8EDFF", color="#596BB3"];
+e [label="订单关闭与指标归档", shape=oval, fillcolor="#E8F5E9", color="#087F8C"];
+x [label="例外工单与补偿", fillcolor="#FDECEC", color="#B42318"];
+s -> v;
+v -> a;
+a -> w [label="仓储履约"];
+a -> t [label="直运/运输需求"];
+w -> t [label="可提货/发运"];
+t -> p;
+p -> b [label="签收确认"];
+b -> e;
+v -> x [label="校验失败"];
+w -> x [label="短缺/差异"];
+t -> x [label="延误/拒单"];
+x -> v [label="修复/重试"];
+}

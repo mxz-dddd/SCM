@@ -1,0 +1,31 @@
+digraph G {
+      graph [rankdir=LR, bgcolor="white", pad="0.18", nodesep="0.22", ranksep="0.48", splines=spline, fontname="Noto Sans CJK SC", labelloc="t"];
+      node [shape=box, style="rounded,filled", fontname="Noto Sans CJK SC", fontsize=10.5, color="#D6DCE4", fillcolor="white", fontcolor="#1F2937", margin="0.12,0.08"];
+      edge [fontname="Noto Sans CJK SC", fontsize=8.5, color="#6B7280", fontcolor="#374151", arrowsize=0.7];
+graph [label="WMS 出库状态机", fontsize=15];
+Draft [label="草稿", fillcolor="#EAF2FF"];
+Released [label="已释放", fillcolor="white"];
+Waved [label="已入波次", fillcolor="white"];
+Allocated [label="已分配", fillcolor="white"];
+Picking [label="拣选中", fillcolor="white"];
+Picked [label="已拣完", fillcolor="white"];
+Packed [label="已包装", fillcolor="white"];
+Staged [label="已集货", fillcolor="white"];
+Loaded [label="已装车", fillcolor="white"];
+Shipped [label="已发运", fillcolor="#E8F5E9"];
+Shortage [label="缺货异常", fillcolor="#FDECEC"];
+Cancelled [label="已取消", fillcolor="#FDECEC"];
+Draft -> Released [label="发布"];
+Released -> Waved [label="入波次"];
+Waved -> Allocated [label="分配"];
+Allocated -> Picking [label="领取任务"];
+Picking -> Picked [label="拣完"];
+Picked -> Packed [label="复核包装"];
+Packed -> Staged [label="集货"];
+Staged -> Loaded [label="装车"];
+Loaded -> Shipped [label="发运"];
+Waved -> Shortage [label="不足"];
+Picking -> Shortage [label="短拣"];
+Shortage -> Allocated [label="补货后重分配"];
+Draft -> Cancelled [label="取消"];
+}

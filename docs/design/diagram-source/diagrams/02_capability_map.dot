@@ -1,0 +1,14 @@
+digraph G {
+      graph [rankdir=TB, bgcolor="white", pad="0.18", nodesep="0.35", ranksep="0.62", splines=spline, fontname="Noto Sans CJK SC", labelloc="t"];
+      node [shape=box, style="rounded,filled", fontname="Noto Sans CJK SC", fontsize=10.5, color="#D6DCE4", fillcolor="white", fontcolor="#1F2937", margin="0.12,0.08"];
+      edge [fontname="Noto Sans CJK SC", fontsize=8.5, color="#6B7280", fontcolor="#374151", arrowsize=0.7];
+
+      root [label="供应链协同云能力地图", fillcolor="#16324F", fontcolor="white", color="#16324F", fontsize=14, width=4.2, height=0.7];
+      core [label="核心业务域\nOMS：订单、分配、协同、履约\nWMS：入库、库存、出库、增值、劳务\nTMS：计划、配载、委托、跟踪、回单\nAMS：预约、排队、门岗、月台\nBilling：计费、凭证、对账、分摊", fillcolor="#EAF2FF", color="#2A6FDB", width=7.2, height=2.15, fontsize=11];
+      common [label="平台与共性能力\n租户 / 组织 / 用户 / 角色 / 数据权限\n主数据 / 字典 / 合同 / 费率 / 地址\n工作流 / 规则 / 策略 / 调度任务\n附件 / 标签 / 打印 / 评论 / 审计\nOpen API / EDI / Webhook / 适配器", fillcolor="#E8F5E9", color="#087F8C", width=7.2, height=2.15, fontsize=11];
+      insight [label="可视化、协同与优化\n控制塔 / 事件 / 例外 / SLA\nBI / KPI / 报表 / 大屏\n路径 / 装载 / 需求 / 库存 / 网络优化\n客户 / 司机 / 仓库 / 合作伙伴移动端", fillcolor="#E8EDFF", color="#596BB3", width=7.2, height=1.9, fontsize=11];
+      root -> core;
+      core -> common [label="由平台能力支撑", dir=back];
+      core -> insight [label="业务事实与指标"];
+      common -> insight [label="事件、查询、通知"];
+    }

@@ -1,0 +1,29 @@
+digraph G {
+      graph [rankdir=LR, bgcolor="white", pad="0.18", nodesep="0.22", ranksep="0.48", splines=spline, fontname="Noto Sans CJK SC", labelloc="t"];
+      node [shape=box, style="rounded,filled", fontname="Noto Sans CJK SC", fontsize=10.5, color="#D6DCE4", fillcolor="white", fontcolor="#1F2937", margin="0.12,0.08"];
+      edge [fontname="Noto Sans CJK SC", fontsize=8.5, color="#6B7280", fontcolor="#374151", arrowsize=0.7];
+graph [label="WMS 入库状态机", fontsize=15];
+Draft [label="草稿", fillcolor="#EAF2FF"];
+Expected [label="待到货", fillcolor="#EAF2FF"];
+Arrived [label="已到场", fillcolor="white"];
+Receiving [label="收货中", fillcolor="white"];
+Received [label="已收货", fillcolor="white"];
+Inspecting [label="质检中", fillcolor="white"];
+Putaway [label="上架中", fillcolor="white"];
+Completed [label="已完成", fillcolor="#E8F5E9"];
+Exception [label="异常", fillcolor="#FDECEC"];
+Cancelled [label="已取消", fillcolor="#FDECEC"];
+Draft -> Expected [label="发布"];
+Expected -> Arrived [label="签到"];
+Arrived -> Receiving [label="开始收货"];
+Receiving -> Received [label="收货完成"];
+Received -> Inspecting [label="需质检"];
+Received -> Putaway [label="免检"];
+Inspecting -> Putaway [label="放行"];
+Putaway -> Completed [label="全部上架"];
+Receiving -> Exception [label="差异"];
+Inspecting -> Exception [label="不合格"];
+Exception -> Receiving [label="补收"];
+Exception -> Putaway [label="处置放行"];
+Draft -> Cancelled [label="取消"];
+}

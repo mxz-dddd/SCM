@@ -1,0 +1,25 @@
+digraph G {
+      graph [rankdir=TB, bgcolor="white", pad="0.18", nodesep="0.3", ranksep="0.48", splines=spline, fontname="Noto Sans CJK SC", labelloc="t"];
+      node [shape=box, style="rounded,filled", fontname="Noto Sans CJK SC", fontsize=10.5, color="#D6DCE4", fillcolor="white", fontcolor="#1F2937", margin="0.12,0.08"];
+      edge [fontname="Noto Sans CJK SC", fontsize=8.5, color="#6B7280", fontcolor="#374151", arrowsize=0.7];
+graph [label="WMS 出库：波次到发运", fontsize=15];
+s [label="出库单释放", shape=oval, fillcolor="#EAF2FF", color="#2A6FDB"];
+w [label="波次选择与订单分组", fillcolor="#FFFFFF"];
+a [label="库存分配与缺货判断", shape=diamond, fillcolor="#FFF4D6", color="#C58B00"];
+r [label="补货或重新分配", fillcolor="#FFFFFF"];
+p [label="生成拣选任务/路径", fillcolor="#FFFFFF"];
+v [label="复核、包装、称重、贴标", fillcolor="#FFFFFF"];
+g [label="集货、装车与封签", fillcolor="#FFFFFF"];
+h [label="发运确认/交接 TMS", shape=oval, fillcolor="#E8F5E9", color="#087F8C"];
+x [label="短拣、破损、错拣", fillcolor="#FDECEC", color="#B42318"];
+s -> w;
+w -> a;
+a -> p [label="库存足够"];
+a -> r [label="不足"];
+r -> a [label="补货完成"];
+p -> v;
+p -> x [label="异常"];
+x -> p [label="复核后继续"];
+v -> g;
+g -> h;
+}

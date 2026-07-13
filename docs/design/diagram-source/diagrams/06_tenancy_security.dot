@@ -1,0 +1,16 @@
+digraph G {
+      graph [rankdir=TB, bgcolor="white", pad="0.18", nodesep="0.3", ranksep="0.45", splines=spline, fontname="Noto Sans CJK SC", labelloc="t"];
+      node [shape=box, style="rounded,filled", fontname="Noto Sans CJK SC", fontsize=10.5, color="#D6DCE4", fillcolor="white", fontcolor="#1F2937", margin="0.12,0.08"];
+      edge [fontname="Noto Sans CJK SC", fontsize=8.5, color="#6B7280", fontcolor="#374151", arrowsize=0.7];
+
+      req [label="请求上下文\nuserId · tenantId · orgId · warehouseId · locale", fillcolor="#EAF2FF"];
+      authn [label="认证 AuthN\nSSO / MFA / Token / API Credential", fillcolor="#DCE9FF"];
+      authz [label="授权 AuthZ\nRBAC + ABAC + 数据范围", fillcolor="#DCE9FF"];
+      policy [label="策略判定\n资源 · 动作 · 组织树 · 货主 · 仓库 · 数据所有者"];
+      scope [label="租户隔离\n行级 tenant_id / Schema / 独立库可选", fillcolor="#E8F5E9"];
+      mask [label="字段脱敏与导出控制\n手机号 / 身份证 / 地址 / 价格"];
+      audit [label="不可抵赖审计\n登录 · 查询 · 变更 · 导出 · 审批 · 接口", fillcolor="#FFF4D6"];
+      kms [label="密钥与加密\nTLS · KMS · Secret Rotation · 对象存储加密"];
+      req -> authn -> authz -> policy -> scope -> mask -> audit;
+      kms -> authn [style=dashed]; kms -> scope [style=dashed]; kms -> audit [style=dashed];
+    }

@@ -1,0 +1,23 @@
+digraph G {
+      graph [rankdir=TB, bgcolor="white", pad="0.18", nodesep="0.3", ranksep="0.48", splines=spline, fontname="Noto Sans CJK SC", labelloc="t"];
+      node [shape=box, style="rounded,filled", fontname="Noto Sans CJK SC", fontsize=10.5, color="#D6DCE4", fillcolor="white", fontcolor="#1F2937", margin="0.12,0.08"];
+      edge [fontname="Noto Sans CJK SC", fontsize=8.5, color="#6B7280", fontcolor="#374151", arrowsize=0.7];
+graph [label="库存调整、移库与盘点", fontsize=15];
+s [label="创建盘点/移库/调整请求", shape=oval, fillcolor="#EAF2FF", color="#2A6FDB"];
+fr [label="冻结相关库存范围", fillcolor="#FFFFFF"];
+scan [label="扫描实物与库位", fillcolor="#FFFFFF"];
+diff [label="账实是否一致", shape=diamond, fillcolor="#FFF4D6", color="#C58B00"];
+approve [label="差异审批与原因码", fillcolor="#FFFFFF"];
+post [label="写库存流水与余额", fillcolor="#E8EDFF", color="#596BB3"];
+rel [label="释放冻结/生成补货", shape=oval, fillcolor="#E8F5E9", color="#087F8C"];
+x [label="并发占用或序列号冲突", fillcolor="#FDECEC", color="#B42318"];
+s -> fr;
+fr -> scan;
+scan -> diff;
+diff -> rel [label="一致"];
+diff -> approve [label="有差异"];
+approve -> post [label="通过"];
+post -> rel;
+fr -> x [label="无法冻结"];
+x -> s [label="修复后重建"];
+}

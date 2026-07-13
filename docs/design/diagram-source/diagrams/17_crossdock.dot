@@ -1,0 +1,22 @@
+digraph G {
+      graph [rankdir=TB, bgcolor="white", pad="0.18", nodesep="0.3", ranksep="0.48", splines=spline, fontname="Noto Sans CJK SC", labelloc="t"];
+      node [shape=box, style="rounded,filled", fontname="Noto Sans CJK SC", fontsize=10.5, color="#D6DCE4", fillcolor="white", fontcolor="#1F2937", margin="0.12,0.08"];
+      edge [fontname="Noto Sans CJK SC", fontsize=8.5, color="#6B7280", fontcolor="#374151", arrowsize=0.7];
+graph [label="越库：入库直连出库", fontsize=15];
+s [label="匹配入库供应与出库需求", shape=oval, fillcolor="#EAF2FF", color="#2A6FDB"];
+m [label="按商品/批次/数量/时间窗匹配", fillcolor="#E8EDFF", color="#596BB3"];
+ok [label="是否满足越库约束", shape=diamond, fillcolor="#FFF4D6", color="#C58B00"];
+recv [label="收货到越库暂存区", fillcolor="#FFFFFF"];
+alloc [label="绑定出库明细与运输班次", fillcolor="#FFFFFF"];
+load [label="直接集货/装车", fillcolor="#FFFFFF"];
+e [label="发运并完成双向状态", shape=oval, fillcolor="#E8F5E9", color="#087F8C"];
+x [label="超时/短缺/质检不通过", fillcolor="#FDECEC", color="#B42318"];
+s -> m;
+m -> ok;
+ok -> recv [label="满足"];
+ok -> x [label="不满足"];
+recv -> alloc;
+alloc -> load;
+load -> e;
+x -> s [label="转普通入库/补货"];
+}

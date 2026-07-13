@@ -1,0 +1,38 @@
+digraph G {
+      graph [rankdir=TB, bgcolor="white", pad="0.18", nodesep="0.18", ranksep="0.42", splines=spline, fontname="Noto Sans CJK SC", labelloc="t"];
+      node [shape=box, style="rounded,filled", fontname="Noto Sans CJK SC", fontsize=10.5, color="#D6DCE4", fillcolor="white", fontcolor="#1F2937", margin="0.12,0.08"];
+      edge [fontname="Noto Sans CJK SC", fontsize=8.5, color="#6B7280", fontcolor="#374151", arrowsize=0.7];
+graph [label="类图：AMS 预约、排队与月台", fontsize=15];
+Calendar [shape=plain, label=<<TABLE BORDER="1" CELLBORDER="0" CELLSPACING="0" CELLPADDING="5" COLOR="#AAB4C3">
+      <TR><TD BGCOLOR="#DDF7F4"><B>CapacityCalendar 容量日历</B></TD></TR><TR><TD ALIGN="LEFT"><FONT POINT-SIZE="9">id/warehouseId/resourceId: UUID</FONT></TD></TR><TR><TD ALIGN="LEFT"><FONT POINT-SIZE="9">resourceType: DOCK/ZONE/TEAM</FONT></TD></TR><TR><TD ALIGN="LEFT"><FONT POINT-SIZE="9">date: Date</FONT></TD></TR><TR><TD ALIGN="LEFT"><FONT POINT-SIZE="9">capacityProfileId: UUID</FONT></TD></TR></TABLE>>];
+Slot [shape=plain, label=<<TABLE BORDER="1" CELLBORDER="0" CELLSPACING="0" CELLPADDING="5" COLOR="#AAB4C3">
+      <TR><TD BGCOLOR="white"><B>TimeSlot 时间窗</B></TD></TR><TR><TD ALIGN="LEFT"><FONT POINT-SIZE="9">id/calendarId: UUID</FONT></TD></TR><TR><TD ALIGN="LEFT"><FONT POINT-SIZE="9">startAt/endAt: Instant</FONT></TD></TR><TR><TD ALIGN="LEFT"><FONT POINT-SIZE="9">capacity/used/reserved: Decimal</FONT></TD></TR><TR><TD ALIGN="LEFT"><FONT POINT-SIZE="9">status: SlotStatus</FONT></TD></TR><TR><TD ALIGN="LEFT"><FONT POINT-SIZE="9">version: Long</FONT></TD></TR></TABLE>>];
+Appointment [shape=plain, label=<<TABLE BORDER="1" CELLBORDER="0" CELLSPACING="0" CELLPADDING="5" COLOR="#AAB4C3">
+      <TR><TD BGCOLOR="white"><B>Appointment 预约</B></TD></TR><TR><TD ALIGN="LEFT"><FONT POINT-SIZE="9">id/appointmentNo: UUID/String</FONT></TD></TR><TR><TD ALIGN="LEFT"><FONT POINT-SIZE="9">type: INBOUND/OUTBOUND</FONT></TD></TR><TR><TD ALIGN="LEFT"><FONT POINT-SIZE="9">warehouseId/slotId: UUID</FONT></TD></TR><TR><TD ALIGN="LEFT"><FONT POINT-SIZE="9">carrier/driver/vehicleId: UUID?</FONT></TD></TR><TR><TD ALIGN="LEFT"><FONT POINT-SIZE="9">workload: Decimal</FONT></TD></TR><TR><TD ALIGN="LEFT"><FONT POINT-SIZE="9">status: AppointmentStatus</FONT></TD></TR></TABLE>>];
+OrderLink [shape=plain, label=<<TABLE BORDER="1" CELLBORDER="0" CELLSPACING="0" CELLPADDING="5" COLOR="#AAB4C3">
+      <TR><TD BGCOLOR="white"><B>AppointmentOrderLink</B></TD></TR><TR><TD ALIGN="LEFT"><FONT POINT-SIZE="9">appointmentId: UUID</FONT></TD></TR><TR><TD ALIGN="LEFT"><FONT POINT-SIZE="9">orderType/orderId: String</FONT></TD></TR><TR><TD ALIGN="LEFT"><FONT POINT-SIZE="9">plannedQty: Decimal</FONT></TD></TR></TABLE>>];
+Approval [shape=plain, label=<<TABLE BORDER="1" CELLBORDER="0" CELLSPACING="0" CELLPADDING="5" COLOR="#AAB4C3">
+      <TR><TD BGCOLOR="white"><B>ApprovalTask 审批</B></TD></TR><TR><TD ALIGN="LEFT"><FONT POINT-SIZE="9">id/appointmentId/assigneeId: UUID</FONT></TD></TR><TR><TD ALIGN="LEFT"><FONT POINT-SIZE="9">decision: APPROVE/REJECT/RESCHEDULE</FONT></TD></TR><TR><TD ALIGN="LEFT"><FONT POINT-SIZE="9">comment: String</FONT></TD></TR><TR><TD ALIGN="LEFT"><FONT POINT-SIZE="9">decidedAt: Instant</FONT></TD></TR></TABLE>>];
+Queue [shape=plain, label=<<TABLE BORDER="1" CELLBORDER="0" CELLSPACING="0" CELLPADDING="5" COLOR="#AAB4C3">
+      <TR><TD BGCOLOR="white"><B>QueueTicket 排队号</B></TD></TR><TR><TD ALIGN="LEFT"><FONT POINT-SIZE="9">id/appointmentId: UUID</FONT></TD></TR><TR><TD ALIGN="LEFT"><FONT POINT-SIZE="9">ticketNo: String</FONT></TD></TR><TR><TD ALIGN="LEFT"><FONT POINT-SIZE="9">priority: Int</FONT></TD></TR><TR><TD ALIGN="LEFT"><FONT POINT-SIZE="9">issuedAt/calledAt: Instant</FONT></TD></TR><TR><TD ALIGN="LEFT"><FONT POINT-SIZE="9">status: QueueStatus</FONT></TD></TR></TABLE>>];
+Gate [shape=plain, label=<<TABLE BORDER="1" CELLBORDER="0" CELLSPACING="0" CELLPADDING="5" COLOR="#AAB4C3">
+      <TR><TD BGCOLOR="white"><B>GateEvent 门岗事件</B></TD></TR><TR><TD ALIGN="LEFT"><FONT POINT-SIZE="9">id/appointmentId: UUID</FONT></TD></TR><TR><TD ALIGN="LEFT"><FONT POINT-SIZE="9">type: CHECK_IN/CHECK_OUT</FONT></TD></TR><TR><TD ALIGN="LEFT"><FONT POINT-SIZE="9">occurredAt: Instant</FONT></TD></TR><TR><TD ALIGN="LEFT"><FONT POINT-SIZE="9">operator/deviceId: UUID</FONT></TD></TR><TR><TD ALIGN="LEFT"><FONT POINT-SIZE="9">verification: JSON</FONT></TD></TR></TABLE>>];
+Pass [shape=plain, label=<<TABLE BORDER="1" CELLBORDER="0" CELLSPACING="0" CELLPADDING="5" COLOR="#AAB4C3">
+      <TR><TD BGCOLOR="white"><B>GatePass 通行证</B></TD></TR><TR><TD ALIGN="LEFT"><FONT POINT-SIZE="9">id/appointmentId: UUID</FONT></TD></TR><TR><TD ALIGN="LEFT"><FONT POINT-SIZE="9">qrCode: String</FONT></TD></TR><TR><TD ALIGN="LEFT"><FONT POINT-SIZE="9">validFrom/To: Instant</FONT></TD></TR><TR><TD ALIGN="LEFT"><FONT POINT-SIZE="9">status: PassStatus</FONT></TD></TR></TABLE>>];
+Dock [shape=plain, label=<<TABLE BORDER="1" CELLBORDER="0" CELLSPACING="0" CELLPADDING="5" COLOR="#AAB4C3">
+      <TR><TD BGCOLOR="white"><B>DockAssignment 月台分配</B></TD></TR><TR><TD ALIGN="LEFT"><FONT POINT-SIZE="9">id/appointmentId/dockId: UUID</FONT></TD></TR><TR><TD ALIGN="LEFT"><FONT POINT-SIZE="9">assignedAt/releasedAt: Instant</FONT></TD></TR><TR><TD ALIGN="LEFT"><FONT POINT-SIZE="9">status: AssignmentStatus</FONT></TD></TR></TABLE>>];
+Op [shape=plain, label=<<TABLE BORDER="1" CELLBORDER="0" CELLSPACING="0" CELLPADDING="5" COLOR="#AAB4C3">
+      <TR><TD BGCOLOR="white"><B>OperationEvent 装卸事件</B></TD></TR><TR><TD ALIGN="LEFT"><FONT POINT-SIZE="9">id/appointmentId/dockAssignmentId: UUID</FONT></TD></TR><TR><TD ALIGN="LEFT"><FONT POINT-SIZE="9">type: START/PAUSE/COMPLETE</FONT></TD></TR><TR><TD ALIGN="LEFT"><FONT POINT-SIZE="9">occurredAt: Instant</FONT></TD></TR><TR><TD ALIGN="LEFT"><FONT POINT-SIZE="9">qty/payload: JSON</FONT></TD></TR></TABLE>>];
+NoShow [shape=plain, label=<<TABLE BORDER="1" CELLBORDER="0" CELLSPACING="0" CELLPADDING="5" COLOR="#AAB4C3">
+      <TR><TD BGCOLOR="white"><B>NoShowCase 爽约</B></TD></TR><TR><TD ALIGN="LEFT"><FONT POINT-SIZE="9">id/appointmentId: UUID</FONT></TD></TR><TR><TD ALIGN="LEFT"><FONT POINT-SIZE="9">detectedAt: Instant</FONT></TD></TR><TR><TD ALIGN="LEFT"><FONT POINT-SIZE="9">reasonCode: String</FONT></TD></TR><TR><TD ALIGN="LEFT"><FONT POINT-SIZE="9">penaltyFactId: UUID?</FONT></TD></TR><TR><TD ALIGN="LEFT"><FONT POINT-SIZE="9">status: Status</FONT></TD></TR></TABLE>>];
+Calendar -> Slot [label="1..*", arrowhead=none];
+Slot -> Appointment [label="0..*", arrowhead=none];
+Appointment -> OrderLink [label="0..*", arrowhead=none];
+Appointment -> Approval [label="0..*", arrowhead=none];
+Appointment -> Queue [label="0..1", arrowhead=none];
+Appointment -> Pass [label="0..1", arrowhead=none];
+Appointment -> Gate [label="0..*", arrowhead=none];
+Appointment -> Dock [label="0..1", arrowhead=none];
+Dock -> Op [label="0..*", arrowhead=none];
+Appointment -> NoShow [label="0..1", arrowhead=none];
+}
