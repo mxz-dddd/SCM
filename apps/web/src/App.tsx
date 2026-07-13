@@ -1,5 +1,5 @@
 import { Layout, Space, Tag, Typography } from 'antd';
-import { CORRELATION_ID_HEADER } from '@scm/shared';
+import { CORRELATION_ID_HEADER, DATA_MODEL_CONVENTIONS } from '@scm/shared';
 
 const { Content, Header, Sider } = Layout;
 
@@ -26,6 +26,12 @@ export function App() {
           <Typography.Text type="secondary">
             Trace header: {CORRELATION_ID_HEADER}
           </Typography.Text>
+          <Typography.Title level={4}>Data baseline</Typography.Title>
+          <ul>
+            {DATA_MODEL_CONVENTIONS.map((convention) => (
+              <li key={convention}>{convention}</li>
+            ))}
+          </ul>
         </Content>
       </Layout>
     </Layout>

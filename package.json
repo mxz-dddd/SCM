@@ -9,10 +9,15 @@
   },
   "scripts": {
     "build": "turbo run build",
+    "db:generate": "pnpm --filter @scm/api db:generate",
+    "db:migrate": "pnpm --filter @scm/api db:migrate",
+    "db:migrate:deploy": "pnpm --filter @scm/api db:migrate:deploy",
+    "db:seed": "pnpm --filter @scm/api db:seed",
     "dev": "turbo run dev --parallel",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
     "lint": "turbo run lint",
+    "postinstall": "pnpm db:generate",
     "test": "turbo run test",
     "typecheck": "turbo run typecheck",
     "verify": "pnpm lint && pnpm typecheck && pnpm test"

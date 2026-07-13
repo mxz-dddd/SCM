@@ -8,5 +8,8 @@ describe('App', () => {
 
     expect(screen.getByText('供应链协同工作台')).toBeInTheDocument();
     expect(screen.getByText(/X-Correlation-Id/)).toBeInTheDocument();
+    expect(
+      screen.getByText(/decimal amount and ISO currency/),
+    ).toBeInTheDocument();
   });
 });

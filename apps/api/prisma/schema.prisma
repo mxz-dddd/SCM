@@ -1,0 +1,44 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+  schemas  = ["platform", "mdm", "oms", "wms", "tms", "ams", "billing", "control", "integration"]
+}
+
+enum BaselineStatus {
+  ACTIVE
+  INACTIVE
+
+  @@schema("platform")
+}
+
+/// Executable reference model for the mandatory persistence conventions.
+/// Domain cards replace this fixture with their owned aggregates while retaining
+/// these fields, tenant-first indexes and value-object storage rules.
+model DataBaseline {
+  id                     String         @id @default(uuid()) @db.Uuid
+  tenantId               String         @map("tenant_id") @db.Uuid
+  createdAt              DateTime       @default(now()) @map("created_at") @db.Timestamptz(3)
+  createdBy              String         @map("created_by") @db.Uuid
+  updatedAt              DateTime       @updatedAt @map("updated_at") @db.Timestamptz(3)
+  updatedBy              String         @map("updated_by") @db.Uuid
+  version                Int            @default(1)
+  status                 BaselineStatus @default(ACTIVE)
+  amount                 Decimal        @db.Decimal(20, 6)
+  currency               String         @db.Char(3)
+  quantityOriginal       Decimal        @map("quantity_original") @db.Decimal(20, 6)
+  originalUom            String         @map("original_uom") @db.VarChar(16)
+  quantityBase           Decimal        @map("quantity_base") @db.Decimal(20, 6)
+  baseUom                String         @map("base_uom") @db.VarChar(16)
+  packageSpecVersionId   String         @map("package_spec_version_id") @db.Uuid
+  extensionSchemaId      String         @map("extension_schema_id") @db.VarChar(100)
+  extensionSchemaVersion Int            @map("extension_schema_version")
+  extensionFields        Json           @default("{}") @map("extension_fields") @db.JsonB
+
+  @@index([tenantId, status], map: "data_baseline_tenant_status_idx")
+  @@map("data_baseline")
+  @@schema("platform")
+}

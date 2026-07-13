@@ -1,6 +1,8 @@
 export const CORRELATION_ID_HEADER = 'X-Correlation-Id' as const;
 export const IDEMPOTENCY_KEY_HEADER = 'Idempotency-Key' as const;
 
+export * from './domain/value-objects';
+
 export interface ApiError {
   businessRef?: string;
   code: string;
