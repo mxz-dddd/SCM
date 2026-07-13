@@ -264,6 +264,24 @@ export const ADMIN_PERMISSIONS = [
     resourceType: 'API',
   },
   {
+    code: 'platform.event.read',
+    name: '查看业务事件与投递回执',
+    resourceRef: '/api/v1/platform/events/*',
+    resourceType: 'API',
+  },
+  {
+    code: 'platform.event.process',
+    name: '领取、投递并消费业务事件',
+    resourceRef: '/api/v1/platform/events/relay/*',
+    resourceType: 'API',
+  },
+  {
+    code: 'platform.event.replay',
+    name: '恢复并重放死信事件',
+    resourceRef: '/api/v1/platform/events/outbox/*/replay',
+    resourceType: 'BUTTON',
+  },
+  {
     code: 'platform.admin.menu',
     name: '平台管理菜单',
     resourceRef: 'platform-admin',
@@ -321,6 +339,12 @@ export const ADMIN_PERMISSIONS = [
     code: 'platform.job.page',
     name: '调度任务中心页面',
     resourceRef: 'platform-jobs',
+    resourceType: 'PAGE',
+  },
+  {
+    code: 'platform.event.page',
+    name: '业务事件运维页面',
+    resourceRef: 'platform-events',
     resourceType: 'PAGE',
   },
   {

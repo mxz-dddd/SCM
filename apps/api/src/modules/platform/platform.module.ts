@@ -10,6 +10,8 @@ import { DataPolicyController } from './data-policy.controller';
 import { DataPolicyService } from './data-policy.service';
 import { DataExchangeController } from './data-exchange.controller';
 import { ExportService } from './export.service';
+import { EventController } from './event.controller';
+import { EventService } from './event.service';
 import { ImportService } from './import.service';
 import { ConfigurationController } from './configuration.controller';
 import { ConfigurationService } from './configuration.service';
@@ -45,6 +47,7 @@ import { WorkflowService } from './workflow.service';
     ConfigurationController,
     DataPolicyController,
     DataExchangeController,
+    EventController,
     JobController,
     NotificationController,
     OrganizationController,
@@ -62,6 +65,7 @@ import { WorkflowService } from './workflow.service';
     ConfigurationService,
     DataPolicyService,
     ExportService,
+    EventService,
     IdempotencyService,
     ImportService,
     JobQueueService,

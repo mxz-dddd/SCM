@@ -152,4 +152,17 @@ describe('App', () => {
     expect(screen.getByRole('button', { name: '立即运行' })).toBeDisabled();
     expect(screen.getByRole('button', { name: '取消运行' })).toBeDisabled();
   });
+
+  it('opens the business event relay and inbox workbench', () => {
+    render(<App />);
+
+    fireEvent.click(screen.getByRole('button', { name: '事件' }));
+
+    expect(
+      screen.getByRole('heading', { name: '业务事件与投递运维中心' }),
+    ).toBeInTheDocument();
+    expect(screen.getByText('事务 Outbox 与死信')).toBeInTheDocument();
+    expect(screen.getByText('消费者 Inbox 去重回执')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: '恢复死信' })).toBeDisabled();
+  });
 });

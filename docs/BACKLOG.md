@@ -25,7 +25,7 @@
 - [x] P1-13 工作流与审批：WorkflowDefinition 版本化（节点/条件/候选人/超时/回退）、实例绑定不可变版本、审批中心（同意/拒绝/退回/加签/转交/撤回/批量） [PLT-012, PLT-013]
 - [x] P1-14 规则引擎：规则集优先级求值、命中/排除/输入快照 EvaluationTrace、模拟执行不落单；为分配/上架/波次/承运商/时隙/计费提供统一接口 [PLT-014]
 - [x] P1-15 调度任务：JobDefinition（一次/周期/事件触发）、BullMQ 执行、租约防重、超时/重试/取消/进度/结果文件 [PLT-015]
-- [ ] P1-16 事件骨架：BusinessEvent 统一模型（eventId/tenantId/aggregate/version/traceId/schemaVersion）、事务 Outbox 表+worker 投递、消费者 Inbox 去重、重试/死信、按聚合键顺序 [CTL-001]（§11.4）
+- [x] P1-16 事件骨架：BusinessEvent 统一模型（eventId/tenantId/aggregate/version/traceId/schemaVersion）、事务 Outbox 表+worker 投递、消费者 Inbox 去重、重试/死信、按聚合键顺序 [CTL-001]（§11.4）
 - [ ] P1-17 平台收尾：i18n（UTC 存储+业务时区显示）、单位换算、特性开关（租户/组织/百分比）、评论@提及（内外部可见性）、打印模板版本化+打印任务路由 [PLT-024, PLT-025, PLT-018, PLT-017]
 
 ## P2 主数据 + OMS + WMS

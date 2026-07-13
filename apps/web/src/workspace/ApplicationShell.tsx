@@ -24,6 +24,7 @@ import { DataExchangeWorkbench } from '../platform/DataExchangeWorkbench';
 import { WorkflowWorkbench } from '../platform/WorkflowWorkbench';
 import { RuleEngineWorkbench } from '../platform/RuleEngineWorkbench';
 import { JobWorkbench } from '../platform/JobWorkbench';
+import { EventWorkbench } from '../platform/EventWorkbench';
 import { useSessionStore } from '../platform/session-store';
 import { ComponentGallery } from '../ui/ComponentGallery';
 import { useWorkspaceStore } from './workspace-store';
@@ -93,6 +94,12 @@ const pageRegistry: readonly WorkspaceTab[] = [
     route: '/platform/jobs',
     title: '调度任务',
   },
+  {
+    dirty: false,
+    id: 'events',
+    route: '/platform/events',
+    title: '业务事件',
+  },
   { dirty: false, id: 'orders', route: '/oms/orders', title: '订单中心' },
   { dirty: false, id: 'inventory', route: '/wms/inventory', title: '库存视图' },
   { dirty: false, id: 'transport', route: '/tms/shipments', title: '运输执行' },
@@ -110,6 +117,7 @@ const modules = [
   ['审批', 'workflow'],
   ['规则', 'rules'],
   ['调度', 'jobs'],
+  ['事件', 'events'],
   ['订单', 'orders'],
   ['仓储', 'inventory'],
   ['运输', 'transport'],
@@ -255,6 +263,7 @@ export function ApplicationShell() {
     if (tabId === 'workflow') return <WorkflowWorkbench />;
     if (tabId === 'rules') return <RuleEngineWorkbench />;
     if (tabId === 'jobs') return <JobWorkbench />;
+    if (tabId === 'events') return <EventWorkbench />;
     return (
       <section className="workspace-placeholder">
         <Typography.Title level={2}>

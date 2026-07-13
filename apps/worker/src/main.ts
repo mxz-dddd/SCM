@@ -1,12 +1,44 @@
 import { Worker } from 'bullmq';
 import { getRedisConnection } from './connection';
-import { processSystemJob } from './job-runner';
+import { HttpWorkerApi, processSystemJob } from './job-runner';
+import {
+  BullEventPublisher,
+  consumeBusinessEvent,
+  runRelayOnce,
+} from './outbox-relay';
 
 const worker = new Worker(
   'scm-system',
   async (job) => processSystemJob(job),
   { connection: getRedisConnection() },
 );
+
+const eventWorker = new Worker(
+  'scm-events',
+  async (job) => consumeBusinessEvent(job),
+  { connection: getRedisConnection(), concurrency: 10 },
+);
+
+const relayApi = new HttpWorkerApi();
+const relayPublisher = new BullEventPublisher();
+const relayTenantId = process.env.WORKER_TENANT_ID;
+const relayOwner = `relay:${process.pid}`;
+let relayRunning = false;
+const relayTimer = relayTenantId && process.env.WORKER_API_TOKEN
+  ? setInterval(() => {
+      if (relayRunning) return;
+      relayRunning = true;
+      void runRelayOnce(relayTenantId, relayOwner, relayApi, relayPublisher)
+        .catch((error: unknown) => {
+          console.error('worker.outbox-relay.failed', {
+            message: error instanceof Error ? error.message : String(error),
+          });
+        })
+        .finally(() => {
+          relayRunning = false;
+        });
+    }, 1000)
+  : undefined;
 
 worker.on('failed', (job, error) => {
   console.error('worker.job.failed', {
@@ -16,6 +48,9 @@ worker.on('failed', (job, error) => {
 });
 
 async function shutdown() {
+  if (relayTimer) clearInterval(relayTimer);
+  await relayPublisher.close();
+  await eventWorker.close();
   await worker.close();
 }
 

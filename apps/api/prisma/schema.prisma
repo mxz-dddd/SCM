@@ -131,8 +131,19 @@ enum LoginOutcome {
 
 enum OutboxStatus {
   PENDING
+  PROCESSING
   PUBLISHED
   FAILED
+  DEAD_LETTER
+
+  @@schema("platform")
+}
+
+enum EventInboxStatus {
+  PROCESSING
+  PROCESSED
+  FAILED
+  IGNORED
 
   @@schema("platform")
 }
@@ -931,12 +942,74 @@ model PlatformOutbox {
   aggregateVersion Int          @map("aggregate_version")
   payload          Json         @db.JsonB
   correlationId    String       @map("correlation_id") @db.VarChar(100)
+  traceId          String?      @map("trace_id") @db.VarChar(100)
   schemaVersion    Int          @default(1) @map("schema_version")
+  occurredAt       DateTime     @default(now()) @map("occurred_at") @db.Timestamptz(3)
+  partitionKey     String?      @map("partition_key") @db.VarChar(250)
+  attemptCount     Int          @default(0) @map("attempt_count")
+  maxAttempts      Int          @default(8) @map("max_attempts")
+  availableAt      DateTime     @default(now()) @map("available_at") @db.Timestamptz(3)
+  leaseOwner       String?      @map("lease_owner") @db.VarChar(200)
+  leaseExpiresAt   DateTime?    @map("lease_expires_at") @db.Timestamptz(3)
+  lastError        String?      @map("last_error") @db.VarChar(1000)
   publishedAt      DateTime?    @map("published_at") @db.Timestamptz(3)
+  deadLetteredAt   DateTime?    @map("dead_lettered_at") @db.Timestamptz(3)
 
   @@index([tenantId, status, createdAt], map: "platform_outbox_tenant_status_created_idx")
   @@index([tenantId, aggregateType, aggregateId, aggregateVersion], map: "platform_outbox_tenant_aggregate_idx")
+  @@index([tenantId, status, availableAt, leaseExpiresAt], map: "platform_outbox_relay_idx")
+  @@index([tenantId, partitionKey, aggregateVersion], map: "platform_outbox_partition_version_idx")
   @@map("outbox")
+  @@schema("platform")
+}
+
+model EventInbox {
+  id               String           @id @default(uuid()) @db.Uuid
+  tenantId         String           @map("tenant_id") @db.Uuid
+  createdAt        DateTime         @default(now()) @map("created_at") @db.Timestamptz(3)
+  createdBy        String           @map("created_by") @db.Uuid
+  updatedAt        DateTime         @updatedAt @map("updated_at") @db.Timestamptz(3)
+  updatedBy        String           @map("updated_by") @db.Uuid
+  version          Int              @default(1)
+  status           EventInboxStatus @default(PROCESSING)
+  consumer         String           @db.VarChar(150)
+  eventId          String           @map("event_id") @db.Uuid
+  eventType        String           @map("event_type") @db.VarChar(150)
+  aggregateType    String           @map("aggregate_type") @db.VarChar(100)
+  aggregateId      String           @map("aggregate_id") @db.Uuid
+  aggregateVersion Int              @map("aggregate_version")
+  traceId          String           @map("trace_id") @db.VarChar(100)
+  schemaVersion    Int              @map("schema_version")
+  payload          Json             @db.JsonB
+  result           Json             @default("{}") @db.JsonB
+  failureCode      String?          @map("failure_code") @db.VarChar(100)
+  processedAt      DateTime?        @map("processed_at") @db.Timestamptz(3)
+
+  @@unique([tenantId, consumer, eventId], map: "event_inbox_tenant_consumer_event_key")
+  @@index([tenantId, consumer, status, createdAt], map: "event_inbox_consumer_status_idx")
+  @@index([tenantId, consumer, aggregateType, aggregateId, aggregateVersion], map: "event_inbox_aggregate_version_idx")
+  @@map("event_inbox")
+  @@schema("platform")
+}
+
+model ConsumerCheckpoint {
+  id               String       @id @default(uuid()) @db.Uuid
+  tenantId         String       @map("tenant_id") @db.Uuid
+  createdAt        DateTime     @default(now()) @map("created_at") @db.Timestamptz(3)
+  createdBy        String       @map("created_by") @db.Uuid
+  updatedAt        DateTime     @updatedAt @map("updated_at") @db.Timestamptz(3)
+  updatedBy        String       @map("updated_by") @db.Uuid
+  version          Int          @default(1)
+  status           RecordStatus @default(ACTIVE)
+  consumer         String       @db.VarChar(150)
+  aggregateType    String       @map("aggregate_type") @db.VarChar(100)
+  aggregateId      String       @map("aggregate_id") @db.Uuid
+  lastVersion      Int          @map("last_version")
+  lastEventId      String       @map("last_event_id") @db.Uuid
+
+  @@unique([tenantId, consumer, aggregateType, aggregateId], map: "consumer_checkpoint_aggregate_key")
+  @@index([tenantId, consumer, updatedAt], map: "consumer_checkpoint_updated_idx")
+  @@map("consumer_checkpoint")
   @@schema("platform")
 }
 

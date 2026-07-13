@@ -16,7 +16,7 @@ interface RunState {
   readonly version: number;
 }
 
-interface WorkerApi {
+export interface WorkerApi {
   request<T>(tenantId: string, path: string, init?: RequestInit): Promise<T>;
 }
 
