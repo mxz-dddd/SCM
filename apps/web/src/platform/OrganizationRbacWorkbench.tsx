@@ -10,7 +10,7 @@ import {
   Tree,
   Typography,
 } from 'antd';
-import { PERMISSION_RESOURCE_TYPES } from '@scm/shared';
+import { DATA_SCOPE_DIMENSIONS, PERMISSION_RESOURCE_TYPES } from '@scm/shared';
 import { useSessionStore } from './session-store';
 
 interface OrganizationRow {
@@ -142,6 +142,27 @@ export function OrganizationRbacWorkbench() {
             界面隐藏仅改善体验；每个命令仍由后端 Guard 二次鉴权并审计
             Allow/Deny。
           </Typography.Paragraph>
+        </Card>
+        <Card
+          className="identity-card"
+          title="ABAC 数据范围"
+          extra={canAdminister ? <Button>新建策略</Button> : null}
+        >
+          <Space wrap>
+            {DATA_SCOPE_DIMENSIONS.map((dimension) => (
+              <Tag key={dimension} color="purple">
+                {dimension}
+              </Tag>
+            ))}
+            <Tag color="purple">custom.*</Tag>
+          </Space>
+          <Typography.Paragraph>
+            显式表达式按角色与资源限定数据；未命中策略时默认拒绝。
+          </Typography.Paragraph>
+          <Typography.Paragraph type="secondary">
+            编译范围缓存键包含账号与权限版本，查询强制合并可信 tenantId。
+          </Typography.Paragraph>
+          {canAdminister ? <Button>模拟策略决策</Button> : null}
         </Card>
       </Space>
     </section>

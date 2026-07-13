@@ -314,6 +314,52 @@ model PermissionDecisionAudit {
   @@schema("platform")
 }
 
+model DataScopePolicy {
+  id         String       @id @default(uuid()) @db.Uuid
+  tenantId   String       @map("tenant_id") @db.Uuid
+  createdAt  DateTime     @default(now()) @map("created_at") @db.Timestamptz(3)
+  createdBy  String       @map("created_by") @db.Uuid
+  updatedAt  DateTime     @updatedAt @map("updated_at") @db.Timestamptz(3)
+  updatedBy  String       @map("updated_by") @db.Uuid
+  version    Int          @default(1)
+  status     RecordStatus @default(ACTIVE)
+  code       String       @db.VarChar(100)
+  name       String       @db.VarChar(200)
+  roleId     String       @map("role_id") @db.Uuid
+  resource   String       @db.VarChar(150)
+  priority   Int          @default(100)
+  expression Json         @db.JsonB
+
+  @@unique([tenantId, code], map: "data_scope_policy_tenant_code_key")
+  @@index([tenantId, roleId, resource, status], map: "data_scope_policy_tenant_role_resource_status_idx")
+  @@map("data_scope_policy")
+  @@schema("platform")
+}
+
+model DataPolicyDecisionAudit {
+  id                String             @id @default(uuid()) @db.Uuid
+  tenantId          String             @map("tenant_id") @db.Uuid
+  createdAt         DateTime           @default(now()) @map("created_at") @db.Timestamptz(3)
+  createdBy         String             @map("created_by") @db.Uuid
+  updatedAt         DateTime           @updatedAt @map("updated_at") @db.Timestamptz(3)
+  updatedBy         String             @map("updated_by") @db.Uuid
+  version           Int                @default(1)
+  status            RecordStatus       @default(ACTIVE)
+  accountId         String             @map("account_id") @db.Uuid
+  resource          String             @db.VarChar(150)
+  decision          PermissionDecision
+  reason            String             @db.VarChar(500)
+  matchedPolicyIds  Json               @default("[]") @map("matched_policy_ids") @db.JsonB
+  attributesHash    String             @map("attributes_hash") @db.Char(64)
+  correlationId     String             @map("correlation_id") @db.VarChar(100)
+  permissionVersion Int                @map("permission_version")
+
+  @@index([tenantId, accountId, createdAt], map: "data_policy_decision_tenant_account_created_idx")
+  @@index([tenantId, resource, decision], map: "data_policy_decision_tenant_resource_decision_idx")
+  @@map("data_policy_decision_audit")
+  @@schema("platform")
+}
+
 model Person {
   id          String       @id @default(uuid()) @db.Uuid
   tenantId    String       @map("tenant_id") @db.Uuid

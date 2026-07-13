@@ -108,10 +108,8 @@ async function seed() {
   });
 
   const permissionIds = new Map<string, string>();
-  for (const [index, permission] of ADMIN_PERMISSIONS.entries()) {
-    const id = `10000000-0000-4000-8000-${String(200 + index).padStart(12, '0')}`;
-    permissionIds.set(permission.code, id);
-    await prisma.permission.upsert({
+  for (const permission of ADMIN_PERMISSIONS) {
+    const storedPermission = await prisma.permission.upsert({
       where: {
         tenantId_code: {
           code: permission.code,
@@ -121,7 +119,6 @@ async function seed() {
       create: {
         ...permission,
         createdBy: PLATFORM_OPERATOR_ACCOUNT_ID,
-        id,
         tenantId: PLATFORM_OPERATOR_TENANT_ID,
         updatedBy: PLATFORM_OPERATOR_ACCOUNT_ID,
       },
@@ -132,6 +129,7 @@ async function seed() {
         updatedBy: PLATFORM_OPERATOR_ACCOUNT_ID,
       },
     });
+    permissionIds.set(permission.code, storedPermission.id);
   }
   await prisma.role.upsert({
     where: { id: PLATFORM_OPERATOR_ROLE_ID },
@@ -145,7 +143,7 @@ async function seed() {
     },
     update: { updatedBy: PLATFORM_OPERATOR_ACCOUNT_ID },
   });
-  for (const [index, permission] of ADMIN_PERMISSIONS.entries()) {
+  for (const permission of ADMIN_PERMISSIONS) {
     const permissionId = permissionIds.get(permission.code)!;
     await prisma.rolePermission.upsert({
       where: {
@@ -158,7 +156,6 @@ async function seed() {
       create: {
         createdBy: PLATFORM_OPERATOR_ACCOUNT_ID,
         effect: 'ALLOW',
-        id: `10000000-0000-4000-8000-${String(300 + index).padStart(12, '0')}`,
         permissionId,
         roleId: PLATFORM_OPERATOR_ROLE_ID,
         tenantId: PLATFORM_OPERATOR_TENANT_ID,

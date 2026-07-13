@@ -36,6 +36,18 @@ export const ADMIN_PERMISSIONS = [
     resourceType: 'API',
   },
   {
+    code: 'platform.policy.read',
+    name: '查看数据范围策略',
+    resourceRef: '/api/v1/platform/data-policies',
+    resourceType: 'API',
+  },
+  {
+    code: 'platform.policy.write',
+    name: '维护数据范围策略',
+    resourceRef: '/api/v1/platform/data-policies/*',
+    resourceType: 'API',
+  },
+  {
     code: 'platform.admin.menu',
     name: '平台管理菜单',
     resourceRef: 'platform-admin',

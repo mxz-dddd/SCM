@@ -2,6 +2,8 @@ import { Module } from '@nestjs/common';
 import { AuthModule } from './auth/auth.module';
 import { PermissionGuard } from './auth/permission.guard';
 import { PermissionService } from './auth/permission.service';
+import { DataPolicyController } from './data-policy.controller';
+import { DataPolicyService } from './data-policy.service';
 import { IdempotencyService } from './idempotency.service';
 import { OrganizationController } from './organization.controller';
 import { OrganizationService } from './organization.service';
@@ -14,6 +16,7 @@ import { TenantService } from './tenant.service';
 
 @Module({
   controllers: [
+    DataPolicyController,
     OrganizationController,
     RoleController,
     ServiceAccountController,
@@ -21,6 +24,7 @@ import { TenantService } from './tenant.service';
   ],
   imports: [AuthModule],
   providers: [
+    DataPolicyService,
     IdempotencyService,
     OrganizationService,
     PermissionGuard,

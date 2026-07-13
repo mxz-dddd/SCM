@@ -18,6 +18,8 @@ describe('App', () => {
       screen.getByRole('heading', { name: '组织与角色权限' }),
     ).toBeInTheDocument();
     expect(screen.getByText('EXPORT')).toBeInTheDocument();
+    expect(screen.getByText('ABAC 数据范围')).toBeInTheDocument();
+    expect(screen.getByText('warehouseId')).toBeInTheDocument();
     expect(screen.getByText('PROVISIONING')).toBeInTheDocument();
     expect(screen.getByRole('button', { name: /登\s*录/ })).toBeInTheDocument();
   });
