@@ -6,6 +6,7 @@ import {
   consumeBusinessEvent,
   runRelayOnce,
 } from './outbox-relay';
+import { processPrintJob } from './print-runner';
 
 const worker = new Worker(
   'scm-system',
@@ -17,6 +18,12 @@ const eventWorker = new Worker(
   'scm-events',
   async (job) => consumeBusinessEvent(job),
   { connection: getRedisConnection(), concurrency: 10 },
+);
+
+const printWorker = new Worker(
+  'scm-print',
+  async (job) => processPrintJob(job),
+  { connection: getRedisConnection(), concurrency: 4 },
 );
 
 const relayApi = new HttpWorkerApi();
@@ -51,6 +58,7 @@ async function shutdown() {
   if (relayTimer) clearInterval(relayTimer);
   await relayPublisher.close();
   await eventWorker.close();
+  await printWorker.close();
   await worker.close();
 }
 

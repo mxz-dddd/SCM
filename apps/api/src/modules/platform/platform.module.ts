@@ -1,6 +1,7 @@
 import { Module } from '@nestjs/common';
 import { AttachmentController } from './attachment.controller';
 import { AttachmentService } from './attachment.service';
+import { CollaborationPrintService } from './collaboration-print.service';
 import { AuditController } from './audit.controller';
 import { AuditService } from './audit.service';
 import { AuthModule } from './auth/auth.module';
@@ -12,6 +13,7 @@ import { DataExchangeController } from './data-exchange.controller';
 import { ExportService } from './export.service';
 import { EventController } from './event.controller';
 import { EventService } from './event.service';
+import { FeatureFlagService } from './feature-flag.service';
 import { ImportService } from './import.service';
 import { ConfigurationController } from './configuration.controller';
 import { ConfigurationService } from './configuration.service';
@@ -19,8 +21,11 @@ import { IdempotencyService } from './idempotency.service';
 import { JobController } from './job.controller';
 import { JobQueueService } from './job-queue.service';
 import { JobService } from './job.service';
+import { LocaleUnitService } from './locale-unit.service';
 import { OrganizationController } from './organization.controller';
 import { OrganizationService } from './organization.service';
+import { PlatformFinishController } from './platform-finish.controller';
+import { PrintQueueService } from './print-queue.service';
 import { ObjectStorageService } from './object-storage.service';
 import { NotificationChannelService } from './notification-channel.service';
 import { NotificationController } from './notification.controller';
@@ -51,6 +56,7 @@ import { WorkflowService } from './workflow.service';
     JobController,
     NotificationController,
     OrganizationController,
+    PlatformFinishController,
     RoleController,
     RuleEngineController,
     ServiceAccountController,
@@ -62,17 +68,21 @@ import { WorkflowService } from './workflow.service';
   providers: [
     AttachmentService,
     AuditService,
+    CollaborationPrintService,
     ConfigurationService,
     DataPolicyService,
     ExportService,
     EventService,
+    FeatureFlagService,
     IdempotencyService,
     ImportService,
     JobQueueService,
     JobService,
+    LocaleUnitService,
     NotificationChannelService,
     NotificationService,
     OrganizationService,
+    PrintQueueService,
     ObjectStorageService,
     PermissionGuard,
     PermissionService,

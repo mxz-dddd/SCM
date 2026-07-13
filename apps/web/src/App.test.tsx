@@ -165,4 +165,15 @@ describe('App', () => {
     expect(screen.getByText('消费者 Inbox 去重回执')).toBeInTheDocument();
     expect(screen.getByRole('button', { name: '恢复死信' })).toBeDisabled();
   });
+
+  it('opens localization, flags, collaboration and print operations', () => {
+    render(<App />);
+    fireEvent.click(screen.getByRole('button', { name: '收尾' }));
+    expect(screen.getByRole('heading', { name: '国际化、开关、协同与打印中心' })).toBeInTheDocument();
+    expect(screen.getByText('LocaleContext 与单位换算')).toBeInTheDocument();
+    expect(screen.getByText('FeatureFlag 渐进发布')).toBeInTheDocument();
+    expect(screen.getByText('评论、@提及与外部可见性')).toBeInTheDocument();
+    expect(screen.getByText('PrintTemplate、打印机路由与 PrintJob')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: '新建 10% 开关版本' })).toBeDisabled();
+  });
 });

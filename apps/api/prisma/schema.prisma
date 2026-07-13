@@ -148,6 +148,54 @@ enum EventInboxStatus {
   @@schema("platform")
 }
 
+enum FeatureFlagStatus {
+  DRAFT
+  PUBLISHED
+  PAUSED
+  RETIRED
+
+  @@schema("platform")
+}
+
+enum CommentVisibility {
+  INTERNAL
+  EXTERNAL
+
+  @@schema("platform")
+}
+
+enum CommentStatus {
+  OPEN
+  RESOLVED
+
+  @@schema("platform")
+}
+
+enum PrintTemplateStatus {
+  DRAFT
+  PUBLISHED
+  RETIRED
+
+  @@schema("platform")
+}
+
+enum PrinterStatus {
+  ACTIVE
+  INACTIVE
+
+  @@schema("platform")
+}
+
+enum PrintJobStatus {
+  QUEUED
+  PRINTING
+  COMPLETED
+  FAILED
+  CANCELLED
+
+  @@schema("platform")
+}
+
 enum ConfigScopeType {
   TENANT
   ORGANIZATION
@@ -1010,6 +1058,216 @@ model ConsumerCheckpoint {
   @@unique([tenantId, consumer, aggregateType, aggregateId], map: "consumer_checkpoint_aggregate_key")
   @@index([tenantId, consumer, updatedAt], map: "consumer_checkpoint_updated_idx")
   @@map("consumer_checkpoint")
+  @@schema("platform")
+}
+
+model LocalePreference {
+  id             String       @id @default(uuid()) @db.Uuid
+  tenantId       String       @map("tenant_id") @db.Uuid
+  createdAt      DateTime     @default(now()) @map("created_at") @db.Timestamptz(3)
+  createdBy      String       @map("created_by") @db.Uuid
+  updatedAt      DateTime     @updatedAt @map("updated_at") @db.Timestamptz(3)
+  updatedBy      String       @map("updated_by") @db.Uuid
+  version        Int          @default(1)
+  status         RecordStatus @default(ACTIVE)
+  accountId      String       @map("account_id") @db.Uuid
+  language       String       @default("zh-CN") @db.VarChar(20)
+  timeZone       String       @default("Asia/Shanghai") @map("time_zone") @db.VarChar(100)
+  currency       String       @default("CNY") @db.Char(3)
+  unitSystem     String       @default("METRIC") @map("unit_system") @db.VarChar(20)
+
+  @@unique([tenantId, accountId], map: "locale_preference_tenant_account_key")
+  @@index([tenantId, status], map: "locale_preference_tenant_status_idx")
+  @@map("locale_preference")
+  @@schema("platform")
+}
+
+model UnitConversion {
+  id             String       @id @default(uuid()) @db.Uuid
+  tenantId       String       @map("tenant_id") @db.Uuid
+  createdAt      DateTime     @default(now()) @map("created_at") @db.Timestamptz(3)
+  createdBy      String       @map("created_by") @db.Uuid
+  updatedAt      DateTime     @updatedAt @map("updated_at") @db.Timestamptz(3)
+  updatedBy      String       @map("updated_by") @db.Uuid
+  version        Int          @default(1)
+  status         RecordStatus @default(ACTIVE)
+  code           String       @db.VarChar(100)
+  dimension      String       @db.VarChar(50)
+  fromUom        String       @map("from_uom") @db.VarChar(20)
+  toUom          String       @map("to_uom") @db.VarChar(20)
+  factor         Decimal      @db.Decimal(24, 12)
+  offset         Decimal      @default(0) @db.Decimal(24, 12)
+  effectiveFrom  DateTime     @default(now()) @map("effective_from") @db.Timestamptz(3)
+  effectiveUntil DateTime?    @map("effective_until") @db.Timestamptz(3)
+
+  @@unique([tenantId, code, version], map: "unit_conversion_tenant_code_version_key")
+  @@index([tenantId, dimension, fromUom, toUom, status], map: "unit_conversion_lookup_idx")
+  @@map("unit_conversion")
+  @@schema("platform")
+}
+
+model FeatureFlag {
+  id            String            @id @default(uuid()) @db.Uuid
+  tenantId      String            @map("tenant_id") @db.Uuid
+  createdAt     DateTime          @default(now()) @map("created_at") @db.Timestamptz(3)
+  createdBy     String            @map("created_by") @db.Uuid
+  updatedAt     DateTime          @updatedAt @map("updated_at") @db.Timestamptz(3)
+  updatedBy     String            @map("updated_by") @db.Uuid
+  version       Int               @default(1)
+  status        FeatureFlagStatus @default(DRAFT)
+  code          String            @db.VarChar(100)
+  name          String            @db.VarChar(200)
+  versionNumber Int               @map("version_number")
+  defaultEnabled Boolean          @default(false) @map("default_enabled")
+  rules         Json              @default("[]") @db.JsonB
+  publishedAt   DateTime?         @map("published_at") @db.Timestamptz(3)
+
+  @@unique([tenantId, code, versionNumber], map: "feature_flag_tenant_code_version_key")
+  @@index([tenantId, code, status, versionNumber], map: "feature_flag_lookup_idx")
+  @@map("feature_flag")
+  @@schema("platform")
+}
+
+model FeatureFlagDecision {
+  id                String       @id @default(uuid()) @db.Uuid
+  tenantId          String       @map("tenant_id") @db.Uuid
+  createdAt         DateTime     @default(now()) @map("created_at") @db.Timestamptz(3)
+  createdBy         String       @map("created_by") @db.Uuid
+  updatedAt         DateTime     @default(now()) @map("updated_at") @db.Timestamptz(3)
+  updatedBy         String       @map("updated_by") @db.Uuid
+  version           Int          @default(1)
+  status            RecordStatus @default(ACTIVE)
+  featureFlagId     String       @map("feature_flag_id") @db.Uuid
+  flagCode          String       @map("flag_code") @db.VarChar(100)
+  flagVersionNumber Int          @map("flag_version_number")
+  subjectKey        String       @map("subject_key") @db.VarChar(200)
+  organizationId    String?      @map("organization_id") @db.Uuid
+  roleCodes         Json         @default("[]") @map("role_codes") @db.JsonB
+  bucket            Int
+  enabled           Boolean
+  matchedRule       String?      @map("matched_rule") @db.VarChar(100)
+
+  @@index([tenantId, flagCode, createdAt], map: "feature_flag_decision_tenant_flag_idx")
+  @@map("feature_flag_decision")
+  @@schema("platform")
+}
+
+model BusinessComment {
+  id             String            @id @default(uuid()) @db.Uuid
+  tenantId       String            @map("tenant_id") @db.Uuid
+  createdAt      DateTime          @default(now()) @map("created_at") @db.Timestamptz(3)
+  createdBy      String            @map("created_by") @db.Uuid
+  updatedAt      DateTime          @updatedAt @map("updated_at") @db.Timestamptz(3)
+  updatedBy      String            @map("updated_by") @db.Uuid
+  version        Int               @default(1)
+  status         CommentStatus     @default(OPEN)
+  businessType   String            @map("business_type") @db.VarChar(100)
+  businessId     String            @map("business_id") @db.Uuid
+  visibility     CommentVisibility @default(INTERNAL)
+  body           String            @db.VarChar(4000)
+  attachmentIds  Json              @default("[]") @map("attachment_ids") @db.JsonB
+  resolvedAt     DateTime?         @map("resolved_at") @db.Timestamptz(3)
+  resolvedBy     String?           @map("resolved_by") @db.Uuid
+
+  @@index([tenantId, businessType, businessId, createdAt], map: "business_comment_thread_idx")
+  @@map("business_comment")
+  @@schema("platform")
+}
+
+model CommentMention {
+  id               String       @id @default(uuid()) @db.Uuid
+  tenantId         String       @map("tenant_id") @db.Uuid
+  createdAt        DateTime     @default(now()) @map("created_at") @db.Timestamptz(3)
+  createdBy        String       @map("created_by") @db.Uuid
+  updatedAt        DateTime     @default(now()) @map("updated_at") @db.Timestamptz(3)
+  updatedBy        String       @map("updated_by") @db.Uuid
+  version          Int          @default(1)
+  status           RecordStatus @default(ACTIVE)
+  commentId        String       @map("comment_id") @db.Uuid
+  mentionedAccountId String     @map("mentioned_account_id") @db.Uuid
+
+  @@unique([tenantId, commentId, mentionedAccountId], map: "comment_mention_tenant_comment_account_key")
+  @@index([tenantId, mentionedAccountId, createdAt], map: "comment_mention_account_idx")
+  @@map("comment_mention")
+  @@schema("platform")
+}
+
+model PrintTemplate {
+  id            String              @id @default(uuid()) @db.Uuid
+  tenantId      String              @map("tenant_id") @db.Uuid
+  createdAt     DateTime            @default(now()) @map("created_at") @db.Timestamptz(3)
+  createdBy     String              @map("created_by") @db.Uuid
+  updatedAt     DateTime            @updatedAt @map("updated_at") @db.Timestamptz(3)
+  updatedBy     String              @map("updated_by") @db.Uuid
+  version       Int                 @default(1)
+  status        PrintTemplateStatus @default(DRAFT)
+  code          String              @db.VarChar(100)
+  name          String              @db.VarChar(200)
+  documentType  String              @map("document_type") @db.VarChar(100)
+  language      String              @db.VarChar(20)
+  versionNumber Int                 @map("version_number")
+  customerId    String?             @map("customer_id") @db.Uuid
+  warehouseId   String?             @map("warehouse_id") @db.Uuid
+  routeTags     Json                @default("[]") @map("route_tags") @db.JsonB
+  content       Json                @db.JsonB
+  variables     Json                @default("[]") @db.JsonB
+  publishedAt   DateTime?           @map("published_at") @db.Timestamptz(3)
+
+  @@unique([tenantId, code, versionNumber], map: "print_template_tenant_code_version_key")
+  @@index([tenantId, documentType, language, status], map: "print_template_lookup_idx")
+  @@map("print_template")
+  @@schema("platform")
+}
+
+model Printer {
+  id             String        @id @default(uuid()) @db.Uuid
+  tenantId       String        @map("tenant_id") @db.Uuid
+  createdAt      DateTime      @default(now()) @map("created_at") @db.Timestamptz(3)
+  createdBy      String        @map("created_by") @db.Uuid
+  updatedAt      DateTime      @updatedAt @map("updated_at") @db.Timestamptz(3)
+  updatedBy      String        @map("updated_by") @db.Uuid
+  version        Int           @default(1)
+  status         PrinterStatus @default(ACTIVE)
+  code           String        @db.VarChar(100)
+  name           String        @db.VarChar(200)
+  warehouseId    String?       @map("warehouse_id") @db.Uuid
+  routeTags      Json          @default("[]") @map("route_tags") @db.JsonB
+  endpointRef    String        @map("endpoint_ref") @db.VarChar(300)
+
+  @@unique([tenantId, code], map: "printer_tenant_code_key")
+  @@index([tenantId, status, warehouseId], map: "printer_route_idx")
+  @@map("printer")
+  @@schema("platform")
+}
+
+model PrintJob {
+  id                    String         @id @default(uuid()) @db.Uuid
+  tenantId              String         @map("tenant_id") @db.Uuid
+  createdAt             DateTime       @default(now()) @map("created_at") @db.Timestamptz(3)
+  createdBy             String         @map("created_by") @db.Uuid
+  updatedAt             DateTime       @updatedAt @map("updated_at") @db.Timestamptz(3)
+  updatedBy             String         @map("updated_by") @db.Uuid
+  version               Int            @default(1)
+  status                PrintJobStatus @default(QUEUED)
+  printTemplateId       String         @map("print_template_id") @db.Uuid
+  templateVersionNumber Int            @map("template_version_number")
+  templateSnapshot      Json           @map("template_snapshot") @db.JsonB
+  documentType          String         @map("document_type") @db.VarChar(100)
+  businessId            String         @map("business_id") @db.Uuid
+  copies                Int            @default(1)
+  labelData             Json           @map("label_data") @db.JsonB
+  printerId             String?        @map("printer_id") @db.Uuid
+  routeSnapshot         Json           @default("{}") @map("route_snapshot") @db.JsonB
+  attempt               Int            @default(0)
+  maxAttempts           Int            @default(3) @map("max_attempts")
+  leaseOwner            String?        @map("lease_owner") @db.VarChar(200)
+  leaseExpiresAt        DateTime?       @map("lease_expires_at") @db.Timestamptz(3)
+  failureCode           String?        @map("failure_code") @db.VarChar(100)
+  completedAt           DateTime?       @map("completed_at") @db.Timestamptz(3)
+
+  @@index([tenantId, status, createdAt], map: "print_job_tenant_status_created_idx")
+  @@index([tenantId, printerId, status], map: "print_job_printer_status_idx")
+  @@map("print_job")
   @@schema("platform")
 }
 
