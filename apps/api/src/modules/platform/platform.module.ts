@@ -14,6 +14,9 @@ import { IdempotencyService } from './idempotency.service';
 import { OrganizationController } from './organization.controller';
 import { OrganizationService } from './organization.service';
 import { ObjectStorageService } from './object-storage.service';
+import { NotificationChannelService } from './notification-channel.service';
+import { NotificationController } from './notification.controller';
+import { NotificationService } from './notification.service';
 import { RoleController } from './role.controller';
 import { RoleService } from './role.service';
 import { ServiceAccountController } from './service-account.controller';
@@ -30,6 +33,7 @@ import { WatermarkService } from './watermark.service';
     AuditController,
     ConfigurationController,
     DataPolicyController,
+    NotificationController,
     OrganizationController,
     RoleController,
     ServiceAccountController,
@@ -43,6 +47,8 @@ import { WatermarkService } from './watermark.service';
     ConfigurationService,
     DataPolicyService,
     IdempotencyService,
+    NotificationChannelService,
+    NotificationService,
     OrganizationService,
     ObjectStorageService,
     PermissionGuard,

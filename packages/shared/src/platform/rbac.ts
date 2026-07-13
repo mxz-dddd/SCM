@@ -90,6 +90,30 @@ export const ADMIN_PERMISSIONS = [
     resourceType: 'API',
   },
   {
+    code: 'platform.inbox.read',
+    name: '查看与处理个人待办消息',
+    resourceRef: '/api/v1/platform/notifications/inbox/*',
+    resourceType: 'API',
+  },
+  {
+    code: 'platform.inbox.write',
+    name: '创建业务待办消息',
+    resourceRef: '/api/v1/platform/notifications/inbox',
+    resourceType: 'API',
+  },
+  {
+    code: 'platform.notification.manage',
+    name: '管理通知模板与投递记录',
+    resourceRef: '/api/v1/platform/notifications/*',
+    resourceType: 'API',
+  },
+  {
+    code: 'platform.notification.send',
+    name: '创建投递重试与升级通知',
+    resourceRef: '/api/v1/platform/notifications/*',
+    resourceType: 'API',
+  },
+  {
     code: 'platform.admin.menu',
     name: '平台管理菜单',
     resourceRef: 'platform-admin',
@@ -117,6 +141,12 @@ export const ADMIN_PERMISSIONS = [
     code: 'platform.attachment.page',
     name: '附件中心页面',
     resourceRef: 'platform-attachments',
+    resourceType: 'PAGE',
+  },
+  {
+    code: 'platform.inbox.page',
+    name: '待办与消息中心页面',
+    resourceRef: 'platform-inbox',
     resourceType: 'PAGE',
   },
   {

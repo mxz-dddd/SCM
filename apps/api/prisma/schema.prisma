@@ -225,6 +225,68 @@ enum DownloadGrantStatus {
   @@schema("platform")
 }
 
+enum InboxItemStatus {
+  UNREAD
+  READ
+  ARCHIVED
+
+  @@schema("platform")
+}
+
+enum InboxItemType {
+  APPROVAL
+  EXCEPTION
+  EXPIRY
+  INTEGRATION_FAILURE
+  NOTIFICATION
+
+  @@schema("platform")
+}
+
+enum NotificationSeverity {
+  INFO
+  WARNING
+  ERROR
+  CRITICAL
+
+  @@schema("platform")
+}
+
+enum NotificationChannel {
+  IN_APP
+  EMAIL
+  SMS
+  WECHAT
+  PUSH
+
+  @@schema("platform")
+}
+
+enum NotificationTemplateStatus {
+  DRAFT
+  PUBLISHED
+  RETIRED
+
+  @@schema("platform")
+}
+
+enum NotificationStatus {
+  PENDING
+  DELIVERED
+  PARTIAL_FAILED
+  FAILED
+
+  @@schema("platform")
+}
+
+enum DeliveryAttemptStatus {
+  DELIVERED
+  FAILED
+  SKIPPED
+
+  @@schema("platform")
+}
+
 /// Executable reference model for the mandatory persistence conventions.
 /// Domain cards replace this fixture with their owned aggregates while retaining
 /// these fields, tenant-first indexes and value-object storage rules.
@@ -834,6 +896,167 @@ model AttachmentDownloadGrant {
   @@unique([tenantId, tokenHash], map: "attachment_download_grant_tenant_token_key")
   @@index([tenantId, fileObjectId, status, expiresAt], map: "attachment_download_tenant_file_status_idx")
   @@map("attachment_download_grant")
+  @@schema("platform")
+}
+
+model InboxItem {
+  id                   String               @id @default(uuid()) @db.Uuid
+  tenantId             String               @map("tenant_id") @db.Uuid
+  createdAt            DateTime             @default(now()) @map("created_at") @db.Timestamptz(3)
+  createdBy            String               @map("created_by") @db.Uuid
+  updatedAt            DateTime             @updatedAt @map("updated_at") @db.Timestamptz(3)
+  updatedBy            String               @map("updated_by") @db.Uuid
+  version              Int                  @default(1)
+  status               InboxItemStatus      @default(UNREAD)
+  type                 InboxItemType
+  severity             NotificationSeverity @default(INFO)
+  recipientAccountId   String               @map("recipient_account_id") @db.Uuid
+  responsibilityGroup  String               @map("responsibility_group") @db.VarChar(100)
+  businessDomain       String               @map("business_domain") @db.VarChar(50)
+  businessObjectType   String               @map("business_object_type") @db.VarChar(100)
+  businessObjectId     String               @map("business_object_id") @db.Uuid
+  businessRef          String               @map("business_ref") @db.VarChar(200)
+  organizationId       String?              @map("organization_id") @db.Uuid
+  title                String               @db.VarChar(300)
+  summary              String               @db.VarChar(2000)
+  route                String               @db.VarChar(500)
+  sourceNotificationId String?              @map("source_notification_id") @db.Uuid
+  dueAt                DateTime?            @map("due_at") @db.Timestamptz(3)
+  readAt               DateTime?            @map("read_at") @db.Timestamptz(3)
+  archivedAt           DateTime?            @map("archived_at") @db.Timestamptz(3)
+
+  @@index([tenantId, recipientAccountId, status, createdAt], map: "inbox_item_tenant_recipient_status_created_idx")
+  @@index([tenantId, responsibilityGroup, severity, status], map: "inbox_item_tenant_group_severity_status_idx")
+  @@index([tenantId, businessDomain, businessRef], map: "inbox_item_tenant_domain_business_idx")
+  @@map("inbox_item")
+  @@schema("platform")
+}
+
+model NotificationRead {
+  id            String       @id @default(uuid()) @db.Uuid
+  tenantId      String       @map("tenant_id") @db.Uuid
+  createdAt     DateTime     @default(now()) @map("created_at") @db.Timestamptz(3)
+  createdBy     String       @map("created_by") @db.Uuid
+  updatedAt     DateTime     @updatedAt @map("updated_at") @db.Timestamptz(3)
+  updatedBy     String       @map("updated_by") @db.Uuid
+  version       Int          @default(1)
+  status        RecordStatus @default(ACTIVE)
+  inboxItemId   String       @map("inbox_item_id") @db.Uuid
+  accountId     String       @map("account_id") @db.Uuid
+  readAt        DateTime     @default(now()) @map("read_at") @db.Timestamptz(3)
+  correlationId String       @map("correlation_id") @db.VarChar(100)
+
+  @@unique([tenantId, inboxItemId, accountId], map: "notification_read_tenant_item_account_key")
+  @@index([tenantId, accountId, readAt], map: "notification_read_tenant_account_read_idx")
+  @@map("notification_read")
+  @@schema("platform")
+}
+
+model NotificationTemplate {
+  id                String                     @id @default(uuid()) @db.Uuid
+  tenantId          String                     @map("tenant_id") @db.Uuid
+  createdAt         DateTime                   @default(now()) @map("created_at") @db.Timestamptz(3)
+  createdBy         String                     @map("created_by") @db.Uuid
+  updatedAt         DateTime                   @updatedAt @map("updated_at") @db.Timestamptz(3)
+  updatedBy         String                     @map("updated_by") @db.Uuid
+  version           Int                        @default(1)
+  status            NotificationTemplateStatus @default(DRAFT)
+  code              String                     @db.VarChar(100)
+  versionNumber     Int                        @map("version_number")
+  locale            String                     @default("zh-CN") @db.VarChar(16)
+  subjectTemplate   String                     @map("subject_template") @db.VarChar(500)
+  bodyTemplate      String                     @map("body_template") @db.Text
+  variableWhitelist Json                       @map("variable_whitelist") @db.JsonB
+  channels          Json                       @db.JsonB
+  publishedAt       DateTime?                  @map("published_at") @db.Timestamptz(3)
+  retiredAt         DateTime?                  @map("retired_at") @db.Timestamptz(3)
+
+  @@unique([tenantId, code, versionNumber], map: "notification_template_tenant_code_version_key")
+  @@index([tenantId, code, status, versionNumber], map: "notification_template_tenant_code_status_version_idx")
+  @@map("notification_template")
+  @@schema("platform")
+}
+
+model SubscriptionPreference {
+  id                String               @id @default(uuid()) @db.Uuid
+  tenantId          String               @map("tenant_id") @db.Uuid
+  createdAt         DateTime             @default(now()) @map("created_at") @db.Timestamptz(3)
+  createdBy         String               @map("created_by") @db.Uuid
+  updatedAt         DateTime             @updatedAt @map("updated_at") @db.Timestamptz(3)
+  updatedBy         String               @map("updated_by") @db.Uuid
+  version           Int                  @default(1)
+  status            RecordStatus         @default(ACTIVE)
+  accountId         String               @map("account_id") @db.Uuid
+  channel           NotificationChannel
+  enabled           Boolean              @default(true)
+  minimumSeverity   NotificationSeverity @default(INFO) @map("minimum_severity")
+  quietStartMinutes Int?                 @map("quiet_start_minutes")
+  quietEndMinutes   Int?                 @map("quiet_end_minutes")
+  timezone          String               @default("Asia/Shanghai") @db.VarChar(64)
+  fallbackChannel   NotificationChannel? @map("fallback_channel")
+
+  @@unique([tenantId, accountId, channel], map: "subscription_preference_tenant_account_channel_key")
+  @@index([tenantId, accountId, status], map: "subscription_preference_tenant_account_status_idx")
+  @@map("subscription_preference")
+  @@schema("platform")
+}
+
+model Notification {
+  id                  String               @id @default(uuid()) @db.Uuid
+  tenantId            String               @map("tenant_id") @db.Uuid
+  createdAt           DateTime             @default(now()) @map("created_at") @db.Timestamptz(3)
+  createdBy           String               @map("created_by") @db.Uuid
+  updatedAt           DateTime             @updatedAt @map("updated_at") @db.Timestamptz(3)
+  updatedBy           String               @map("updated_by") @db.Uuid
+  version             Int                  @default(1)
+  status              NotificationStatus   @default(PENDING)
+  templateId          String               @map("template_id") @db.Uuid
+  templateVersion     Int                  @map("template_version")
+  recipientAccountId  String               @map("recipient_account_id") @db.Uuid
+  severity            NotificationSeverity @default(INFO)
+  responsibilityGroup String               @map("responsibility_group") @db.VarChar(100)
+  businessDomain      String               @map("business_domain") @db.VarChar(50)
+  businessObjectType  String               @map("business_object_type") @db.VarChar(100)
+  businessObjectId    String               @map("business_object_id") @db.Uuid
+  businessRef         String               @map("business_ref") @db.VarChar(200)
+  organizationId      String?              @map("organization_id") @db.Uuid
+  route               String               @db.VarChar(500)
+  variables           Json                 @db.JsonB
+  renderedSubject     String               @map("rendered_subject") @db.VarChar(500)
+  renderedBody        String               @map("rendered_body") @db.Text
+  requestedChannels   Json                 @map("requested_channels") @db.JsonB
+  deliveredChannels   Json                 @default("[]") @map("delivered_channels") @db.JsonB
+  escalationAt        DateTime?            @map("escalation_at") @db.Timestamptz(3)
+  escalatedAt         DateTime?            @map("escalated_at") @db.Timestamptz(3)
+
+  @@index([tenantId, recipientAccountId, status, createdAt], map: "notification_tenant_recipient_status_created_idx")
+  @@index([tenantId, status, escalationAt], map: "notification_tenant_status_escalation_idx")
+  @@index([tenantId, businessDomain, businessRef], map: "notification_tenant_domain_business_idx")
+  @@map("notification")
+  @@schema("platform")
+}
+
+model DeliveryAttempt {
+  id                String                @id @default(uuid()) @db.Uuid
+  tenantId          String                @map("tenant_id") @db.Uuid
+  createdAt         DateTime              @default(now()) @map("created_at") @db.Timestamptz(3)
+  createdBy         String                @map("created_by") @db.Uuid
+  updatedAt         DateTime              @updatedAt @map("updated_at") @db.Timestamptz(3)
+  updatedBy         String                @map("updated_by") @db.Uuid
+  version           Int                   @default(1)
+  status            DeliveryAttemptStatus
+  notificationId    String                @map("notification_id") @db.Uuid
+  channel           NotificationChannel
+  attemptNumber     Int                   @map("attempt_number")
+  providerMessageId String?               @map("provider_message_id") @db.VarChar(200)
+  errorCode         String?               @map("error_code") @db.VarChar(100)
+  retryable         Boolean               @default(false)
+  nextRetryAt       DateTime?             @map("next_retry_at") @db.Timestamptz(3)
+  deliveredAt       DateTime?             @map("delivered_at") @db.Timestamptz(3)
+
+  @@unique([tenantId, notificationId, channel, attemptNumber], map: "delivery_attempt_tenant_notification_channel_attempt_key")
+  @@index([tenantId, status, nextRetryAt], map: "delivery_attempt_tenant_status_retry_idx")
+  @@map("delivery_attempt")
   @@schema("platform")
 }
 

@@ -79,4 +79,18 @@ describe('App', () => {
     expect(screen.getByRole('button', { name: '选择并上传' })).toBeDisabled();
     expect(screen.getByRole('button', { name: '授权下载' })).toBeDisabled();
   });
+
+  it('opens the unified inbox and notification delivery workbench', () => {
+    render(<App />);
+
+    fireEvent.click(screen.getByRole('button', { name: '消息' }));
+
+    expect(
+      screen.getByRole('heading', { name: '待办与消息中心' }),
+    ).toBeInTheDocument();
+    expect(screen.getByRole('form', { name: '查询条件' })).toBeInTheDocument();
+    expect(screen.getByText('订阅与免打扰')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: '标记已读' })).toBeDisabled();
+    expect(screen.getByRole('button', { name: '投递 / 重试' })).toBeDisabled();
+  });
 });
