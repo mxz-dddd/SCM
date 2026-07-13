@@ -14,6 +14,9 @@ import { ImportService } from './import.service';
 import { ConfigurationController } from './configuration.controller';
 import { ConfigurationService } from './configuration.service';
 import { IdempotencyService } from './idempotency.service';
+import { JobController } from './job.controller';
+import { JobQueueService } from './job-queue.service';
+import { JobService } from './job.service';
 import { OrganizationController } from './organization.controller';
 import { OrganizationService } from './organization.service';
 import { ObjectStorageService } from './object-storage.service';
@@ -42,6 +45,7 @@ import { WorkflowService } from './workflow.service';
     ConfigurationController,
     DataPolicyController,
     DataExchangeController,
+    JobController,
     NotificationController,
     OrganizationController,
     RoleController,
@@ -60,6 +64,8 @@ import { WorkflowService } from './workflow.service';
     ExportService,
     IdempotencyService,
     ImportService,
+    JobQueueService,
+    JobService,
     NotificationChannelService,
     NotificationService,
     OrganizationService,

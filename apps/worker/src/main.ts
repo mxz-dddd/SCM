@@ -1,9 +1,10 @@
 import { Worker } from 'bullmq';
 import { getRedisConnection } from './connection';
+import { processSystemJob } from './job-runner';
 
 const worker = new Worker(
   'scm-system',
-  async (job) => ({ jobId: job.id, status: 'accepted' }),
+  async (job) => processSystemJob(job),
   { connection: getRedisConnection() },
 );
 

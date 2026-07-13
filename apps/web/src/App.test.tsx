@@ -137,4 +137,19 @@ describe('App', () => {
     expect(screen.getByRole('button', { name: '发布规则版本' })).toBeDisabled();
     expect(screen.getByRole('button', { name: '模拟求值' })).toBeDisabled();
   });
+
+  it('opens the scheduler and asynchronous job workbench', () => {
+    render(<App />);
+
+    fireEvent.click(screen.getByRole('button', { name: '调度' }));
+
+    expect(
+      screen.getByRole('heading', { name: '调度任务与异步执行中心' }),
+    ).toBeInTheDocument();
+    expect(screen.getByText('JobDefinition 调度定义')).toBeInTheDocument();
+    expect(screen.getByText('JobRun 进度与结果')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: '新建调度定义' })).toBeDisabled();
+    expect(screen.getByRole('button', { name: '立即运行' })).toBeDisabled();
+    expect(screen.getByRole('button', { name: '取消运行' })).toBeDisabled();
+  });
 });

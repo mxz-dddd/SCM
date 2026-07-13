@@ -398,6 +398,41 @@ enum RuleEvaluationOutcome {
   @@schema("platform")
 }
 
+enum JobTriggerType {
+  ONCE
+  CRON
+  EVENT
+
+  @@schema("platform")
+}
+
+enum JobDefinitionStatus {
+  ACTIVE
+  PAUSED
+
+  @@schema("platform")
+}
+
+enum JobRunStatus {
+  QUEUED
+  RUNNING
+  CANCEL_REQUESTED
+  SUCCEEDED
+  FAILED
+  CANCELLED
+  TIMED_OUT
+
+  @@schema("platform")
+}
+
+enum JobLogLevel {
+  INFO
+  WARNING
+  ERROR
+
+  @@schema("platform")
+}
+
 /// Executable reference model for the mandatory persistence conventions.
 /// Domain cards replace this fixture with their owned aggregates while retaining
 /// these fields, tenant-first indexes and value-object storage rules.
@@ -1528,6 +1563,90 @@ model EvaluationTrace {
   @@index([tenantId, scenario, createdAt], map: "evaluation_trace_tenant_scenario_created_idx")
   @@index([tenantId, ruleSetId, createdAt], map: "evaluation_trace_tenant_set_created_idx")
   @@map("evaluation_trace")
+  @@schema("platform")
+}
+
+model JobDefinition {
+  id                String              @id @default(uuid()) @db.Uuid
+  tenantId          String              @map("tenant_id") @db.Uuid
+  createdAt         DateTime            @default(now()) @map("created_at") @db.Timestamptz(3)
+  createdBy         String              @map("created_by") @db.Uuid
+  updatedAt         DateTime            @updatedAt @map("updated_at") @db.Timestamptz(3)
+  updatedBy         String              @map("updated_by") @db.Uuid
+  version           Int                 @default(1)
+  status            JobDefinitionStatus @default(ACTIVE)
+  code              String              @db.VarChar(100)
+  name              String              @db.VarChar(200)
+  handler            String              @db.VarChar(100)
+  triggerType       JobTriggerType       @map("trigger_type")
+  cronExpression    String?             @map("cron_expression") @db.VarChar(100)
+  eventName         String?             @map("event_name") @db.VarChar(150)
+  runAt             DateTime?           @map("run_at") @db.Timestamptz(3)
+  concurrencyLimit  Int                 @default(1) @map("concurrency_limit")
+  timeoutSeconds    Int                 @default(300) @map("timeout_seconds")
+  maxAttempts       Int                 @default(3) @map("max_attempts")
+  backoffSeconds    Int                 @default(30) @map("backoff_seconds")
+  defaultPayload    Json                @default("{}") @map("default_payload") @db.JsonB
+
+  @@unique([tenantId, code], map: "job_definition_tenant_code_key")
+  @@index([tenantId, status, triggerType], map: "job_definition_tenant_status_trigger_idx")
+  @@map("job_definition")
+  @@schema("platform")
+}
+
+model JobRun {
+  id                  String       @id @default(uuid()) @db.Uuid
+  tenantId            String       @map("tenant_id") @db.Uuid
+  createdAt           DateTime     @default(now()) @map("created_at") @db.Timestamptz(3)
+  createdBy           String       @map("created_by") @db.Uuid
+  updatedAt           DateTime     @updatedAt @map("updated_at") @db.Timestamptz(3)
+  updatedBy           String       @map("updated_by") @db.Uuid
+  version             Int          @default(1)
+  status              JobRunStatus @default(QUEUED)
+  jobDefinitionId     String       @map("job_definition_id") @db.Uuid
+  definitionVersion   Int          @map("definition_version")
+  handler              String       @db.VarChar(100)
+  triggerType          JobTriggerType @map("trigger_type")
+  triggerRef           String?      @map("trigger_ref") @db.VarChar(200)
+  payload              Json         @db.JsonB
+  progress             Int          @default(0)
+  attempt              Int          @default(0)
+  maxAttempts          Int          @map("max_attempts")
+  timeoutSeconds       Int          @map("timeout_seconds")
+  backoffSeconds       Int          @map("backoff_seconds")
+  scheduledAt          DateTime     @map("scheduled_at") @db.Timestamptz(3)
+  startedAt            DateTime?    @map("started_at") @db.Timestamptz(3)
+  heartbeatAt          DateTime?    @map("heartbeat_at") @db.Timestamptz(3)
+  completedAt          DateTime?    @map("completed_at") @db.Timestamptz(3)
+  leaseOwner           String?      @map("lease_owner") @db.VarChar(200)
+  leaseExpiresAt       DateTime?    @map("lease_expires_at") @db.Timestamptz(3)
+  cancellationReason   String?      @map("cancellation_reason") @db.VarChar(500)
+  failureCode          String?      @map("failure_code") @db.VarChar(100)
+  result               Json         @default("{}") @db.JsonB
+  resultFileObjectId   String?      @map("result_file_object_id") @db.Uuid
+
+  @@index([tenantId, jobDefinitionId, status, scheduledAt], map: "job_run_tenant_definition_status_scheduled_idx")
+  @@index([tenantId, status, leaseExpiresAt], map: "job_run_tenant_status_lease_idx")
+  @@map("job_run")
+  @@schema("platform")
+}
+
+model JobLog {
+  id        String      @id @default(uuid()) @db.Uuid
+  tenantId  String      @map("tenant_id") @db.Uuid
+  createdAt DateTime    @default(now()) @map("created_at") @db.Timestamptz(3)
+  createdBy String      @map("created_by") @db.Uuid
+  updatedAt DateTime    @default(now()) @map("updated_at") @db.Timestamptz(3)
+  updatedBy String      @map("updated_by") @db.Uuid
+  version   Int         @default(1)
+  status    RecordStatus @default(ACTIVE)
+  jobRunId  String      @map("job_run_id") @db.Uuid
+  level     JobLogLevel
+  message   String      @db.VarChar(1000)
+  details   Json        @default("{}") @db.JsonB
+
+  @@index([tenantId, jobRunId, createdAt], map: "job_log_tenant_run_created_idx")
+  @@map("job_log")
   @@schema("platform")
 }
 

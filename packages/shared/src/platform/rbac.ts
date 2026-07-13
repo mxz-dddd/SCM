@@ -234,6 +234,36 @@ export const ADMIN_PERMISSIONS = [
     resourceType: 'API',
   },
   {
+    code: 'platform.job.read',
+    name: '查看调度定义、运行与日志',
+    resourceRef: '/api/v1/platform/jobs/*',
+    resourceType: 'API',
+  },
+  {
+    code: 'platform.job.write',
+    name: '维护调度任务定义',
+    resourceRef: '/api/v1/platform/jobs/definitions',
+    resourceType: 'API',
+  },
+  {
+    code: 'platform.job.trigger',
+    name: '触发调度任务',
+    resourceRef: '/api/v1/platform/jobs/definitions/*/runs',
+    resourceType: 'BUTTON',
+  },
+  {
+    code: 'platform.job.cancel',
+    name: '取消调度任务运行',
+    resourceRef: '/api/v1/platform/jobs/runs/*/cancel',
+    resourceType: 'BUTTON',
+  },
+  {
+    code: 'platform.job.process',
+    name: '领取并回报调度任务',
+    resourceRef: '/api/v1/platform/jobs/runs/*',
+    resourceType: 'API',
+  },
+  {
     code: 'platform.admin.menu',
     name: '平台管理菜单',
     resourceRef: 'platform-admin',
@@ -285,6 +315,12 @@ export const ADMIN_PERMISSIONS = [
     code: 'platform.rule.page',
     name: '规则引擎与决策追踪页面',
     resourceRef: 'platform-rules',
+    resourceType: 'PAGE',
+  },
+  {
+    code: 'platform.job.page',
+    name: '调度任务中心页面',
+    resourceRef: 'platform-jobs',
     resourceType: 'PAGE',
   },
   {
