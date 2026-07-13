@@ -210,6 +210,30 @@ export const ADMIN_PERMISSIONS = [
     resourceType: 'BUTTON',
   },
   {
+    code: 'platform.rule.read',
+    name: '查看规则版本与求值追踪',
+    resourceRef: '/api/v1/platform/rules/*',
+    resourceType: 'API',
+  },
+  {
+    code: 'platform.rule.write',
+    name: '维护并发布规则集',
+    resourceRef: '/api/v1/platform/rules/sets/*',
+    resourceType: 'API',
+  },
+  {
+    code: 'platform.rule.simulate',
+    name: '模拟规则求值',
+    resourceRef: '/api/v1/platform/rules/simulate',
+    resourceType: 'BUTTON',
+  },
+  {
+    code: 'platform.rule.evaluate',
+    name: '执行正式规则求值',
+    resourceRef: '/api/v1/platform/rules/evaluate',
+    resourceType: 'API',
+  },
+  {
     code: 'platform.admin.menu',
     name: '平台管理菜单',
     resourceRef: 'platform-admin',
@@ -255,6 +279,12 @@ export const ADMIN_PERMISSIONS = [
     code: 'platform.workflow.page',
     name: '流程定义与审批中心页面',
     resourceRef: 'platform-workflow',
+    resourceType: 'PAGE',
+  },
+  {
+    code: 'platform.rule.page',
+    name: '规则引擎与决策追踪页面',
+    resourceRef: 'platform-rules',
     resourceType: 'PAGE',
   },
   {

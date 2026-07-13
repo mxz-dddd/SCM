@@ -121,4 +121,20 @@ describe('App', () => {
     expect(screen.getByRole('button', { name: '发布选中版本' })).toBeDisabled();
     expect(screen.getByRole('button', { name: '同意' })).toBeDisabled();
   });
+
+  it('opens the rule engine and evaluation trace workbench', () => {
+    render(<App />);
+
+    fireEvent.click(screen.getByRole('button', { name: '规则' }));
+
+    expect(
+      screen.getByRole('heading', { name: '规则引擎与决策追踪' }),
+    ).toBeInTheDocument();
+    expect(screen.getByText('RuleSet 版本')).toBeInTheDocument();
+    expect(
+      screen.getByText('EvaluationTrace 命中与排除解释'),
+    ).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: '发布规则版本' })).toBeDisabled();
+    expect(screen.getByRole('button', { name: '模拟求值' })).toBeDisabled();
+  });
 });

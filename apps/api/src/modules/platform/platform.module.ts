@@ -21,6 +21,8 @@ import { NotificationChannelService } from './notification-channel.service';
 import { NotificationController } from './notification.controller';
 import { NotificationService } from './notification.service';
 import { RoleController } from './role.controller';
+import { RuleEngineController } from './rule-engine.controller';
+import { RuleEngineService } from './rule-engine.service';
 import { SearchService } from './search.service';
 import { RoleService } from './role.service';
 import { ServiceAccountController } from './service-account.controller';
@@ -43,6 +45,7 @@ import { WorkflowService } from './workflow.service';
     NotificationController,
     OrganizationController,
     RoleController,
+    RuleEngineController,
     ServiceAccountController,
     TenantController,
     WorkspaceController,
@@ -64,6 +67,7 @@ import { WorkflowService } from './workflow.service';
     PermissionGuard,
     PermissionService,
     RoleService,
+    RuleEngineService,
     SearchService,
     ServiceAccountService,
     TenantService,

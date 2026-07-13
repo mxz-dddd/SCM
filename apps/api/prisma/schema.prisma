@@ -376,6 +376,28 @@ enum ApprovalActionType {
   @@schema("platform")
 }
 
+enum RuleSetStatus {
+  DRAFT
+  PUBLISHED
+  RETIRED
+
+  @@schema("platform")
+}
+
+enum RuleEvaluationMode {
+  SIMULATION
+  EXECUTION
+
+  @@schema("platform")
+}
+
+enum RuleEvaluationOutcome {
+  MATCHED
+  NO_MATCH
+
+  @@schema("platform")
+}
+
 /// Executable reference model for the mandatory persistence conventions.
 /// Domain cards replace this fixture with their owned aggregates while retaining
 /// these fields, tenant-first indexes and value-object storage rules.
@@ -1428,6 +1450,84 @@ model ApprovalAction {
   @@index([tenantId, workflowInstanceId, createdAt], map: "approval_action_tenant_instance_created_idx")
   @@index([tenantId, actorAccountId, createdAt], map: "approval_action_tenant_actor_created_idx")
   @@map("approval_action")
+  @@schema("platform")
+}
+
+model RuleSet {
+  id                  String        @id @default(uuid()) @db.Uuid
+  tenantId            String        @map("tenant_id") @db.Uuid
+  createdAt           DateTime      @default(now()) @map("created_at") @db.Timestamptz(3)
+  createdBy           String        @map("created_by") @db.Uuid
+  updatedAt           DateTime      @updatedAt @map("updated_at") @db.Timestamptz(3)
+  updatedBy           String        @map("updated_by") @db.Uuid
+  version             Int           @default(1)
+  status              RuleSetStatus @default(DRAFT)
+  code                String        @db.VarChar(100)
+  name                String        @db.VarChar(200)
+  scenario            String        @db.VarChar(50)
+  versionNumber       Int           @map("version_number")
+  description         String?       @db.VarChar(500)
+  effectiveFrom       DateTime?     @map("effective_from") @db.Timestamptz(3)
+  effectiveTo         DateTime?     @map("effective_to") @db.Timestamptz(3)
+  supersedesVersionId String?       @map("supersedes_version_id") @db.Uuid
+  publishedAt         DateTime?     @map("published_at") @db.Timestamptz(3)
+
+  @@unique([tenantId, code, versionNumber], map: "rule_set_tenant_code_version_key")
+  @@index([tenantId, scenario, status, versionNumber], map: "rule_set_tenant_scenario_status_version_idx")
+  @@map("rule_set")
+  @@schema("platform")
+}
+
+model RuleDefinition {
+  id          String       @id @default(uuid()) @db.Uuid
+  tenantId    String       @map("tenant_id") @db.Uuid
+  createdAt   DateTime     @default(now()) @map("created_at") @db.Timestamptz(3)
+  createdBy   String       @map("created_by") @db.Uuid
+  updatedAt   DateTime     @updatedAt @map("updated_at") @db.Timestamptz(3)
+  updatedBy   String       @map("updated_by") @db.Uuid
+  version     Int          @default(1)
+  status      RecordStatus @default(ACTIVE)
+  ruleSetId   String       @map("rule_set_id") @db.Uuid
+  code        String       @db.VarChar(100)
+  name        String       @db.VarChar(200)
+  priority    Int
+  enabled     Boolean      @default(true)
+  conditions  Json         @db.JsonB
+  result      Json         @db.JsonB
+  stopOnMatch Boolean      @default(false) @map("stop_on_match")
+
+  @@unique([tenantId, ruleSetId, code], map: "rule_definition_tenant_set_code_key")
+  @@index([tenantId, ruleSetId, enabled, priority], map: "rule_definition_tenant_set_enabled_priority_idx")
+  @@map("rule_definition")
+  @@schema("platform")
+}
+
+model EvaluationTrace {
+  id                   String                @id @default(uuid()) @db.Uuid
+  tenantId             String                @map("tenant_id") @db.Uuid
+  createdAt            DateTime              @default(now()) @map("created_at") @db.Timestamptz(3)
+  createdBy            String                @map("created_by") @db.Uuid
+  updatedAt            DateTime              @default(now()) @map("updated_at") @db.Timestamptz(3)
+  updatedBy            String                @map("updated_by") @db.Uuid
+  version              Int                   @default(1)
+  status               RecordStatus          @default(ACTIVE)
+  ruleSetId            String                @map("rule_set_id") @db.Uuid
+  ruleSetCode          String                @map("rule_set_code") @db.VarChar(100)
+  ruleSetVersionNumber Int                   @map("rule_set_version_number")
+  scenario             String                @db.VarChar(50)
+  mode                 RuleEvaluationMode
+  outcome              RuleEvaluationOutcome
+  inputSnapshot        Json                  @map("input_snapshot") @db.JsonB
+  candidateSnapshot    Json                  @map("candidate_snapshot") @db.JsonB
+  evaluatedRules       Json                  @map("evaluated_rules") @db.JsonB
+  matchedRuleIds       Json                  @map("matched_rule_ids") @db.JsonB
+  exclusions           Json                  @db.JsonB
+  decision             Json                  @db.JsonB
+  correlationId        String                @map("correlation_id") @db.VarChar(100)
+
+  @@index([tenantId, scenario, createdAt], map: "evaluation_trace_tenant_scenario_created_idx")
+  @@index([tenantId, ruleSetId, createdAt], map: "evaluation_trace_tenant_set_created_idx")
+  @@map("evaluation_trace")
   @@schema("platform")
 }
 
