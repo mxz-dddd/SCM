@@ -50,4 +50,19 @@ describe('App', () => {
     expect(screen.getByText('单号与号段')).toBeInTheDocument();
     expect(screen.getByRole('button', { name: '新建配置草稿' })).toBeDisabled();
   });
+
+  it('opens the read-only audit and change history workbench', () => {
+    render(<App />);
+
+    fireEvent.click(screen.getByRole('button', { name: '审计' }));
+
+    expect(
+      screen.getByRole('heading', { name: '审计与变更历史' }),
+    ).toBeInTheDocument();
+    expect(screen.getByRole('form', { name: '查询条件' })).toBeInTheDocument();
+    expect(screen.getByText('不可变 ChangeHistory')).toBeInTheDocument();
+    expect(
+      screen.getByRole('button', { name: '导出当前审计视图' }),
+    ).toBeDisabled();
+  });
 });

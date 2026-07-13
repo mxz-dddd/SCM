@@ -1,7 +1,11 @@
 import { PrismaClient } from '@prisma/client';
-import { ADMIN_PERMISSIONS } from '@scm/shared';
+import {
+  ADMIN_PERMISSIONS,
+  READ_ONLY_AUDITOR_PERMISSION_CODES,
+} from '@scm/shared';
 import { hashPassword } from '../src/modules/platform/auth/password';
 import {
+  PLATFORM_AUDITOR_ROLE_ID,
   PLATFORM_OPERATOR_ACCOUNT_ID,
   PLATFORM_OPERATOR_ACCOUNT_ROLE_ID,
   PLATFORM_OPERATOR_ORGANIZATION_ID,
@@ -158,6 +162,46 @@ async function seed() {
         effect: 'ALLOW',
         permissionId,
         roleId: PLATFORM_OPERATOR_ROLE_ID,
+        tenantId: PLATFORM_OPERATOR_TENANT_ID,
+        updatedBy: PLATFORM_OPERATOR_ACCOUNT_ID,
+      },
+      update: {
+        effect: 'ALLOW',
+        updatedBy: PLATFORM_OPERATOR_ACCOUNT_ID,
+      },
+    });
+  }
+  await prisma.role.upsert({
+    where: { id: PLATFORM_AUDITOR_ROLE_ID },
+    create: {
+      code: 'SECURITY_AUDITOR',
+      createdBy: PLATFORM_OPERATOR_ACCOUNT_ID,
+      description: 'Read-only audit log and change history access',
+      id: PLATFORM_AUDITOR_ROLE_ID,
+      name: 'Security Auditor',
+      tenantId: PLATFORM_OPERATOR_TENANT_ID,
+      updatedBy: PLATFORM_OPERATOR_ACCOUNT_ID,
+    },
+    update: {
+      description: 'Read-only audit log and change history access',
+      updatedBy: PLATFORM_OPERATOR_ACCOUNT_ID,
+    },
+  });
+  for (const permissionCode of READ_ONLY_AUDITOR_PERMISSION_CODES) {
+    const permissionId = permissionIds.get(permissionCode)!;
+    await prisma.rolePermission.upsert({
+      where: {
+        tenantId_roleId_permissionId: {
+          permissionId,
+          roleId: PLATFORM_AUDITOR_ROLE_ID,
+          tenantId: PLATFORM_OPERATOR_TENANT_ID,
+        },
+      },
+      create: {
+        createdBy: PLATFORM_OPERATOR_ACCOUNT_ID,
+        effect: 'ALLOW',
+        permissionId,
+        roleId: PLATFORM_AUDITOR_ROLE_ID,
         tenantId: PLATFORM_OPERATOR_TENANT_ID,
         updatedBy: PLATFORM_OPERATOR_ACCOUNT_ID,
       },

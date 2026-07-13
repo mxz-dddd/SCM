@@ -262,3 +262,27 @@ body {
   grid-template-columns: repeat(auto-fit, minmax(360px, 1fr));
   gap: 18px;
 }
+
+.audit-workbench {
+  display: grid;
+  gap: 18px;
+}
+
+.audit-workbench .ant-card-body {
+  display: grid;
+  gap: 14px;
+}
+
+.audit-detail-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(360px, 1fr));
+  gap: 18px;
+}
+
+.audit-detail-grid pre {
+  overflow: auto;
+  max-height: 320px;
+  padding: 12px;
+  border-radius: 8px;
+  background: #f7f9fc;
+}

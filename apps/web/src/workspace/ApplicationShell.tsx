@@ -15,6 +15,7 @@ import {
 } from 'antd';
 import type { WorkspaceContextSelection, WorkspaceTab } from '@scm/shared';
 import { AuthWorkbench } from '../platform/AuthWorkbench';
+import { AuditWorkbench } from '../platform/AuditWorkbench';
 import { ConfigurationWorkbench } from '../platform/ConfigurationWorkbench';
 import { OrganizationRbacWorkbench } from '../platform/OrganizationRbacWorkbench';
 import { useSessionStore } from '../platform/session-store';
@@ -44,6 +45,12 @@ const pageRegistry: readonly WorkspaceTab[] = [
     route: '/platform/configuration',
     title: '配置中心',
   },
+  {
+    dirty: false,
+    id: 'audit',
+    route: '/platform/audit',
+    title: '审计中心',
+  },
   { dirty: false, id: 'orders', route: '/oms/orders', title: '订单中心' },
   { dirty: false, id: 'inventory', route: '/wms/inventory', title: '库存视图' },
   { dirty: false, id: 'transport', route: '/tms/shipments', title: '运输执行' },
@@ -54,6 +61,7 @@ const modules = [
   ['平台', 'rbac'],
   ['组件', 'components'],
   ['配置', 'configuration'],
+  ['审计', 'audit'],
   ['订单', 'orders'],
   ['仓储', 'inventory'],
   ['运输', 'transport'],
@@ -192,6 +200,7 @@ export function ApplicationShell() {
     if (tabId === 'rbac') return <OrganizationRbacWorkbench />;
     if (tabId === 'components') return <ComponentGallery />;
     if (tabId === 'configuration') return <ConfigurationWorkbench />;
+    if (tabId === 'audit') return <AuditWorkbench />;
     return (
       <section className="workspace-placeholder">
         <Typography.Title level={2}>

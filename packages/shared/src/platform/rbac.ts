@@ -60,6 +60,12 @@ export const ADMIN_PERMISSIONS = [
     resourceType: 'API',
   },
   {
+    code: 'platform.audit.read',
+    name: '只读查询审计与变更历史',
+    resourceRef: '/api/v1/platform/audit/*',
+    resourceType: 'API',
+  },
+  {
     code: 'platform.admin.menu',
     name: '平台管理菜单',
     resourceRef: 'platform-admin',
@@ -75,6 +81,12 @@ export const ADMIN_PERMISSIONS = [
     code: 'platform.configuration.page',
     name: '配置中心页面',
     resourceRef: 'platform-configuration',
+    resourceType: 'PAGE',
+  },
+  {
+    code: 'platform.audit.page',
+    name: '审计查询页面',
+    resourceRef: 'platform-audit',
     resourceType: 'PAGE',
   },
   {
@@ -101,12 +113,24 @@ export const ADMIN_PERMISSIONS = [
     resourceRef: 'platform-rbac.csv',
     resourceType: 'EXPORT',
   },
+  {
+    code: 'platform.audit.export',
+    name: '导出审计查询结果',
+    resourceRef: 'platform-audit.csv',
+    resourceType: 'EXPORT',
+  },
 ] as const satisfies ReadonlyArray<{
   code: string;
   name: string;
   resourceRef: string;
   resourceType: PermissionResourceType;
 }>;
+
+export const READ_ONLY_AUDITOR_PERMISSION_CODES = [
+  'platform.audit.read',
+  'platform.audit.page',
+  'platform.audit.export',
+] as const;
 
 export interface PermissionGrant {
   readonly effect: PermissionEffect;

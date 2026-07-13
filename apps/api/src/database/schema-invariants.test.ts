@@ -74,4 +74,10 @@ describe('Prisma data baseline', () => {
   it('does not introduce cross-domain foreign keys', () => {
     expect(migration).not.toContain('FOREIGN KEY');
   });
+
+  it('keeps audit and change history immutable at the database boundary', () => {
+    expect(migration).toContain('audit_log_immutable');
+    expect(migration).toContain('change_history_immutable');
+    expect(migration).toContain('audit_log_capture_change_history');
+  });
 });

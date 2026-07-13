@@ -1,7 +1,10 @@
 import { Inject, Injectable } from '@nestjs/common';
 import { AppError } from '../../../common/app-error';
 import { PrismaService } from '../../../database/prisma.service';
-import { PLATFORM_OPERATOR_TENANT_ID } from '../platform.constants';
+import {
+  PLATFORM_OPERATOR_ACCOUNT_ID,
+  PLATFORM_OPERATOR_TENANT_ID,
+} from '../platform.constants';
 import { JwtTokenService } from './jwt-token.service';
 import { verifyPassword } from './password';
 
@@ -137,6 +140,23 @@ export class AuthService {
           username,
         },
       }),
+      this.prisma.platformAuditLog.create({
+        data: {
+          action: 'auth.login',
+          category: 'LOGIN',
+          correlationId: metadata.correlationId,
+          createdBy: account.id,
+          deviceId: input.deviceId,
+          ipAddress: metadata.ipAddress ?? null,
+          outcome: 'SUCCESS',
+          requestMethod: 'POST',
+          requestPath: '/api/v1/auth/login',
+          resourceId: account.id,
+          resourceType: 'Account',
+          tenantId: tenant.tenantId,
+          updatedBy: account.id,
+        },
+      }),
     ]);
 
     const issued = this.tokens.issue({
@@ -171,20 +191,44 @@ export class AuthService {
     tenantId: string;
     username: string;
   }): Promise<void> {
-    await this.prisma.loginAudit.create({
-      data: {
-        accountId: input.accountId,
-        correlationId: input.metadata.correlationId,
-        createdBy: input.accountId ?? input.tenantId,
-        deviceId: input.input.deviceId,
-        factors: ['password'],
-        failureCode: input.failureCode,
-        ipAddress: input.metadata.ipAddress ?? null,
-        outcome: input.outcome,
-        tenantId: input.tenantId,
-        updatedBy: input.accountId ?? input.tenantId,
-        username: input.username,
-      },
-    });
+    const actorId = input.accountId ?? PLATFORM_OPERATOR_ACCOUNT_ID;
+    await Promise.all([
+      this.prisma.loginAudit.create({
+        data: {
+          accountId: input.accountId,
+          correlationId: input.metadata.correlationId,
+          createdBy: actorId,
+          deviceId: input.input.deviceId,
+          factors: ['password'],
+          failureCode: input.failureCode,
+          ipAddress: input.metadata.ipAddress ?? null,
+          outcome: input.outcome,
+          tenantId: input.tenantId,
+          updatedBy: actorId,
+          username: input.username,
+        },
+      }),
+      this.prisma.platformAuditLog.create({
+        data: {
+          action: 'auth.login',
+          category: 'LOGIN',
+          correlationId: input.metadata.correlationId,
+          createdBy: actorId,
+          deviceId: input.input.deviceId,
+          ipAddress: input.metadata.ipAddress ?? null,
+          outcome: 'FAILURE',
+          queryCriteria: {
+            failureCode: input.failureCode,
+            username: input.username,
+          },
+          requestMethod: 'POST',
+          requestPath: '/api/v1/auth/login',
+          resourceId: input.accountId ?? input.tenantId,
+          resourceType: 'Account',
+          tenantId: input.tenantId,
+          updatedBy: actorId,
+        },
+      }),
+    ]);
   }
 }

@@ -168,6 +168,26 @@ enum PublishRecordStatus {
   @@schema("platform")
 }
 
+enum AuditCategory {
+  LOGIN
+  SENSITIVE_QUERY
+  EXPORT
+  APPROVAL
+  API_CALL
+  BUSINESS_CHANGE
+  SECURITY
+
+  @@schema("platform")
+}
+
+enum AuditOutcome {
+  SUCCESS
+  DENIED
+  FAILURE
+
+  @@schema("platform")
+}
+
 enum SequenceResetPeriod {
   NEVER
   DAILY
@@ -597,6 +617,40 @@ model LoginAudit {
 }
 
 model PlatformAuditLog {
+  id             String        @id @default(uuid()) @db.Uuid
+  tenantId       String        @map("tenant_id") @db.Uuid
+  createdAt      DateTime      @default(now()) @map("created_at") @db.Timestamptz(3)
+  createdBy      String        @map("created_by") @db.Uuid
+  updatedAt      DateTime      @updatedAt @map("updated_at") @db.Timestamptz(3)
+  updatedBy      String        @map("updated_by") @db.Uuid
+  version        Int           @default(1)
+  status         RecordStatus  @default(ACTIVE)
+  category       AuditCategory @default(BUSINESS_CHANGE)
+  outcome        AuditOutcome  @default(SUCCESS)
+  action         String        @db.VarChar(100)
+  resourceType   String        @map("resource_type") @db.VarChar(100)
+  resourceId     String        @map("resource_id") @db.Uuid
+  businessRef    String?       @map("business_ref") @db.VarChar(200)
+  before         Json?         @db.JsonB
+  after          Json?         @db.JsonB
+  requestMethod  String?       @map("request_method") @db.VarChar(16)
+  requestPath    String?       @map("request_path") @db.VarChar(500)
+  queryCriteria  Json?         @map("query_criteria") @db.JsonB
+  resultCount    Int?          @map("result_count")
+  exportedFields Json?         @map("exported_fields") @db.JsonB
+  correlationId  String        @map("correlation_id") @db.VarChar(100)
+  ipAddress      String?       @map("ip_address") @db.VarChar(64)
+  deviceId       String?       @map("device_id") @db.VarChar(200)
+
+  @@index([tenantId, resourceType, resourceId], map: "platform_audit_tenant_resource_idx")
+  @@index([tenantId, createdAt], map: "platform_audit_tenant_created_idx")
+  @@index([tenantId, category, createdAt], map: "platform_audit_tenant_category_created_idx")
+  @@index([tenantId, businessRef, createdAt], map: "platform_audit_tenant_business_created_idx")
+  @@map("audit_log")
+  @@schema("platform")
+}
+
+model ChangeHistory {
   id            String       @id @default(uuid()) @db.Uuid
   tenantId      String       @map("tenant_id") @db.Uuid
   createdAt     DateTime     @default(now()) @map("created_at") @db.Timestamptz(3)
@@ -605,18 +659,24 @@ model PlatformAuditLog {
   updatedBy     String       @map("updated_by") @db.Uuid
   version       Int          @default(1)
   status        RecordStatus @default(ACTIVE)
-  action        String       @db.VarChar(100)
+  auditLogId    String       @unique(map: "change_history_audit_log_key") @map("audit_log_id") @db.Uuid
   resourceType  String       @map("resource_type") @db.VarChar(100)
   resourceId    String       @map("resource_id") @db.Uuid
+  businessRef   String?      @map("business_ref") @db.VarChar(200)
+  action        String       @db.VarChar(100)
   before        Json?        @db.JsonB
   after         Json?        @db.JsonB
+  changedFields Json         @map("changed_fields") @db.JsonB
+  actorId       String       @map("actor_id") @db.Uuid
   correlationId String       @map("correlation_id") @db.VarChar(100)
   ipAddress     String?      @map("ip_address") @db.VarChar(64)
   deviceId      String?      @map("device_id") @db.VarChar(200)
+  changedAt     DateTime     @default(now()) @map("changed_at") @db.Timestamptz(3)
 
-  @@index([tenantId, resourceType, resourceId], map: "platform_audit_tenant_resource_idx")
-  @@index([tenantId, createdAt], map: "platform_audit_tenant_created_idx")
-  @@map("audit_log")
+  @@index([tenantId, resourceType, resourceId, changedAt], map: "change_history_tenant_resource_changed_idx")
+  @@index([tenantId, businessRef, changedAt], map: "change_history_tenant_business_changed_idx")
+  @@index([tenantId, actorId, changedAt], map: "change_history_tenant_actor_changed_idx")
+  @@map("change_history")
   @@schema("platform")
 }
 

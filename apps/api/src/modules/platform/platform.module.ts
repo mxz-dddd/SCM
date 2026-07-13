@@ -1,4 +1,6 @@
 import { Module } from '@nestjs/common';
+import { AuditController } from './audit.controller';
+import { AuditService } from './audit.service';
 import { AuthModule } from './auth/auth.module';
 import { PermissionGuard } from './auth/permission.guard';
 import { PermissionService } from './auth/permission.service';
@@ -20,6 +22,7 @@ import { WorkspaceService } from './workspace.service';
 
 @Module({
   controllers: [
+    AuditController,
     ConfigurationController,
     DataPolicyController,
     OrganizationController,
@@ -30,6 +33,7 @@ import { WorkspaceService } from './workspace.service';
   ],
   imports: [AuthModule],
   providers: [
+    AuditService,
     ConfigurationService,
     DataPolicyService,
     IdempotencyService,

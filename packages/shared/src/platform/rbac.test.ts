@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
   ADMIN_PERMISSIONS,
+  READ_ONLY_AUDITOR_PERMISSION_CODES,
   buildOrganizationPath,
   collectRoleLineage,
   resolvePermission,
@@ -75,5 +76,18 @@ describe('RBAC resolution', () => {
     expect(
       new Set(ADMIN_PERMISSIONS.map(({ resourceType }) => resourceType)),
     ).toEqual(new Set(['MENU', 'PAGE', 'API', 'BUTTON', 'FIELD', 'EXPORT']));
+  });
+
+  it('keeps the security auditor role read-only', () => {
+    expect(READ_ONLY_AUDITOR_PERMISSION_CODES).toEqual([
+      'platform.audit.read',
+      'platform.audit.page',
+      'platform.audit.export',
+    ]);
+    expect(
+      READ_ONLY_AUDITOR_PERMISSION_CODES.some((code) =>
+        code.endsWith('.write'),
+      ),
+    ).toBe(false);
   });
 });
