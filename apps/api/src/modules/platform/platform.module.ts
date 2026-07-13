@@ -30,6 +30,8 @@ import { TenantService } from './tenant.service';
 import { WorkspaceController } from './workspace.controller';
 import { WorkspaceService } from './workspace.service';
 import { WatermarkService } from './watermark.service';
+import { WorkflowController } from './workflow.controller';
+import { WorkflowService } from './workflow.service';
 
 @Module({
   controllers: [
@@ -44,6 +46,7 @@ import { WatermarkService } from './watermark.service';
     ServiceAccountController,
     TenantController,
     WorkspaceController,
+    WorkflowController,
   ],
   imports: [AuthModule],
   providers: [
@@ -66,6 +69,7 @@ import { WatermarkService } from './watermark.service';
     TenantService,
     WorkspaceService,
     WatermarkService,
+    WorkflowService,
   ],
 })
 export class PlatformModule {}

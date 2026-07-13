@@ -336,6 +336,46 @@ enum SavedViewVisibility {
   @@schema("platform")
 }
 
+enum WorkflowDefinitionStatus {
+  DRAFT
+  PUBLISHED
+  RETIRED
+
+  @@schema("platform")
+}
+
+enum WorkflowInstanceStatus {
+  PENDING
+  APPROVED
+  REJECTED
+  RETURNED
+  CANCELLED
+
+  @@schema("platform")
+}
+
+enum ApprovalTaskStatus {
+  PENDING
+  APPROVED
+  REJECTED
+  RETURNED
+  CANCELLED
+  TRANSFERRED
+
+  @@schema("platform")
+}
+
+enum ApprovalActionType {
+  APPROVE
+  REJECT
+  RETURN
+  ADD_SIGN
+  TRANSFER
+  WITHDRAW
+
+  @@schema("platform")
+}
+
 /// Executable reference model for the mandatory persistence conventions.
 /// Domain cards replace this fixture with their owned aggregates while retaining
 /// these fields, tenant-first indexes and value-object storage rules.
@@ -1285,6 +1325,109 @@ model SavedView {
   @@unique([tenantId, ownerAccountId, resourceType, name], map: "saved_view_tenant_owner_resource_name_key")
   @@index([tenantId, resourceType, visibility, status], map: "saved_view_tenant_resource_visibility_status_idx")
   @@map("saved_view")
+  @@schema("platform")
+}
+
+model WorkflowDefinition {
+  id                  String                   @id @default(uuid()) @db.Uuid
+  tenantId            String                   @map("tenant_id") @db.Uuid
+  createdAt           DateTime                 @default(now()) @map("created_at") @db.Timestamptz(3)
+  createdBy           String                   @map("created_by") @db.Uuid
+  updatedAt           DateTime                 @updatedAt @map("updated_at") @db.Timestamptz(3)
+  updatedBy           String                   @map("updated_by") @db.Uuid
+  version             Int                      @default(1)
+  status              WorkflowDefinitionStatus @default(DRAFT)
+  code                String                   @db.VarChar(100)
+  name                String                   @db.VarChar(200)
+  description         String?                  @db.VarChar(500)
+  versionNumber       Int                      @map("version_number")
+  definition          Json                     @db.JsonB
+  supersedesVersionId String?                  @map("supersedes_version_id") @db.Uuid
+  publishedAt         DateTime?                @map("published_at") @db.Timestamptz(3)
+  retiredAt           DateTime?                @map("retired_at") @db.Timestamptz(3)
+
+  @@unique([tenantId, code, versionNumber], map: "workflow_definition_tenant_code_version_key")
+  @@index([tenantId, code, status, versionNumber], map: "workflow_definition_tenant_code_status_version_idx")
+  @@map("workflow_definition")
+  @@schema("platform")
+}
+
+model WorkflowInstance {
+  id                      String                 @id @default(uuid()) @db.Uuid
+  tenantId                String                 @map("tenant_id") @db.Uuid
+  createdAt               DateTime               @default(now()) @map("created_at") @db.Timestamptz(3)
+  createdBy               String                 @map("created_by") @db.Uuid
+  updatedAt               DateTime               @updatedAt @map("updated_at") @db.Timestamptz(3)
+  updatedBy               String                 @map("updated_by") @db.Uuid
+  version                 Int                    @default(1)
+  status                  WorkflowInstanceStatus @default(PENDING)
+  workflowDefinitionId    String                 @map("workflow_definition_id") @db.Uuid
+  definitionCode          String                 @map("definition_code") @db.VarChar(100)
+  definitionVersionNumber Int                    @map("definition_version_number")
+  definitionSnapshot      Json                   @map("definition_snapshot") @db.JsonB
+  businessDomain          String                 @map("business_domain") @db.VarChar(50)
+  objectType              String                 @map("object_type") @db.VarChar(100)
+  objectId                String                 @map("object_id") @db.Uuid
+  businessRef             String                 @map("business_ref") @db.VarChar(200)
+  requesterId             String                 @map("requester_id") @db.Uuid
+  organizationId          String?                @map("organization_id") @db.Uuid
+  currentNodeKey          String                 @map("current_node_key") @db.VarChar(100)
+  variables               Json                   @default("{}") @db.JsonB
+  startedAt               DateTime               @default(now()) @map("started_at") @db.Timestamptz(3)
+  completedAt             DateTime?              @map("completed_at") @db.Timestamptz(3)
+
+  @@index([tenantId, status, startedAt], map: "workflow_instance_tenant_status_started_idx")
+  @@index([tenantId, businessDomain, objectType, objectId], map: "workflow_instance_tenant_object_idx")
+  @@index([tenantId, requesterId, status], map: "workflow_instance_tenant_requester_status_idx")
+  @@map("workflow_instance")
+  @@schema("platform")
+}
+
+model ApprovalTask {
+  id                 String             @id @default(uuid()) @db.Uuid
+  tenantId           String             @map("tenant_id") @db.Uuid
+  createdAt          DateTime           @default(now()) @map("created_at") @db.Timestamptz(3)
+  createdBy          String             @map("created_by") @db.Uuid
+  updatedAt          DateTime           @updatedAt @map("updated_at") @db.Timestamptz(3)
+  updatedBy          String             @map("updated_by") @db.Uuid
+  version            Int                @default(1)
+  status             ApprovalTaskStatus @default(PENDING)
+  workflowInstanceId String             @map("workflow_instance_id") @db.Uuid
+  nodeKey            String             @map("node_key") @db.VarChar(100)
+  assigneeAccountId  String             @map("assignee_account_id") @db.Uuid
+  candidateSnapshot  Json               @map("candidate_snapshot") @db.JsonB
+  delegatedFromId    String?            @map("delegated_from_id") @db.Uuid
+  dueAt              DateTime?          @map("due_at") @db.Timestamptz(3)
+  completedAt        DateTime?          @map("completed_at") @db.Timestamptz(3)
+
+  @@index([tenantId, assigneeAccountId, status, dueAt], map: "approval_task_tenant_assignee_status_due_idx")
+  @@index([tenantId, workflowInstanceId, nodeKey, status], map: "approval_task_tenant_instance_node_status_idx")
+  @@map("approval_task")
+  @@schema("platform")
+}
+
+model ApprovalAction {
+  id                 String             @id @default(uuid()) @db.Uuid
+  tenantId           String             @map("tenant_id") @db.Uuid
+  createdAt          DateTime           @default(now()) @map("created_at") @db.Timestamptz(3)
+  createdBy          String             @map("created_by") @db.Uuid
+  updatedAt          DateTime           @default(now()) @map("updated_at") @db.Timestamptz(3)
+  updatedBy          String             @map("updated_by") @db.Uuid
+  version            Int                @default(1)
+  status             RecordStatus       @default(ACTIVE)
+  workflowInstanceId String             @map("workflow_instance_id") @db.Uuid
+  approvalTaskId     String?            @map("approval_task_id") @db.Uuid
+  action             ApprovalActionType
+  actorAccountId     String             @map("actor_account_id") @db.Uuid
+  targetAccountId    String?            @map("target_account_id") @db.Uuid
+  fromStatus         String             @map("from_status") @db.VarChar(50)
+  toStatus           String             @map("to_status") @db.VarChar(50)
+  comment            String?            @db.VarChar(1000)
+  metadata           Json               @default("{}") @db.JsonB
+
+  @@index([tenantId, workflowInstanceId, createdAt], map: "approval_action_tenant_instance_created_idx")
+  @@index([tenantId, actorAccountId, createdAt], map: "approval_action_tenant_actor_created_idx")
+  @@map("approval_action")
   @@schema("platform")
 }
 

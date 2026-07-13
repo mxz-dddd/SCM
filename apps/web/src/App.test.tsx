@@ -107,4 +107,18 @@ describe('App', () => {
     expect(screen.getByText('异步脱敏导出与限时下载')).toBeInTheDocument();
     expect(screen.getByRole('button', { name: /创建导入预检/ })).toBeDisabled();
   });
+
+  it('opens versioned workflows and the unified approval center', () => {
+    render(<App />);
+
+    fireEvent.click(screen.getByRole('button', { name: '审批' }));
+
+    expect(
+      screen.getByRole('heading', { name: '工作流与统一审批中心' }),
+    ).toBeInTheDocument();
+    expect(screen.getByText('WorkflowDefinition 版本')).toBeInTheDocument();
+    expect(screen.getByText('我的审批任务')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: '发布选中版本' })).toBeDisabled();
+    expect(screen.getByRole('button', { name: '同意' })).toBeDisabled();
+  });
 });

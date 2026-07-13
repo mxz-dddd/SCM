@@ -180,6 +180,36 @@ export const ADMIN_PERMISSIONS = [
     resourceType: 'API',
   },
   {
+    code: 'platform.workflow-definition.read',
+    name: '查看流程定义与版本',
+    resourceRef: '/api/v1/platform/workflow-definitions',
+    resourceType: 'API',
+  },
+  {
+    code: 'platform.workflow-definition.write',
+    name: '维护并发布流程定义版本',
+    resourceRef: '/api/v1/platform/workflow-definitions/*',
+    resourceType: 'API',
+  },
+  {
+    code: 'platform.workflow.start',
+    name: '发起与撤回工作流实例',
+    resourceRef: '/api/v1/platform/workflow-instances/*',
+    resourceType: 'API',
+  },
+  {
+    code: 'platform.approval.read',
+    name: '查看审批任务与历史',
+    resourceRef: '/api/v1/platform/approval-tasks',
+    resourceType: 'API',
+  },
+  {
+    code: 'platform.approval.act',
+    name: '执行审批与批量动作',
+    resourceRef: '/api/v1/platform/approval-tasks/*',
+    resourceType: 'BUTTON',
+  },
+  {
     code: 'platform.admin.menu',
     name: '平台管理菜单',
     resourceRef: 'platform-admin',
@@ -219,6 +249,12 @@ export const ADMIN_PERMISSIONS = [
     code: 'platform.data-exchange.page',
     name: '导入导出与统一搜索页面',
     resourceRef: 'platform-data-exchange',
+    resourceType: 'PAGE',
+  },
+  {
+    code: 'platform.workflow.page',
+    name: '流程定义与审批中心页面',
+    resourceRef: 'platform-workflow',
     resourceType: 'PAGE',
   },
   {
