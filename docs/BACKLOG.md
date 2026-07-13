@@ -19,7 +19,7 @@
 - [x] P1-07 统一组件库+Action Registry：QueryPanel、DataGrid（服务端分页/固定列/列显隐/批量选择/行右键/导出视图）、CommandBar、MasterDetail（version 冲突提示）、StatusBadge/Stepper、Timeline、TaskWorkbench、Drawer/Modal、Toast/消息中心壳、FieldUpdater；动作统一注册（权限+状态条件+确认文案）（§4.2/4.3）
 - [x] P1-08 配置/字典/单号：分层配置继承覆盖+版本发布（差异预览/灰度/回滚）、业务字典与原因码（停用不影响历史）、单号规则（号段并发防重） [PLT-009, PLT-010, PLT-011]
 - [x] P1-09 审计：AuditLog+ChangeHistory（before/after、IP/设备、traceId）、敏感查询与导出留痕、审计查询页（只读角色） [PLT-020]
-- [ ] P1-10 附件：MinIO 预签名上传、类型/大小/病毒扫描钩子、AttachmentLink 关联业务对象、权限校验与水印下载 [PLT-016]
+- [x] P1-10 附件：MinIO 预签名上传、类型/大小/病毒扫描钩子、AttachmentLink 关联业务对象、权限校验与水印下载 [PLT-016]
 - [ ] P1-11 待办与通知：InboxItem 聚合（审批/异常/到期/接口失败）、通知模板（变量白名单）+站内/邮件/短信/推送通道抽象、订阅偏好与升级、失败重试 [PLT-008, PLT-019]
 - [ ] P1-12 导入导出与搜索：Excel/CSV 导入（预检→逐行错误→异步→回执）、导出（复用筛选/脱敏/异步/有效期/审计）、统一搜索+SavedView [PLT-021, PLT-022, PLT-023]
 - [ ] P1-13 工作流与审批：WorkflowDefinition 版本化（节点/条件/候选人/超时/回退）、实例绑定不可变版本、审批中心（同意/拒绝/退回/加签/转交/撤回/批量） [PLT-012, PLT-013]

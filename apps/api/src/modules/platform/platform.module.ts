@@ -1,4 +1,6 @@
 import { Module } from '@nestjs/common';
+import { AttachmentController } from './attachment.controller';
+import { AttachmentService } from './attachment.service';
 import { AuditController } from './audit.controller';
 import { AuditService } from './audit.service';
 import { AuthModule } from './auth/auth.module';
@@ -11,6 +13,7 @@ import { ConfigurationService } from './configuration.service';
 import { IdempotencyService } from './idempotency.service';
 import { OrganizationController } from './organization.controller';
 import { OrganizationService } from './organization.service';
+import { ObjectStorageService } from './object-storage.service';
 import { RoleController } from './role.controller';
 import { RoleService } from './role.service';
 import { ServiceAccountController } from './service-account.controller';
@@ -19,9 +22,11 @@ import { TenantController } from './tenant.controller';
 import { TenantService } from './tenant.service';
 import { WorkspaceController } from './workspace.controller';
 import { WorkspaceService } from './workspace.service';
+import { WatermarkService } from './watermark.service';
 
 @Module({
   controllers: [
+    AttachmentController,
     AuditController,
     ConfigurationController,
     DataPolicyController,
@@ -33,17 +38,20 @@ import { WorkspaceService } from './workspace.service';
   ],
   imports: [AuthModule],
   providers: [
+    AttachmentService,
     AuditService,
     ConfigurationService,
     DataPolicyService,
     IdempotencyService,
     OrganizationService,
+    ObjectStorageService,
     PermissionGuard,
     PermissionService,
     RoleService,
     ServiceAccountService,
     TenantService,
     WorkspaceService,
+    WatermarkService,
   ],
 })
 export class PlatformModule {}

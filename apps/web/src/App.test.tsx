@@ -65,4 +65,18 @@ describe('App', () => {
       screen.getByRole('button', { name: '导出当前审计视图' }),
     ).toBeDisabled();
   });
+
+  it('opens the presigned upload and watermarked download workbench', () => {
+    render(<App />);
+
+    fireEvent.click(screen.getByRole('button', { name: '附件' }));
+
+    expect(
+      screen.getByRole('heading', { name: '附件与对象存储' }),
+    ).toBeInTheDocument();
+    expect(screen.getByRole('form', { name: '查询条件' })).toBeInTheDocument();
+    expect(screen.getByText('上传并关联业务对象')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: '选择并上传' })).toBeDisabled();
+    expect(screen.getByRole('button', { name: '授权下载' })).toBeDisabled();
+  });
 });

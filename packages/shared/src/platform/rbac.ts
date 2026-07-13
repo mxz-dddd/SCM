@@ -66,6 +66,30 @@ export const ADMIN_PERMISSIONS = [
     resourceType: 'API',
   },
   {
+    code: 'platform.attachment.read',
+    name: '查看附件与业务关联',
+    resourceRef: '/api/v1/platform/attachments',
+    resourceType: 'API',
+  },
+  {
+    code: 'platform.attachment.write',
+    name: '上传附件与维护业务关联',
+    resourceRef: '/api/v1/platform/attachments/*',
+    resourceType: 'API',
+  },
+  {
+    code: 'platform.attachment.scan',
+    name: '回写附件病毒扫描结果',
+    resourceRef: '/api/v1/platform/attachments/*/scan-results',
+    resourceType: 'API',
+  },
+  {
+    code: 'platform.attachment.download',
+    name: '下载授权范围内附件',
+    resourceRef: '/api/v1/platform/attachments/*/downloads',
+    resourceType: 'API',
+  },
+  {
     code: 'platform.admin.menu',
     name: '平台管理菜单',
     resourceRef: 'platform-admin',
@@ -87,6 +111,12 @@ export const ADMIN_PERMISSIONS = [
     code: 'platform.audit.page',
     name: '审计查询页面',
     resourceRef: 'platform-audit',
+    resourceType: 'PAGE',
+  },
+  {
+    code: 'platform.attachment.page',
+    name: '附件中心页面',
+    resourceRef: 'platform-attachments',
     resourceType: 'PAGE',
   },
   {
