@@ -48,6 +48,18 @@ export const ADMIN_PERMISSIONS = [
     resourceType: 'API',
   },
   {
+    code: 'platform.configuration.read',
+    name: '查看配置字典与单号规则',
+    resourceRef: '/api/v1/platform/configuration/*',
+    resourceType: 'API',
+  },
+  {
+    code: 'platform.configuration.write',
+    name: '维护配置字典与单号规则',
+    resourceRef: '/api/v1/platform/configuration/*',
+    resourceType: 'API',
+  },
+  {
     code: 'platform.admin.menu',
     name: '平台管理菜单',
     resourceRef: 'platform-admin',
@@ -60,9 +72,21 @@ export const ADMIN_PERMISSIONS = [
     resourceType: 'PAGE',
   },
   {
+    code: 'platform.configuration.page',
+    name: '配置中心页面',
+    resourceRef: 'platform-configuration',
+    resourceType: 'PAGE',
+  },
+  {
     code: 'platform.organization.move',
     name: '移动组织按钮',
     resourceRef: 'organization.move',
+    resourceType: 'BUTTON',
+  },
+  {
+    code: 'platform.configuration.publish',
+    name: '发布与回滚配置按钮',
+    resourceRef: 'configuration.publish',
     resourceType: 'BUTTON',
   },
   {

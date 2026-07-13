@@ -137,6 +137,46 @@ enum OutboxStatus {
   @@schema("platform")
 }
 
+enum ConfigScopeType {
+  TENANT
+  ORGANIZATION
+  WAREHOUSE
+  CUSTOMER
+
+  @@schema("platform")
+}
+
+enum ConfigVersionStatus {
+  DRAFT
+  PUBLISHED
+  RETIRED
+
+  @@schema("platform")
+}
+
+enum ConfigPublishAction {
+  PUBLISH
+  ROLLBACK
+
+  @@schema("platform")
+}
+
+enum PublishRecordStatus {
+  COMPLETED
+  FAILED
+
+  @@schema("platform")
+}
+
+enum SequenceResetPeriod {
+  NEVER
+  DAILY
+  MONTHLY
+  YEARLY
+
+  @@schema("platform")
+}
+
 /// Executable reference model for the mandatory persistence conventions.
 /// Domain cards replace this fixture with their owned aggregates while retaining
 /// these fields, tenant-first indexes and value-object storage rules.
@@ -623,5 +663,142 @@ model IdempotencyRecord {
   @@unique([tenantId, scope, key], map: "idempotency_tenant_scope_key")
   @@index([tenantId, expiresAt], map: "idempotency_tenant_expires_idx")
   @@map("idempotency_record")
+  @@schema("platform")
+}
+
+model ConfigVersion {
+  id                  String              @id @default(uuid()) @db.Uuid
+  tenantId            String              @map("tenant_id") @db.Uuid
+  createdAt           DateTime            @default(now()) @map("created_at") @db.Timestamptz(3)
+  createdBy           String              @map("created_by") @db.Uuid
+  updatedAt           DateTime            @updatedAt @map("updated_at") @db.Timestamptz(3)
+  updatedBy           String              @map("updated_by") @db.Uuid
+  version             Int                 @default(1)
+  status              ConfigVersionStatus @default(DRAFT)
+  configKey           String              @map("config_key") @db.VarChar(150)
+  scopeType           ConfigScopeType     @map("scope_type")
+  scopeRef            String              @map("scope_ref") @db.VarChar(100)
+  versionNumber       Int                 @map("version_number")
+  values              Json                @db.JsonB
+  dependencyKeys      Json                @default("[]") @map("dependency_keys") @db.JsonB
+  rolloutPercentage   Int                 @default(100) @map("rollout_percentage")
+  effectiveFrom       DateTime?           @map("effective_from") @db.Timestamptz(3)
+  publishedAt         DateTime?           @map("published_at") @db.Timestamptz(3)
+  supersedesVersionId String?             @map("supersedes_version_id") @db.Uuid
+
+  @@unique([tenantId, configKey, scopeType, scopeRef, versionNumber], map: "config_version_tenant_key_scope_version_key")
+  @@index([tenantId, configKey, scopeType, scopeRef, status], map: "config_version_tenant_key_scope_status_idx")
+  @@map("config_version")
+  @@schema("platform")
+}
+
+model ConfigPublishRecord {
+  id                String              @id @default(uuid()) @db.Uuid
+  tenantId          String              @map("tenant_id") @db.Uuid
+  createdAt         DateTime            @default(now()) @map("created_at") @db.Timestamptz(3)
+  createdBy         String              @map("created_by") @db.Uuid
+  updatedAt         DateTime            @updatedAt @map("updated_at") @db.Timestamptz(3)
+  updatedBy         String              @map("updated_by") @db.Uuid
+  version           Int                 @default(1)
+  status            PublishRecordStatus @default(COMPLETED)
+  configVersionId   String              @map("config_version_id") @db.Uuid
+  previousVersionId String?             @map("previous_version_id") @db.Uuid
+  action            ConfigPublishAction
+  rolloutPercentage Int                 @map("rollout_percentage")
+  difference        Json                @db.JsonB
+  publishedAt       DateTime            @default(now()) @map("published_at") @db.Timestamptz(3)
+
+  @@index([tenantId, configVersionId, publishedAt], map: "config_publish_tenant_version_published_idx")
+  @@map("config_publish_record")
+  @@schema("platform")
+}
+
+model BusinessDictionary {
+  id          String       @id @default(uuid()) @db.Uuid
+  tenantId    String       @map("tenant_id") @db.Uuid
+  createdAt   DateTime     @default(now()) @map("created_at") @db.Timestamptz(3)
+  createdBy   String       @map("created_by") @db.Uuid
+  updatedAt   DateTime     @updatedAt @map("updated_at") @db.Timestamptz(3)
+  updatedBy   String       @map("updated_by") @db.Uuid
+  version     Int          @default(1)
+  status      RecordStatus @default(ACTIVE)
+  code        String       @db.VarChar(100)
+  name        String       @db.VarChar(200)
+  category    String       @db.VarChar(100)
+  description String?      @db.VarChar(500)
+
+  @@unique([tenantId, code], map: "business_dictionary_tenant_code_key")
+  @@index([tenantId, category, status], map: "business_dictionary_tenant_category_status_idx")
+  @@map("business_dictionary")
+  @@schema("platform")
+}
+
+model DictionaryItem {
+  id                 String       @id @default(uuid()) @db.Uuid
+  tenantId           String       @map("tenant_id") @db.Uuid
+  createdAt          DateTime     @default(now()) @map("created_at") @db.Timestamptz(3)
+  createdBy          String       @map("created_by") @db.Uuid
+  updatedAt          DateTime     @updatedAt @map("updated_at") @db.Timestamptz(3)
+  updatedBy          String       @map("updated_by") @db.Uuid
+  version            Int          @default(1)
+  status             RecordStatus @default(ACTIVE)
+  dictionaryId       String       @map("dictionary_id") @db.Uuid
+  code               String       @db.VarChar(100)
+  name               String       @db.VarChar(200)
+  sortOrder          Int          @default(100) @map("sort_order")
+  requiresRemark     Boolean      @default(false) @map("requires_remark")
+  requiresAttachment Boolean      @default(false) @map("requires_attachment")
+  metadata           Json         @default("{}") @db.JsonB
+
+  @@unique([tenantId, dictionaryId, code], map: "dictionary_item_tenant_dictionary_code_key")
+  @@index([tenantId, dictionaryId, status, sortOrder], map: "dictionary_item_tenant_dictionary_status_sort_idx")
+  @@map("dictionary_item")
+  @@schema("platform")
+}
+
+model NumberRule {
+  id               String              @id @default(uuid()) @db.Uuid
+  tenantId         String              @map("tenant_id") @db.Uuid
+  createdAt        DateTime            @default(now()) @map("created_at") @db.Timestamptz(3)
+  createdBy        String              @map("created_by") @db.Uuid
+  updatedAt        DateTime            @updatedAt @map("updated_at") @db.Timestamptz(3)
+  updatedBy        String              @map("updated_by") @db.Uuid
+  version          Int                 @default(1)
+  status           RecordStatus        @default(ACTIVE)
+  businessType     String              @map("business_type") @db.VarChar(100)
+  organizationRef  String              @default("*") @map("organization_ref") @db.VarChar(100)
+  prefixTemplate   String              @map("prefix_template") @db.VarChar(150)
+  sequenceWidth    Int                 @default(6) @map("sequence_width")
+  blockSize        Int                 @default(100) @map("block_size")
+  resetPeriod      SequenceResetPeriod @default(DAILY) @map("reset_period")
+  currentPeriodKey String              @default("") @map("current_period_key") @db.VarChar(20)
+  currentSequence  BigInt              @default(0) @map("current_sequence")
+  lastAllocatedAt  DateTime?           @map("last_allocated_at") @db.Timestamptz(3)
+
+  @@unique([tenantId, businessType, organizationRef], map: "number_rule_tenant_business_org_key")
+  @@index([tenantId, status, businessType], map: "number_rule_tenant_status_business_idx")
+  @@map("number_rule")
+  @@schema("platform")
+}
+
+model SequenceReservation {
+  id           String       @id @default(uuid()) @db.Uuid
+  tenantId     String       @map("tenant_id") @db.Uuid
+  createdAt    DateTime     @default(now()) @map("created_at") @db.Timestamptz(3)
+  createdBy    String       @map("created_by") @db.Uuid
+  updatedAt    DateTime     @updatedAt @map("updated_at") @db.Timestamptz(3)
+  updatedBy    String       @map("updated_by") @db.Uuid
+  version      Int          @default(1)
+  status       RecordStatus @default(ACTIVE)
+  numberRuleId String       @map("number_rule_id") @db.Uuid
+  periodKey    String       @map("period_key") @db.VarChar(20)
+  startValue   BigInt       @map("start_value")
+  endValue     BigInt       @map("end_value")
+  reservedBy   String       @map("reserved_by") @db.VarChar(200)
+  expiresAt    DateTime     @map("expires_at") @db.Timestamptz(3)
+
+  @@unique([tenantId, numberRuleId, periodKey, startValue], map: "sequence_reservation_tenant_rule_period_start_key")
+  @@index([tenantId, numberRuleId, periodKey, endValue], map: "sequence_reservation_tenant_rule_period_end_idx")
+  @@map("sequence_reservation")
   @@schema("platform")
 }

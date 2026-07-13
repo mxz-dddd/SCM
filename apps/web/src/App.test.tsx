@@ -35,4 +35,19 @@ describe('App', () => {
     expect(screen.getByRole('button', { name: '取消' })).toBeDisabled();
     expect(screen.getByText(/版本冲突/)).toBeInTheDocument();
   });
+
+  it('opens the configuration, dictionary and number rule workbench', () => {
+    render(<App />);
+
+    fireEvent.click(screen.getByRole('button', { name: '配置' }));
+
+    expect(
+      screen.getByRole('heading', { name: '配置、字典与单号中心' }),
+    ).toBeInTheDocument();
+    expect(screen.getByRole('form', { name: '查询条件' })).toBeInTheDocument();
+    expect(screen.getByText('分层配置版本')).toBeInTheDocument();
+    expect(screen.getByText('业务字典与原因码')).toBeInTheDocument();
+    expect(screen.getByText('单号与号段')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: '新建配置草稿' })).toBeDisabled();
+  });
 });

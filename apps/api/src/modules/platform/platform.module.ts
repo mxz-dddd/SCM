@@ -4,6 +4,8 @@ import { PermissionGuard } from './auth/permission.guard';
 import { PermissionService } from './auth/permission.service';
 import { DataPolicyController } from './data-policy.controller';
 import { DataPolicyService } from './data-policy.service';
+import { ConfigurationController } from './configuration.controller';
+import { ConfigurationService } from './configuration.service';
 import { IdempotencyService } from './idempotency.service';
 import { OrganizationController } from './organization.controller';
 import { OrganizationService } from './organization.service';
@@ -18,6 +20,7 @@ import { WorkspaceService } from './workspace.service';
 
 @Module({
   controllers: [
+    ConfigurationController,
     DataPolicyController,
     OrganizationController,
     RoleController,
@@ -27,6 +30,7 @@ import { WorkspaceService } from './workspace.service';
   ],
   imports: [AuthModule],
   providers: [
+    ConfigurationService,
     DataPolicyService,
     IdempotencyService,
     OrganizationService,

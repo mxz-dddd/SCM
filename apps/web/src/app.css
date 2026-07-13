@@ -242,3 +242,23 @@ body {
   background: #fff;
   box-shadow: 0 18px 48px rgb(15 23 42 / 20%);
 }
+
+.configuration-workbench {
+  display: grid;
+  gap: 18px;
+}
+
+.configuration-workbench .ant-card-body {
+  display: grid;
+  gap: 14px;
+}
+
+.configuration-create-row .ant-input {
+  width: min(320px, 100%);
+}
+
+.configuration-lower-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(360px, 1fr));
+  gap: 18px;
+}
