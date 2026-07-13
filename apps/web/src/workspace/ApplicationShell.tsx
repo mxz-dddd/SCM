@@ -20,6 +20,7 @@ import { AttachmentWorkbench } from '../platform/AttachmentWorkbench';
 import { ConfigurationWorkbench } from '../platform/ConfigurationWorkbench';
 import { OrganizationRbacWorkbench } from '../platform/OrganizationRbacWorkbench';
 import { NotificationWorkbench } from '../platform/NotificationWorkbench';
+import { DataExchangeWorkbench } from '../platform/DataExchangeWorkbench';
 import { useSessionStore } from '../platform/session-store';
 import { ComponentGallery } from '../ui/ComponentGallery';
 import { useWorkspaceStore } from './workspace-store';
@@ -65,6 +66,12 @@ const pageRegistry: readonly WorkspaceTab[] = [
     route: '/platform/inbox',
     title: '待办消息',
   },
+  {
+    dirty: false,
+    id: 'data-exchange',
+    route: '/platform/data-exchange',
+    title: '数据交换与搜索',
+  },
   { dirty: false, id: 'orders', route: '/oms/orders', title: '订单中心' },
   { dirty: false, id: 'inventory', route: '/wms/inventory', title: '库存视图' },
   { dirty: false, id: 'transport', route: '/tms/shipments', title: '运输执行' },
@@ -78,6 +85,7 @@ const modules = [
   ['审计', 'audit'],
   ['附件', 'attachments'],
   ['消息', 'inbox'],
+  ['数据', 'data-exchange'],
   ['订单', 'orders'],
   ['仓储', 'inventory'],
   ['运输', 'transport'],
@@ -219,6 +227,7 @@ export function ApplicationShell() {
     if (tabId === 'audit') return <AuditWorkbench />;
     if (tabId === 'attachments') return <AttachmentWorkbench />;
     if (tabId === 'inbox') return <NotificationWorkbench />;
+    if (tabId === 'data-exchange') return <DataExchangeWorkbench />;
     return (
       <section className="workspace-placeholder">
         <Typography.Title level={2}>

@@ -287,6 +287,55 @@ enum DeliveryAttemptStatus {
   @@schema("platform")
 }
 
+enum ImportJobStatus {
+  UPLOADED
+  VALIDATING
+  READY
+  IMPORTING
+  COMPLETED
+  FAILED
+
+  @@schema("platform")
+}
+
+enum ImportFileFormat {
+  CSV
+  XLSX
+
+  @@schema("platform")
+}
+
+enum ExportJobStatus {
+  PENDING
+  PROCESSING
+  COMPLETED
+  FAILED
+  EXPIRED
+
+  @@schema("platform")
+}
+
+enum ExportFileFormat {
+  CSV
+
+  @@schema("platform")
+}
+
+enum DownloadTokenStatus {
+  ACTIVE
+  CONSUMED
+  EXPIRED
+
+  @@schema("platform")
+}
+
+enum SavedViewVisibility {
+  PERSONAL
+  SHARED
+
+  @@schema("platform")
+}
+
 /// Executable reference model for the mandatory persistence conventions.
 /// Domain cards replace this fixture with their owned aggregates while retaining
 /// these fields, tenant-first indexes and value-object storage rules.
@@ -1057,6 +1106,185 @@ model DeliveryAttempt {
   @@unique([tenantId, notificationId, channel, attemptNumber], map: "delivery_attempt_tenant_notification_channel_attempt_key")
   @@index([tenantId, status, nextRetryAt], map: "delivery_attempt_tenant_status_retry_idx")
   @@map("delivery_attempt")
+  @@schema("platform")
+}
+
+model ImportJob {
+  id                  String           @id @default(uuid()) @db.Uuid
+  tenantId            String           @map("tenant_id") @db.Uuid
+  createdAt           DateTime         @default(now()) @map("created_at") @db.Timestamptz(3)
+  createdBy           String           @map("created_by") @db.Uuid
+  updatedAt           DateTime         @updatedAt @map("updated_at") @db.Timestamptz(3)
+  updatedBy           String           @map("updated_by") @db.Uuid
+  version             Int              @default(1)
+  status              ImportJobStatus  @default(UPLOADED)
+  fileObjectId        String           @map("file_object_id") @db.Uuid
+  fileName            String           @map("file_name") @db.VarChar(255)
+  format              ImportFileFormat
+  importType          String           @map("import_type") @db.VarChar(100)
+  configuration       Json             @db.JsonB
+  totalRows           Int              @default(0) @map("total_rows")
+  validRows           Int              @default(0) @map("valid_rows")
+  errorRows           Int              @default(0) @map("error_rows")
+  processedRows       Int              @default(0) @map("processed_rows")
+  receipt             Json             @default("{}") @db.JsonB
+  failureCode         String?          @map("failure_code") @db.VarChar(100)
+  validationStartedAt DateTime?        @map("validation_started_at") @db.Timestamptz(3)
+  validatedAt         DateTime?        @map("validated_at") @db.Timestamptz(3)
+  importStartedAt     DateTime?        @map("import_started_at") @db.Timestamptz(3)
+  completedAt         DateTime?        @map("completed_at") @db.Timestamptz(3)
+
+  @@index([tenantId, status, createdAt], map: "import_job_tenant_status_created_idx")
+  @@index([tenantId, importType, createdAt], map: "import_job_tenant_type_created_idx")
+  @@map("import_job")
+  @@schema("platform")
+}
+
+model ImportRowError {
+  id            String       @id @default(uuid()) @db.Uuid
+  tenantId      String       @map("tenant_id") @db.Uuid
+  createdAt     DateTime     @default(now()) @map("created_at") @db.Timestamptz(3)
+  createdBy     String       @map("created_by") @db.Uuid
+  updatedAt     DateTime     @default(now()) @map("updated_at") @db.Timestamptz(3)
+  updatedBy     String       @map("updated_by") @db.Uuid
+  version       Int          @default(1)
+  status        RecordStatus @default(ACTIVE)
+  importJobId   String       @map("import_job_id") @db.Uuid
+  rowNumber     Int          @map("row_number")
+  columnName    String       @map("column_name") @db.VarChar(100)
+  code          String       @db.VarChar(100)
+  message       String       @db.VarChar(500)
+  valueSnapshot String?      @map("value_snapshot") @db.VarChar(500)
+
+  @@index([tenantId, importJobId, rowNumber], map: "import_row_error_tenant_job_row_idx")
+  @@map("import_row_error")
+  @@schema("platform")
+}
+
+model ExportJob {
+  id            String           @id @default(uuid()) @db.Uuid
+  tenantId      String           @map("tenant_id") @db.Uuid
+  createdAt     DateTime         @default(now()) @map("created_at") @db.Timestamptz(3)
+  createdBy     String           @map("created_by") @db.Uuid
+  updatedAt     DateTime         @updatedAt @map("updated_at") @db.Timestamptz(3)
+  updatedBy     String           @map("updated_by") @db.Uuid
+  version       Int              @default(1)
+  status        ExportJobStatus  @default(PENDING)
+  requesterId   String           @map("requester_id") @db.Uuid
+  resourceType  String           @map("resource_type") @db.VarChar(100)
+  format        ExportFileFormat @default(CSV)
+  querySpec     Json             @map("query_spec") @db.JsonB
+  columns       Json             @db.JsonB
+  sort          Json             @default("[]") @db.JsonB
+  rowCount      Int              @default(0) @map("row_count")
+  resultContent String?          @map("result_content") @db.Text
+  contentType   String?          @map("content_type") @db.VarChar(100)
+  expiresAt     DateTime?        @map("expires_at") @db.Timestamptz(3)
+  failureCode   String?          @map("failure_code") @db.VarChar(100)
+  processingAt  DateTime?        @map("processing_at") @db.Timestamptz(3)
+  completedAt   DateTime?        @map("completed_at") @db.Timestamptz(3)
+
+  @@index([tenantId, requesterId, status, createdAt], map: "export_job_tenant_requester_status_created_idx")
+  @@index([tenantId, resourceType, createdAt], map: "export_job_tenant_resource_created_idx")
+  @@map("export_job")
+  @@schema("platform")
+}
+
+model ExportDownloadToken {
+  id            String              @id @default(uuid()) @db.Uuid
+  tenantId      String              @map("tenant_id") @db.Uuid
+  createdAt     DateTime            @default(now()) @map("created_at") @db.Timestamptz(3)
+  createdBy     String              @map("created_by") @db.Uuid
+  updatedAt     DateTime            @updatedAt @map("updated_at") @db.Timestamptz(3)
+  updatedBy     String              @map("updated_by") @db.Uuid
+  version       Int                 @default(1)
+  status        DownloadTokenStatus @default(ACTIVE)
+  exportJobId   String              @map("export_job_id") @db.Uuid
+  accountId     String              @map("account_id") @db.Uuid
+  tokenHash     String              @map("token_hash") @db.Char(64)
+  expiresAt     DateTime            @map("expires_at") @db.Timestamptz(3)
+  consumedAt    DateTime?           @map("consumed_at") @db.Timestamptz(3)
+  correlationId String              @map("correlation_id") @db.VarChar(100)
+
+  @@unique([tenantId, tokenHash], map: "export_download_token_tenant_token_key")
+  @@index([tenantId, exportJobId, status, expiresAt], map: "export_download_tenant_job_status_idx")
+  @@map("export_download_token")
+  @@schema("platform")
+}
+
+model SearchDocument {
+  id             String       @id @default(uuid()) @db.Uuid
+  tenantId       String       @map("tenant_id") @db.Uuid
+  createdAt      DateTime     @default(now()) @map("created_at") @db.Timestamptz(3)
+  createdBy      String       @map("created_by") @db.Uuid
+  updatedAt      DateTime     @updatedAt @map("updated_at") @db.Timestamptz(3)
+  updatedBy      String       @map("updated_by") @db.Uuid
+  version        Int          @default(1)
+  status         RecordStatus @default(ACTIVE)
+  businessDomain String       @map("business_domain") @db.VarChar(50)
+  objectType     String       @map("object_type") @db.VarChar(100)
+  objectId       String       @map("object_id") @db.Uuid
+  businessRef    String       @map("business_ref") @db.VarChar(200)
+  externalRef    String?      @map("external_ref") @db.VarChar(200)
+  partnerName    String?      @map("partner_name") @db.VarChar(300)
+  productName    String?      @map("product_name") @db.VarChar(300)
+  businessStatus String       @map("business_status") @db.VarChar(100)
+  organizationId String?      @map("organization_id") @db.Uuid
+  occurredAt     DateTime     @map("occurred_at") @db.Timestamptz(3)
+  route          String       @db.VarChar(500)
+  snapshot       Json         @default("{}") @db.JsonB
+
+  @@unique([tenantId, businessDomain, objectType, objectId], map: "search_document_tenant_domain_type_object_key")
+  @@index([tenantId, businessRef, occurredAt], map: "search_document_tenant_business_occurred_idx")
+  @@index([tenantId, externalRef, occurredAt], map: "search_document_tenant_external_occurred_idx")
+  @@index([tenantId, businessStatus, occurredAt], map: "search_document_tenant_status_occurred_idx")
+  @@index([tenantId, organizationId, occurredAt], map: "search_document_tenant_org_occurred_idx")
+  @@map("search_document")
+  @@schema("platform")
+}
+
+model SearchQuery {
+  id          String       @id @default(uuid()) @db.Uuid
+  tenantId    String       @map("tenant_id") @db.Uuid
+  createdAt   DateTime     @default(now()) @map("created_at") @db.Timestamptz(3)
+  createdBy   String       @map("created_by") @db.Uuid
+  updatedAt   DateTime     @default(now()) @map("updated_at") @db.Timestamptz(3)
+  updatedBy   String       @map("updated_by") @db.Uuid
+  version     Int          @default(1)
+  status      RecordStatus @default(ACTIVE)
+  accountId   String       @map("account_id") @db.Uuid
+  queryText   String?      @map("query_text") @db.VarChar(300)
+  criteria    Json         @db.JsonB
+  resultCount Int          @map("result_count")
+  executedAt  DateTime     @default(now()) @map("executed_at") @db.Timestamptz(3)
+
+  @@index([tenantId, accountId, executedAt], map: "search_query_tenant_account_executed_idx")
+  @@map("search_query")
+  @@schema("platform")
+}
+
+model SavedView {
+  id             String              @id @default(uuid()) @db.Uuid
+  tenantId       String              @map("tenant_id") @db.Uuid
+  createdAt      DateTime            @default(now()) @map("created_at") @db.Timestamptz(3)
+  createdBy      String              @map("created_by") @db.Uuid
+  updatedAt      DateTime            @updatedAt @map("updated_at") @db.Timestamptz(3)
+  updatedBy      String              @map("updated_by") @db.Uuid
+  version        Int                 @default(1)
+  status         RecordStatus        @default(ACTIVE)
+  ownerAccountId String              @map("owner_account_id") @db.Uuid
+  resourceType   String              @map("resource_type") @db.VarChar(100)
+  name           String              @db.VarChar(150)
+  visibility     SavedViewVisibility @default(PERSONAL)
+  filters        Json                @db.JsonB
+  columns        Json                @db.JsonB
+  sort           Json                @default("[]") @db.JsonB
+  aggregation    Json                @default("{}") @db.JsonB
+  quickFilters   Json                @default("[]") @map("quick_filters") @db.JsonB
+
+  @@unique([tenantId, ownerAccountId, resourceType, name], map: "saved_view_tenant_owner_resource_name_key")
+  @@index([tenantId, resourceType, visibility, status], map: "saved_view_tenant_resource_visibility_status_idx")
+  @@map("saved_view")
   @@schema("platform")
 }
 

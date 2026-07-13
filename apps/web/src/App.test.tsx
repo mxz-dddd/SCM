@@ -93,4 +93,18 @@ describe('App', () => {
     expect(screen.getByRole('button', { name: '标记已读' })).toBeDisabled();
     expect(screen.getByRole('button', { name: '投递 / 重试' })).toBeDisabled();
   });
+
+  it('opens import, export, search and saved views', () => {
+    render(<App />);
+
+    fireEvent.click(screen.getByRole('button', { name: '数据' }));
+
+    expect(
+      screen.getByRole('heading', { name: '导入导出与统一搜索' }),
+    ).toBeInTheDocument();
+    expect(screen.getByRole('form', { name: '查询条件' })).toBeInTheDocument();
+    expect(screen.getByText('导入预检与逐行回执')).toBeInTheDocument();
+    expect(screen.getByText('异步脱敏导出与限时下载')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /创建导入预检/ })).toBeDisabled();
+  });
 });

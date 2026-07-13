@@ -8,6 +8,9 @@ import { PermissionGuard } from './auth/permission.guard';
 import { PermissionService } from './auth/permission.service';
 import { DataPolicyController } from './data-policy.controller';
 import { DataPolicyService } from './data-policy.service';
+import { DataExchangeController } from './data-exchange.controller';
+import { ExportService } from './export.service';
+import { ImportService } from './import.service';
 import { ConfigurationController } from './configuration.controller';
 import { ConfigurationService } from './configuration.service';
 import { IdempotencyService } from './idempotency.service';
@@ -18,6 +21,7 @@ import { NotificationChannelService } from './notification-channel.service';
 import { NotificationController } from './notification.controller';
 import { NotificationService } from './notification.service';
 import { RoleController } from './role.controller';
+import { SearchService } from './search.service';
 import { RoleService } from './role.service';
 import { ServiceAccountController } from './service-account.controller';
 import { ServiceAccountService } from './service-account.service';
@@ -33,6 +37,7 @@ import { WatermarkService } from './watermark.service';
     AuditController,
     ConfigurationController,
     DataPolicyController,
+    DataExchangeController,
     NotificationController,
     OrganizationController,
     RoleController,
@@ -46,7 +51,9 @@ import { WatermarkService } from './watermark.service';
     AuditService,
     ConfigurationService,
     DataPolicyService,
+    ExportService,
     IdempotencyService,
+    ImportService,
     NotificationChannelService,
     NotificationService,
     OrganizationService,
@@ -54,6 +61,7 @@ import { WatermarkService } from './watermark.service';
     PermissionGuard,
     PermissionService,
     RoleService,
+    SearchService,
     ServiceAccountService,
     TenantService,
     WorkspaceService,
