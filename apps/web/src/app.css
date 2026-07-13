@@ -110,3 +110,135 @@ body {
 .rbac-card {
   width: min(680px, calc(100vw - 160px));
 }
+
+.component-gallery {
+  display: grid;
+  gap: 20px;
+}
+
+.component-gallery h2,
+.component-gallery h3,
+.component-gallery p {
+  margin-block: 0 8px;
+}
+
+.scm-query-panel,
+.scm-command-bar,
+.scm-data-grid-tools,
+.scm-data-grid nav,
+.component-gallery form[aria-label='批量字段更新'] {
+  display: flex;
+  align-items: end;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.scm-query-panel label {
+  display: grid;
+  gap: 4px;
+}
+
+.component-gallery button,
+.component-gallery input,
+.component-gallery select {
+  min-height: 32px;
+  padding: 5px 10px;
+  border: 1px solid #cbd5e1;
+  border-radius: 6px;
+  background: #fff;
+}
+
+.component-gallery button:disabled {
+  color: #94a3b8;
+  background: #f1f5f9;
+}
+
+.scm-data-grid {
+  overflow-x: auto;
+}
+
+.scm-data-grid table {
+  width: 100%;
+  margin-bottom: 10px;
+  border-collapse: collapse;
+}
+
+.scm-data-grid th,
+.scm-data-grid td {
+  padding: 9px 12px;
+  border-bottom: 1px solid #e5eaf1;
+  text-align: left;
+  white-space: nowrap;
+}
+
+.component-gallery-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  gap: 14px;
+}
+
+.component-gallery-grid > div,
+.scm-master-detail,
+.component-gallery > form,
+.component-gallery > ul {
+  padding: 14px;
+  border: 1px solid #e5eaf1;
+  border-radius: 10px;
+}
+
+.scm-master-detail {
+  display: grid;
+  grid-template-columns: 1fr 2fr;
+  gap: 12px;
+}
+
+.scm-master-detail [role='alert'] {
+  margin-bottom: 8px;
+  color: #b42318;
+}
+
+.scm-status {
+  padding: 2px 7px;
+  border-radius: 999px;
+  background: #e2e8f0;
+  font-size: 12px;
+}
+
+.scm-status-success {
+  color: #067647;
+  background: #dcfae6;
+}
+
+.scm-status-stepper {
+  display: flex;
+  gap: 24px;
+}
+
+.scm-status-stepper [data-state='completed'] {
+  color: #067647;
+}
+
+.scm-status-stepper [data-state='current'] {
+  color: #175cd3;
+  font-weight: 700;
+}
+
+.scm-toast {
+  padding: 9px 12px;
+  border-left: 4px solid #17b26a;
+  background: #ecfdf3;
+}
+
+.scm-drawer,
+.component-gallery [role='dialog'] {
+  position: fixed;
+  z-index: 10;
+  right: 24px;
+  bottom: 24px;
+  width: min(360px, calc(100vw - 48px));
+  padding: 20px;
+  border: 1px solid #cbd5e1;
+  border-radius: 12px;
+  background: #fff;
+  box-shadow: 0 18px 48px rgb(15 23 42 / 20%);
+}

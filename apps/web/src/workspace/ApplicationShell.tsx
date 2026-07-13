@@ -17,6 +17,7 @@ import type { WorkspaceContextSelection, WorkspaceTab } from '@scm/shared';
 import { AuthWorkbench } from '../platform/AuthWorkbench';
 import { OrganizationRbacWorkbench } from '../platform/OrganizationRbacWorkbench';
 import { useSessionStore } from '../platform/session-store';
+import { ComponentGallery } from '../ui/ComponentGallery';
 import { useWorkspaceStore } from './workspace-store';
 
 const { Content, Header, Sider } = Layout;
@@ -30,6 +31,12 @@ const pageRegistry: readonly WorkspaceTab[] = [
     title: '租户与认证',
   },
   { dirty: false, id: 'rbac', route: '/platform/rbac', title: '组织与权限' },
+  {
+    dirty: false,
+    id: 'components',
+    route: '/platform/components',
+    title: '统一组件',
+  },
   { dirty: false, id: 'orders', route: '/oms/orders', title: '订单中心' },
   { dirty: false, id: 'inventory', route: '/wms/inventory', title: '库存视图' },
   { dirty: false, id: 'transport', route: '/tms/shipments', title: '运输执行' },
@@ -38,6 +45,7 @@ const pageRegistry: readonly WorkspaceTab[] = [
 const modules = [
   ['工作台', 'workbench'],
   ['平台', 'rbac'],
+  ['组件', 'components'],
   ['订单', 'orders'],
   ['仓储', 'inventory'],
   ['运输', 'transport'],
@@ -174,6 +182,7 @@ export function ApplicationShell() {
   function renderPage(tabId: string) {
     if (tabId === 'identity') return <AuthWorkbench />;
     if (tabId === 'rbac') return <OrganizationRbacWorkbench />;
+    if (tabId === 'components') return <ComponentGallery />;
     return (
       <section className="workspace-placeholder">
         <Typography.Title level={2}>
