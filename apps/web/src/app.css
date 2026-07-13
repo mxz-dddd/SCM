@@ -64,3 +64,7 @@ body {
 .identity-lifecycle {
   min-height: 390px;
 }
+
+.rbac-card {
+  width: min(680px, calc(100vw - 160px));
+}

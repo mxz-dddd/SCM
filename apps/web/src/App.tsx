@@ -1,6 +1,7 @@
 import { Layout, Space, Tag, Typography } from 'antd';
 import { CORRELATION_ID_HEADER, DATA_MODEL_CONVENTIONS } from '@scm/shared';
 import { AuthWorkbench } from './platform/AuthWorkbench';
+import { OrganizationRbacWorkbench } from './platform/OrganizationRbacWorkbench';
 
 const { Content, Header, Sider } = Layout;
 
@@ -34,6 +35,7 @@ export function App() {
             ))}
           </ul>
           <AuthWorkbench />
+          <OrganizationRbacWorkbench />
         </Content>
       </Layout>
     </Layout>

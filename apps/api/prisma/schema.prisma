@@ -38,6 +38,49 @@ enum OrganizationStatus {
   @@schema("platform")
 }
 
+enum OrganizationType {
+  GROUP
+  LEGAL_ENTITY
+  BUSINESS_UNIT
+  WAREHOUSE
+  TRANSPORT
+
+  @@schema("platform")
+}
+
+enum PathRebuildStatus {
+  CURRENT
+  PENDING
+  FAILED
+
+  @@schema("platform")
+}
+
+enum PermissionResourceType {
+  MENU
+  PAGE
+  API
+  BUTTON
+  FIELD
+  EXPORT
+
+  @@schema("platform")
+}
+
+enum PermissionEffect {
+  ALLOW
+  DENY
+
+  @@schema("platform")
+}
+
+enum PermissionDecision {
+  ALLOW
+  DENY
+
+  @@schema("platform")
+}
+
 enum AccountStatus {
   ACTIVE
   SUSPENDED
@@ -148,23 +191,126 @@ model Tenant {
 }
 
 model Organization {
-  id        String             @id @default(uuid()) @db.Uuid
-  tenantId  String             @map("tenant_id") @db.Uuid
-  createdAt DateTime           @default(now()) @map("created_at") @db.Timestamptz(3)
-  createdBy String             @map("created_by") @db.Uuid
-  updatedAt DateTime           @updatedAt @map("updated_at") @db.Timestamptz(3)
-  updatedBy String             @map("updated_by") @db.Uuid
-  version   Int                @default(1)
-  status    OrganizationStatus @default(ACTIVE)
-  code      String             @db.VarChar(50)
-  name      String             @db.VarChar(200)
-  type      String             @db.VarChar(30)
-  parentId  String?            @map("parent_id") @db.Uuid
-  path      String             @db.VarChar(1000)
+  id                String             @id @default(uuid()) @db.Uuid
+  tenantId          String             @map("tenant_id") @db.Uuid
+  createdAt         DateTime           @default(now()) @map("created_at") @db.Timestamptz(3)
+  createdBy         String             @map("created_by") @db.Uuid
+  updatedAt         DateTime           @updatedAt @map("updated_at") @db.Timestamptz(3)
+  updatedBy         String             @map("updated_by") @db.Uuid
+  version           Int                @default(1)
+  status            OrganizationStatus @default(ACTIVE)
+  code              String             @db.VarChar(50)
+  name              String             @db.VarChar(200)
+  type              OrganizationType
+  parentId          String?            @map("parent_id") @db.Uuid
+  path              String             @db.VarChar(1000)
+  pathRebuildStatus PathRebuildStatus  @default(CURRENT) @map("path_rebuild_status")
 
   @@unique([tenantId, code], map: "organization_tenant_code_key")
   @@index([tenantId, parentId], map: "organization_tenant_parent_idx")
   @@map("organization")
+  @@schema("platform")
+}
+
+model Role {
+  id             String       @id @default(uuid()) @db.Uuid
+  tenantId       String       @map("tenant_id") @db.Uuid
+  createdAt      DateTime     @default(now()) @map("created_at") @db.Timestamptz(3)
+  createdBy      String       @map("created_by") @db.Uuid
+  updatedAt      DateTime     @updatedAt @map("updated_at") @db.Timestamptz(3)
+  updatedBy      String       @map("updated_by") @db.Uuid
+  version        Int          @default(1)
+  status         RecordStatus @default(ACTIVE)
+  code           String       @db.VarChar(100)
+  name           String       @db.VarChar(200)
+  description    String?      @db.VarChar(500)
+  templateRoleId String?      @map("template_role_id") @db.Uuid
+  isTemplate     Boolean      @default(false) @map("is_template")
+
+  @@unique([tenantId, code], map: "role_tenant_code_key")
+  @@index([tenantId, templateRoleId], map: "role_tenant_template_idx")
+  @@map("role")
+  @@schema("platform")
+}
+
+model Permission {
+  id           String                 @id @default(uuid()) @db.Uuid
+  tenantId     String                 @map("tenant_id") @db.Uuid
+  createdAt    DateTime               @default(now()) @map("created_at") @db.Timestamptz(3)
+  createdBy    String                 @map("created_by") @db.Uuid
+  updatedAt    DateTime               @updatedAt @map("updated_at") @db.Timestamptz(3)
+  updatedBy    String                 @map("updated_by") @db.Uuid
+  version      Int                    @default(1)
+  status       RecordStatus           @default(ACTIVE)
+  code         String                 @db.VarChar(150)
+  name         String                 @db.VarChar(200)
+  resourceType PermissionResourceType @map("resource_type")
+  resourceRef  String                 @map("resource_ref") @db.VarChar(300)
+
+  @@unique([tenantId, code], map: "permission_tenant_code_key")
+  @@index([tenantId, resourceType], map: "permission_tenant_resource_type_idx")
+  @@map("permission")
+  @@schema("platform")
+}
+
+model RolePermission {
+  id           String           @id @default(uuid()) @db.Uuid
+  tenantId     String           @map("tenant_id") @db.Uuid
+  createdAt    DateTime         @default(now()) @map("created_at") @db.Timestamptz(3)
+  createdBy    String           @map("created_by") @db.Uuid
+  updatedAt    DateTime         @updatedAt @map("updated_at") @db.Timestamptz(3)
+  updatedBy    String           @map("updated_by") @db.Uuid
+  version      Int              @default(1)
+  status       RecordStatus     @default(ACTIVE)
+  roleId       String           @map("role_id") @db.Uuid
+  permissionId String           @map("permission_id") @db.Uuid
+  effect       PermissionEffect
+
+  @@unique([tenantId, roleId, permissionId], map: "role_permission_tenant_role_permission_key")
+  @@index([tenantId, permissionId, effect], map: "role_permission_tenant_permission_effect_idx")
+  @@map("role_permission")
+  @@schema("platform")
+}
+
+model AccountRole {
+  id             String       @id @default(uuid()) @db.Uuid
+  tenantId       String       @map("tenant_id") @db.Uuid
+  createdAt      DateTime     @default(now()) @map("created_at") @db.Timestamptz(3)
+  createdBy      String       @map("created_by") @db.Uuid
+  updatedAt      DateTime     @updatedAt @map("updated_at") @db.Timestamptz(3)
+  updatedBy      String       @map("updated_by") @db.Uuid
+  version        Int          @default(1)
+  status         RecordStatus @default(ACTIVE)
+  accountId      String       @map("account_id") @db.Uuid
+  roleId         String       @map("role_id") @db.Uuid
+  organizationId String?      @map("organization_id") @db.Uuid
+
+  @@unique([tenantId, accountId, roleId, organizationId], map: "account_role_tenant_account_role_org_key")
+  @@index([tenantId, accountId, status], map: "account_role_tenant_account_status_idx")
+  @@map("account_role")
+  @@schema("platform")
+}
+
+model PermissionDecisionAudit {
+  id             String             @id @default(uuid()) @db.Uuid
+  tenantId       String             @map("tenant_id") @db.Uuid
+  createdAt      DateTime           @default(now()) @map("created_at") @db.Timestamptz(3)
+  createdBy      String             @map("created_by") @db.Uuid
+  updatedAt      DateTime           @updatedAt @map("updated_at") @db.Timestamptz(3)
+  updatedBy      String             @map("updated_by") @db.Uuid
+  version        Int                @default(1)
+  status         RecordStatus       @default(ACTIVE)
+  accountId      String             @map("account_id") @db.Uuid
+  permissionCode String             @map("permission_code") @db.VarChar(150)
+  organizationId String?            @map("organization_id") @db.Uuid
+  decision       PermissionDecision
+  reason         String             @db.VarChar(500)
+  correlationId  String             @map("correlation_id") @db.VarChar(100)
+  resourceRef    String?            @map("resource_ref") @db.VarChar(300)
+
+  @@index([tenantId, accountId, createdAt], map: "permission_decision_tenant_account_created_idx")
+  @@index([tenantId, permissionCode, decision], map: "permission_decision_tenant_permission_decision_idx")
+  @@map("permission_decision_audit")
   @@schema("platform")
 }
 

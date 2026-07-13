@@ -14,6 +14,10 @@ describe('App', () => {
     expect(
       screen.getByRole('heading', { name: '租户与认证' }),
     ).toBeInTheDocument();
+    expect(
+      screen.getByRole('heading', { name: '组织与角色权限' }),
+    ).toBeInTheDocument();
+    expect(screen.getByText('EXPORT')).toBeInTheDocument();
     expect(screen.getByText('PROVISIONING')).toBeInTheDocument();
     expect(screen.getByRole('button', { name: /登\s*录/ })).toBeInTheDocument();
   });

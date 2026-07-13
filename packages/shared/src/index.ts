@@ -3,6 +3,7 @@ export const IDEMPOTENCY_KEY_HEADER = 'Idempotency-Key' as const;
 
 export * from './domain/value-objects';
 export * from './platform/tenant';
+export * from './platform/rbac';
 
 export interface ApiError {
   businessRef?: string;

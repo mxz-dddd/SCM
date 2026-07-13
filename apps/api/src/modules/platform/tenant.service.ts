@@ -2,6 +2,7 @@ import { randomUUID } from 'node:crypto';
 import { Inject, Injectable } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 import {
+  ADMIN_PERMISSIONS,
   TENANT_STATUSES,
   assertTenantTransition,
   type TenantContext,
@@ -74,6 +75,7 @@ export class TenantService {
           const organizationId = randomUUID();
           const personId = randomUUID();
           const accountId = randomUUID();
+          const administratorRoleId = randomUUID();
           const code = input.code.trim().toUpperCase();
           const username = input.initialAdmin.username.trim().toLowerCase();
 
@@ -101,7 +103,7 @@ export class TenantService {
               name: input.name.trim(),
               path: `/${organizationId}`,
               tenantId,
-              type: 'ROOT',
+              type: 'GROUP',
               updatedBy: context.accountId,
             },
           });
@@ -133,6 +135,52 @@ export class TenantService {
               createdBy: context.accountId,
               organizationId,
               personId,
+              tenantId,
+              updatedBy: context.accountId,
+            },
+          });
+          const permissions = ADMIN_PERMISSIONS.map((permission) => ({
+            ...permission,
+            id: randomUUID(),
+          }));
+          await transaction.permission.createMany({
+            data: permissions.map((permission) => ({
+              code: permission.code,
+              createdBy: context.accountId,
+              id: permission.id,
+              name: permission.name,
+              resourceRef: permission.resourceRef,
+              resourceType: permission.resourceType,
+              tenantId,
+              updatedBy: context.accountId,
+            })),
+          });
+          await transaction.role.create({
+            data: {
+              code: 'TENANT_ADMINISTRATOR',
+              createdBy: context.accountId,
+              id: administratorRoleId,
+              name: 'Tenant Administrator',
+              tenantId,
+              updatedBy: context.accountId,
+            },
+          });
+          await transaction.rolePermission.createMany({
+            data: permissions.map((permission) => ({
+              createdBy: context.accountId,
+              effect: 'ALLOW' as const,
+              permissionId: permission.id,
+              roleId: administratorRoleId,
+              tenantId,
+              updatedBy: context.accountId,
+            })),
+          });
+          await transaction.accountRole.create({
+            data: {
+              accountId,
+              createdBy: context.accountId,
+              organizationId: null,
+              roleId: administratorRoleId,
               tenantId,
               updatedBy: context.accountId,
             },
