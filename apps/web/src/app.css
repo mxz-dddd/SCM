@@ -56,3 +56,11 @@ body {
   border-radius: 14px;
   background: #ffffff;
 }
+
+.identity-card {
+  width: min(420px, calc(100vw - 160px));
+}
+
+.identity-lifecycle {
+  min-height: 390px;
+}

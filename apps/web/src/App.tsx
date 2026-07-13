@@ -1,5 +1,6 @@
 import { Layout, Space, Tag, Typography } from 'antd';
 import { CORRELATION_ID_HEADER, DATA_MODEL_CONVENTIONS } from '@scm/shared';
+import { AuthWorkbench } from './platform/AuthWorkbench';
 
 const { Content, Header, Sider } = Layout;
 
@@ -32,6 +33,7 @@ export function App() {
               <li key={convention}>{convention}</li>
             ))}
           </ul>
+          <AuthWorkbench />
         </Content>
       </Layout>
     </Layout>

@@ -15,6 +15,85 @@ enum BaselineStatus {
   @@schema("platform")
 }
 
+enum TenantStatus {
+  PROVISIONING
+  ACTIVE
+  SUSPENDED
+  ARCHIVED
+
+  @@schema("platform")
+}
+
+enum RecordStatus {
+  ACTIVE
+  INACTIVE
+
+  @@schema("platform")
+}
+
+enum OrganizationStatus {
+  ACTIVE
+  INACTIVE
+
+  @@schema("platform")
+}
+
+enum AccountStatus {
+  ACTIVE
+  SUSPENDED
+  LOCKED
+
+  @@schema("platform")
+}
+
+enum AccountKind {
+  PLATFORM_ADMIN
+  TENANT_ADMIN
+  USER
+
+  @@schema("platform")
+}
+
+enum IdentitySource {
+  LOCAL
+  OIDC
+  SAML
+  DIRECTORY
+
+  @@schema("platform")
+}
+
+enum IsolationMode {
+  SHARED_SCHEMA
+  DEDICATED_SCHEMA
+  DEDICATED_DATABASE
+
+  @@schema("platform")
+}
+
+enum CredentialStatus {
+  ACTIVE
+  REVOKED
+  EXPIRED
+
+  @@schema("platform")
+}
+
+enum LoginOutcome {
+  SUCCESS
+  FAILURE
+
+  @@schema("platform")
+}
+
+enum OutboxStatus {
+  PENDING
+  PUBLISHED
+  FAILED
+
+  @@schema("platform")
+}
+
 /// Executable reference model for the mandatory persistence conventions.
 /// Domain cards replace this fixture with their owned aggregates while retaining
 /// these fields, tenant-first indexes and value-object storage rules.
@@ -40,5 +119,253 @@ model DataBaseline {
 
   @@index([tenantId, status], map: "data_baseline_tenant_status_idx")
   @@map("data_baseline")
+  @@schema("platform")
+}
+
+model Tenant {
+  id                String        @id @default(uuid()) @db.Uuid
+  tenantId          String        @unique(map: "tenant_tenant_id_key") @map("tenant_id") @db.Uuid
+  createdAt         DateTime      @default(now()) @map("created_at") @db.Timestamptz(3)
+  createdBy         String        @map("created_by") @db.Uuid
+  updatedAt         DateTime      @updatedAt @map("updated_at") @db.Timestamptz(3)
+  updatedBy         String        @map("updated_by") @db.Uuid
+  version           Int           @default(1)
+  status            TenantStatus  @default(PROVISIONING)
+  code              String        @unique(map: "tenant_code_key") @db.VarChar(50)
+  name              String        @db.VarChar(200)
+  defaultLocale     String        @map("default_locale") @db.VarChar(16)
+  timezone          String        @db.VarChar(64)
+  currency          String        @db.Char(3)
+  isolationMode     IsolationMode @map("isolation_mode")
+  planCapabilities  Json          @default("{}") @map("plan_capabilities") @db.JsonB
+  permissionVersion Int           @default(1) @map("permission_version")
+  suspendedReason   String?       @map("suspended_reason") @db.VarChar(500)
+  archivedAt        DateTime?     @map("archived_at") @db.Timestamptz(3)
+
+  @@index([tenantId, status], map: "tenant_tenant_status_idx")
+  @@map("tenant")
+  @@schema("platform")
+}
+
+model Organization {
+  id        String             @id @default(uuid()) @db.Uuid
+  tenantId  String             @map("tenant_id") @db.Uuid
+  createdAt DateTime           @default(now()) @map("created_at") @db.Timestamptz(3)
+  createdBy String             @map("created_by") @db.Uuid
+  updatedAt DateTime           @updatedAt @map("updated_at") @db.Timestamptz(3)
+  updatedBy String             @map("updated_by") @db.Uuid
+  version   Int                @default(1)
+  status    OrganizationStatus @default(ACTIVE)
+  code      String             @db.VarChar(50)
+  name      String             @db.VarChar(200)
+  type      String             @db.VarChar(30)
+  parentId  String?            @map("parent_id") @db.Uuid
+  path      String             @db.VarChar(1000)
+
+  @@unique([tenantId, code], map: "organization_tenant_code_key")
+  @@index([tenantId, parentId], map: "organization_tenant_parent_idx")
+  @@map("organization")
+  @@schema("platform")
+}
+
+model Person {
+  id          String       @id @default(uuid()) @db.Uuid
+  tenantId    String       @map("tenant_id") @db.Uuid
+  createdAt   DateTime     @default(now()) @map("created_at") @db.Timestamptz(3)
+  createdBy   String       @map("created_by") @db.Uuid
+  updatedAt   DateTime     @updatedAt @map("updated_at") @db.Timestamptz(3)
+  updatedBy   String       @map("updated_by") @db.Uuid
+  version     Int          @default(1)
+  status      RecordStatus @default(ACTIVE)
+  employeeNo  String       @map("employee_no") @db.VarChar(50)
+  displayName String       @map("display_name") @db.VarChar(200)
+  email       String?      @db.VarChar(320)
+  validFrom   DateTime     @default(now()) @map("valid_from") @db.Timestamptz(3)
+  validUntil  DateTime?    @map("valid_until") @db.Timestamptz(3)
+
+  @@unique([tenantId, employeeNo], map: "person_tenant_employee_key")
+  @@index([tenantId, status], map: "person_tenant_status_idx")
+  @@map("person")
+  @@schema("platform")
+}
+
+model Account {
+  id                String         @id @default(uuid()) @db.Uuid
+  tenantId          String         @map("tenant_id") @db.Uuid
+  createdAt         DateTime       @default(now()) @map("created_at") @db.Timestamptz(3)
+  createdBy         String         @map("created_by") @db.Uuid
+  updatedAt         DateTime       @updatedAt @map("updated_at") @db.Timestamptz(3)
+  updatedBy         String         @map("updated_by") @db.Uuid
+  version           Int            @default(1)
+  status            AccountStatus  @default(ACTIVE)
+  username          String         @db.VarChar(100)
+  passwordHash      String?        @map("password_hash") @db.VarChar(500)
+  identitySource    IdentitySource @default(LOCAL) @map("identity_source")
+  kind              AccountKind    @default(USER)
+  permissionVersion Int            @default(1) @map("permission_version")
+  lockedUntil       DateTime?      @map("locked_until") @db.Timestamptz(3)
+  validUntil        DateTime?      @map("valid_until") @db.Timestamptz(3)
+  failedLoginCount  Int            @default(0) @map("failed_login_count")
+
+  @@unique([tenantId, username], map: "account_tenant_username_key")
+  @@index([tenantId, status], map: "account_tenant_status_idx")
+  @@map("account")
+  @@schema("platform")
+}
+
+model IdentityBinding {
+  id              String         @id @default(uuid()) @db.Uuid
+  tenantId        String         @map("tenant_id") @db.Uuid
+  createdAt       DateTime       @default(now()) @map("created_at") @db.Timestamptz(3)
+  createdBy       String         @map("created_by") @db.Uuid
+  updatedAt       DateTime       @updatedAt @map("updated_at") @db.Timestamptz(3)
+  updatedBy       String         @map("updated_by") @db.Uuid
+  version         Int            @default(1)
+  status          RecordStatus   @default(ACTIVE)
+  accountId       String         @map("account_id") @db.Uuid
+  personId        String         @map("person_id") @db.Uuid
+  organizationId  String         @map("organization_id") @db.Uuid
+  identitySource  IdentitySource @default(LOCAL) @map("identity_source")
+  externalSubject String?        @map("external_subject") @db.VarChar(300)
+
+  @@unique([tenantId, accountId, personId], map: "identity_binding_account_person_key")
+  @@index([tenantId, personId], map: "identity_binding_tenant_person_idx")
+  @@map("identity_binding")
+  @@schema("platform")
+}
+
+model ServiceAccount {
+  id                String       @id @default(uuid()) @db.Uuid
+  tenantId          String       @map("tenant_id") @db.Uuid
+  createdAt         DateTime     @default(now()) @map("created_at") @db.Timestamptz(3)
+  createdBy         String       @map("created_by") @db.Uuid
+  updatedAt         DateTime     @updatedAt @map("updated_at") @db.Timestamptz(3)
+  updatedBy         String       @map("updated_by") @db.Uuid
+  version           Int          @default(1)
+  status            RecordStatus @default(ACTIVE)
+  code              String       @db.VarChar(100)
+  displayName       String       @map("display_name") @db.VarChar(200)
+  permissionVersion Int          @default(1) @map("permission_version")
+
+  @@unique([tenantId, code], map: "service_account_tenant_code_key")
+  @@index([tenantId, status], map: "service_account_tenant_status_idx")
+  @@map("service_account")
+  @@schema("platform")
+}
+
+model ApiCredential {
+  id               String           @id @default(uuid()) @db.Uuid
+  tenantId         String           @map("tenant_id") @db.Uuid
+  createdAt        DateTime         @default(now()) @map("created_at") @db.Timestamptz(3)
+  createdBy        String           @map("created_by") @db.Uuid
+  updatedAt        DateTime         @updatedAt @map("updated_at") @db.Timestamptz(3)
+  updatedBy        String           @map("updated_by") @db.Uuid
+  version          Int              @default(1)
+  status           CredentialStatus @default(ACTIVE)
+  serviceAccountId String           @map("service_account_id") @db.Uuid
+  keyId            String           @map("key_id") @db.VarChar(100)
+  secretHash       String           @map("secret_hash") @db.VarChar(128)
+  lastFour         String           @map("last_four") @db.Char(4)
+  expiresAt        DateTime?        @map("expires_at") @db.Timestamptz(3)
+  lastUsedAt       DateTime?        @map("last_used_at") @db.Timestamptz(3)
+
+  @@unique([tenantId, keyId], map: "api_credential_tenant_key_id_key")
+  @@index([tenantId, serviceAccountId, status], map: "api_credential_tenant_service_status_idx")
+  @@map("api_credential")
+  @@schema("platform")
+}
+
+model LoginAudit {
+  id            String       @id @default(uuid()) @db.Uuid
+  tenantId      String       @map("tenant_id") @db.Uuid
+  createdAt     DateTime     @default(now()) @map("created_at") @db.Timestamptz(3)
+  createdBy     String       @map("created_by") @db.Uuid
+  updatedAt     DateTime     @updatedAt @map("updated_at") @db.Timestamptz(3)
+  updatedBy     String       @map("updated_by") @db.Uuid
+  version       Int          @default(1)
+  status        RecordStatus @default(ACTIVE)
+  accountId     String?      @map("account_id") @db.Uuid
+  username      String       @db.VarChar(100)
+  outcome       LoginOutcome
+  failureCode   String?      @map("failure_code") @db.VarChar(100)
+  factors       Json         @default("[]") @db.JsonB
+  ipAddress     String?      @map("ip_address") @db.VarChar(64)
+  deviceId      String?      @map("device_id") @db.VarChar(200)
+  correlationId String       @map("correlation_id") @db.VarChar(100)
+  occurredAt    DateTime     @default(now()) @map("occurred_at") @db.Timestamptz(3)
+
+  @@index([tenantId, occurredAt], map: "login_audit_tenant_occurred_idx")
+  @@index([tenantId, accountId], map: "login_audit_tenant_account_idx")
+  @@map("login_audit")
+  @@schema("platform")
+}
+
+model PlatformAuditLog {
+  id            String       @id @default(uuid()) @db.Uuid
+  tenantId      String       @map("tenant_id") @db.Uuid
+  createdAt     DateTime     @default(now()) @map("created_at") @db.Timestamptz(3)
+  createdBy     String       @map("created_by") @db.Uuid
+  updatedAt     DateTime     @updatedAt @map("updated_at") @db.Timestamptz(3)
+  updatedBy     String       @map("updated_by") @db.Uuid
+  version       Int          @default(1)
+  status        RecordStatus @default(ACTIVE)
+  action        String       @db.VarChar(100)
+  resourceType  String       @map("resource_type") @db.VarChar(100)
+  resourceId    String       @map("resource_id") @db.Uuid
+  before        Json?        @db.JsonB
+  after         Json?        @db.JsonB
+  correlationId String       @map("correlation_id") @db.VarChar(100)
+  ipAddress     String?      @map("ip_address") @db.VarChar(64)
+  deviceId      String?      @map("device_id") @db.VarChar(200)
+
+  @@index([tenantId, resourceType, resourceId], map: "platform_audit_tenant_resource_idx")
+  @@index([tenantId, createdAt], map: "platform_audit_tenant_created_idx")
+  @@map("audit_log")
+  @@schema("platform")
+}
+
+model PlatformOutbox {
+  id               String       @id @default(uuid()) @db.Uuid
+  tenantId         String       @map("tenant_id") @db.Uuid
+  createdAt        DateTime     @default(now()) @map("created_at") @db.Timestamptz(3)
+  createdBy        String       @map("created_by") @db.Uuid
+  updatedAt        DateTime     @updatedAt @map("updated_at") @db.Timestamptz(3)
+  updatedBy        String       @map("updated_by") @db.Uuid
+  version          Int          @default(1)
+  status           OutboxStatus @default(PENDING)
+  eventName        String       @map("event_name") @db.VarChar(150)
+  aggregateType    String       @map("aggregate_type") @db.VarChar(100)
+  aggregateId      String       @map("aggregate_id") @db.Uuid
+  aggregateVersion Int          @map("aggregate_version")
+  payload          Json         @db.JsonB
+  correlationId    String       @map("correlation_id") @db.VarChar(100)
+  schemaVersion    Int          @default(1) @map("schema_version")
+  publishedAt      DateTime?    @map("published_at") @db.Timestamptz(3)
+
+  @@index([tenantId, status, createdAt], map: "platform_outbox_tenant_status_created_idx")
+  @@index([tenantId, aggregateType, aggregateId, aggregateVersion], map: "platform_outbox_tenant_aggregate_idx")
+  @@map("outbox")
+  @@schema("platform")
+}
+
+model IdempotencyRecord {
+  id           String       @id @default(uuid()) @db.Uuid
+  tenantId     String       @map("tenant_id") @db.Uuid
+  createdAt    DateTime     @default(now()) @map("created_at") @db.Timestamptz(3)
+  createdBy    String       @map("created_by") @db.Uuid
+  updatedAt    DateTime     @updatedAt @map("updated_at") @db.Timestamptz(3)
+  updatedBy    String       @map("updated_by") @db.Uuid
+  version      Int          @default(1)
+  status       RecordStatus @default(ACTIVE)
+  scope        String       @db.VarChar(150)
+  key          String       @db.VarChar(200)
+  requestHash  String       @map("request_hash") @db.Char(64)
+  responseBody Json         @map("response_body") @db.JsonB
+  responseCode Int          @map("response_code")
+  expiresAt    DateTime     @map("expires_at") @db.Timestamptz(3)
+
+  @@unique([tenantId, scope, key], map: "idempotency_tenant_scope_key")
+  @@index([tenantId, expiresAt], map: "idempotency_tenant_expires_idx")
+  @@map("idempotency_record")
   @@schema("platform")
 }

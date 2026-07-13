@@ -16,8 +16,12 @@
 cp .env.example .env
 pnpm install
 docker compose up -d
+pnpm db:migrate:deploy
+SEED_ADMIN_PASSWORD='<local-password>' pnpm db:seed
 pnpm dev
 ```
+
+本地 JWT 和 API 凭证还需要在 `.env` 中配置至少 32 个字符的独立密钥。种子账号为 `PLATFORM / platform-admin`，密码由 `SEED_ADMIN_PASSWORD` 提供，仓库不保存明文密码。
 
 提交前运行统一门禁：
 

@@ -5,18 +5,14 @@ import { describe, expect, it } from 'vitest';
 const prismaDirectory = resolve(process.cwd(), 'prisma');
 const schema = readFileSync(resolve(prismaDirectory, 'schema.prisma'), 'utf8');
 const migrationDirectory = resolve(prismaDirectory, 'migrations');
-const migrationName = readdirSync(migrationDirectory).find((entry) =>
-  entry.endsWith('_data_baseline'),
+const migrationNames = readdirSync(migrationDirectory).filter((entry) =>
+  /^\d+_/.test(entry),
 );
-
-if (!migrationName) {
-  throw new Error('Missing data baseline migration');
-}
-
-const migration = readFileSync(
-  resolve(migrationDirectory, migrationName, 'migration.sql'),
-  'utf8',
-);
+const migration = migrationNames
+  .map((name) =>
+    readFileSync(resolve(migrationDirectory, name, 'migration.sql'), 'utf8'),
+  )
+  .join('\n');
 
 const domainSchemas = [
   'platform',
@@ -36,21 +32,33 @@ describe('Prisma data baseline', () => {
     expect(migration).toContain(`CREATE SCHEMA IF NOT EXISTS "${domain}"`);
   });
 
-  it('keeps the mandatory fields and tenant-first index on the baseline model', () => {
-    for (const field of [
-      'id',
-      'tenantId',
-      'createdAt',
-      'createdBy',
-      'updatedAt',
-      'updatedBy',
-      'version',
-      'status',
-    ]) {
-      expect(schema).toMatch(new RegExp(`\\n\\s+${field}\\s`));
+  it('keeps mandatory fields on every persisted model', () => {
+    const models = [...schema.matchAll(/model\s+(\w+)\s+\{([\s\S]*?)\n\}/g)];
+    expect(models.length).toBeGreaterThan(1);
+    for (const [, name, body] of models) {
+      for (const field of [
+        'id',
+        'tenantId',
+        'createdAt',
+        'createdBy',
+        'updatedAt',
+        'updatedBy',
+        'version',
+        'status',
+      ]) {
+        expect(body, `${name}.${field}`).toMatch(
+          new RegExp(`\\n\\s*${field}\\s`),
+        );
+      }
     }
+  });
 
-    expect(schema).toContain('@@index([tenantId, status]');
+  it('keeps explicit compound indexes tenant-first', () => {
+    const indexes = [...schema.matchAll(/@@(?:index|unique)\(\[([^\]]+)\]/g)];
+    expect(indexes.length).toBeGreaterThan(1);
+    for (const [, fields] of indexes) {
+      expect(fields?.split(',')[0]?.trim()).toBe('tenantId');
+    }
   });
 
   it('uses decimal quantities, versioned package conversion and controlled JSON', () => {
