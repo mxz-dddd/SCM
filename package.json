@@ -1,0 +1,33 @@
+{
+  "name": "scm-cloud",
+  "version": "0.0.0",
+  "private": true,
+  "packageManager": "pnpm@11.7.0",
+  "engines": {
+    "node": ">=22.0.0",
+    "pnpm": ">=10.0.0"
+  },
+  "scripts": {
+    "build": "turbo run build",
+    "dev": "turbo run dev --parallel",
+    "format": "prettier --write .",
+    "format:check": "prettier --check .",
+    "lint": "turbo run lint",
+    "test": "turbo run test",
+    "typecheck": "turbo run typecheck",
+    "verify": "pnpm lint && pnpm typecheck && pnpm test"
+  },
+  "devDependencies": {
+    "@eslint/js": "^9.30.0",
+    "@types/node": "^24.0.0",
+    "eslint": "^9.30.0",
+    "eslint-plugin-react-hooks": "^5.2.0",
+    "eslint-plugin-react-refresh": "^0.4.20",
+    "globals": "^16.2.0",
+    "prettier": "^3.6.0",
+    "turbo": "^2.5.0",
+    "typescript": "^5.8.0",
+    "typescript-eslint": "^8.35.0",
+    "vitest": "^3.2.0"
+  }
+}

@@ -1,0 +1,19 @@
+{
+  "name": "@scm/worker",
+  "version": "0.0.0",
+  "private": true,
+  "scripts": {
+    "build": "tsc -p tsconfig.build.json",
+    "dev": "tsx watch src/main.ts",
+    "lint": "eslint src",
+    "start": "node dist/main.js",
+    "test": "vitest run",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "bullmq": "^5.56.0"
+  },
+  "devDependencies": {
+    "tsx": "^4.20.0"
+  }
+}

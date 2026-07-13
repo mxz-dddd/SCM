@@ -10,7 +10,7 @@
 
 ## P1 平台骨架
 
-- [ ] P1-01 Monorepo 脚手架：pnpm+Turborepo 四包结构、ESLint/Prettier/tsconfig strict、Vitest、docker-compose(pg16/redis7/minio)、GitHub Actions、`pnpm verify` 门禁 〔依赖：无〕
+- [x] P1-01 Monorepo 脚手架：pnpm+Turborepo 四包结构、ESLint/Prettier/tsconfig strict、Vitest、docker-compose(pg16/redis7/minio)、GitHub Actions、`pnpm verify` 门禁 〔依赖：无〕
 - [ ] P1-02 数据基线：Prisma multiSchema（platform/mdm/oms/wms/tms/ams/billing/control/integration）、通用字段混入、Money/双单位数量约定、受控 JSON 扩展字段、迁移与种子框架（§12.1）
 - [ ] P1-03 租户与认证：租户生命周期 Provisioning→Active→Suspended→Archived、账号/人员分离、JWT 登录+租户上下文中间件+权限版本、API 凭证与服务账号、登录审计 [PLT-001, PLT-003, PLT-004]
 - [ ] P1-04 组织与 RBAC：组织树（path 重建+循环校验）、角色/权限（菜单/页面/API/按钮/字段/导出粒度）、NestJS 守卫二次鉴权、权限管理页 [PLT-002, PLT-005]
