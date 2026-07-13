@@ -13,6 +13,8 @@ import { ServiceAccountController } from './service-account.controller';
 import { ServiceAccountService } from './service-account.service';
 import { TenantController } from './tenant.controller';
 import { TenantService } from './tenant.service';
+import { WorkspaceController } from './workspace.controller';
+import { WorkspaceService } from './workspace.service';
 
 @Module({
   controllers: [
@@ -21,6 +23,7 @@ import { TenantService } from './tenant.service';
     RoleController,
     ServiceAccountController,
     TenantController,
+    WorkspaceController,
   ],
   imports: [AuthModule],
   providers: [
@@ -32,6 +35,7 @@ import { TenantService } from './tenant.service';
     RoleService,
     ServiceAccountService,
     TenantService,
+    WorkspaceService,
   ],
 })
 export class PlatformModule {}

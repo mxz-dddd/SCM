@@ -15,7 +15,7 @@
 - [x] P1-03 租户与认证：租户生命周期 Provisioning→Active→Suspended→Archived、账号/人员分离、JWT 登录+租户上下文中间件+权限版本、API 凭证与服务账号、登录审计 [PLT-001, PLT-003, PLT-004]
 - [x] P1-04 组织与 RBAC：组织树（path 重建+循环校验）、角色/权限（菜单/页面/API/按钮/字段/导出粒度）、NestJS 守卫二次鉴权、权限管理页 [PLT-002, PLT-005]
 - [x] P1-05 ABAC 数据范围：组织/仓库/货主/伙伴/创建者表达式策略、决策缓存（键含权限版本）、Prisma 查询注入 tenant+scope 过滤、越权测试套件 [PLT-006]
-- [ ] P1-06 应用壳：深色窄侧栏模块导航、顶部租户/组织/仓库/语言/用户切换、多标签工作区（保存查询条件+脏数据提示）、最近访问/收藏、全局命令面板 [PLT-007]
+- [x] P1-06 应用壳：深色窄侧栏模块导航、顶部租户/组织/仓库/语言/用户切换、多标签工作区（保存查询条件+脏数据提示）、最近访问/收藏、全局命令面板 [PLT-007]
 - [ ] P1-07 统一组件库+Action Registry：QueryPanel、DataGrid（服务端分页/固定列/列显隐/批量选择/行右键/导出视图）、CommandBar、MasterDetail（version 冲突提示）、StatusBadge/Stepper、Timeline、TaskWorkbench、Drawer/Modal、Toast/消息中心壳、FieldUpdater；动作统一注册（权限+状态条件+确认文案）（§4.2/4.3）
 - [ ] P1-08 配置/字典/单号：分层配置继承覆盖+版本发布（差异预览/灰度/回滚）、业务字典与原因码（停用不影响历史）、单号规则（号段并发防重） [PLT-009, PLT-010, PLT-011]
 - [ ] P1-09 审计：AuditLog+ChangeHistory（before/after、IP/设备、traceId）、敏感查询与导出留痕、审计查询页（只读角色） [PLT-020]

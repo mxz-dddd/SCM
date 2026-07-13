@@ -1,26 +1,24 @@
-import { render, screen } from '@testing-library/react';
+import { fireEvent, render, screen } from '@testing-library/react';
 import { describe, expect, it } from 'vitest';
 import { App } from './App';
 
 describe('App', () => {
-  it('renders the scaffold workspace and shared correlation contract', () => {
+  it('renders the application shell and opens workspace tools', () => {
     render(<App />);
 
-    expect(screen.getByText('供应链协同工作台')).toBeInTheDocument();
-    expect(screen.getByText(/X-Correlation-Id/)).toBeInTheDocument();
     expect(
-      screen.getByText(/decimal amount and ISO currency/),
+      screen.getByRole('navigation', { name: '模块导航' }),
     ).toBeInTheDocument();
+    expect(screen.getByRole('combobox', { name: '租户' })).toBeInTheDocument();
+    expect(screen.getByRole('combobox', { name: '组织' })).toBeInTheDocument();
+    expect(screen.getByRole('combobox', { name: '仓库' })).toBeInTheDocument();
+    expect(screen.getByRole('combobox', { name: '语言' })).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: '工作台' })).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('button', { name: '⌘K 命令' }));
     expect(
-      screen.getByRole('heading', { name: '租户与认证' }),
+      screen.getByRole('dialog', { name: '全局命令面板' }),
     ).toBeInTheDocument();
-    expect(
-      screen.getByRole('heading', { name: '组织与角色权限' }),
-    ).toBeInTheDocument();
-    expect(screen.getByText('EXPORT')).toBeInTheDocument();
-    expect(screen.getByText('ABAC 数据范围')).toBeInTheDocument();
-    expect(screen.getByText('warehouseId')).toBeInTheDocument();
-    expect(screen.getByText('PROVISIONING')).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: /登\s*录/ })).toBeInTheDocument();
+    expect(screen.getByLabelText('搜索命令')).toBeInTheDocument();
   });
 });

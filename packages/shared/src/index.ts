@@ -5,6 +5,7 @@ export * from './domain/value-objects';
 export * from './platform/tenant';
 export * from './platform/rbac';
 export * from './platform/data-scope';
+export * from './platform/workspace';
 
 export interface ApiError {
   businessRef?: string;

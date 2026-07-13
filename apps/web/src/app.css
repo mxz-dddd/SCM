@@ -26,7 +26,10 @@ body {
 }
 
 .app-sidebar {
-  background: #132238;
+  position: sticky;
+  top: 0;
+  height: 100vh;
+  background: #0d1b2a;
 }
 
 .app-mark {
@@ -49,12 +52,51 @@ body {
   background: #ffffff;
 }
 
+.context-header {
+  position: sticky;
+  z-index: 5;
+  top: 0;
+  justify-content: space-between;
+  height: auto;
+  min-height: 64px;
+  gap: 16px;
+}
+
+.module-nav {
+  display: grid;
+  gap: 8px;
+  padding: 8px 12px;
+}
+
+.module-button {
+  width: 40px;
+  height: 40px;
+  color: #a9b8ca;
+}
+
+.module-button:hover,
+.module-button.active {
+  color: #0d1b2a !important;
+  background: #74d3ae !important;
+}
+
+.workspace-tabs > .ant-tabs-nav {
+  margin: 0;
+  padding: 10px 20px 0;
+  border-bottom: 1px solid #e5eaf1;
+  background: #f7f9fc;
+}
+
 .app-content {
   margin: 24px;
   padding: 32px;
   border: 1px solid #e5eaf1;
   border-radius: 14px;
   background: #ffffff;
+}
+
+.workspace-placeholder {
+  min-height: 420px;
 }
 
 .identity-card {
