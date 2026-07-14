@@ -418,5 +418,25 @@ describe('App', () => {
     expect(
       screen.getByRole('button', { name: '锁定节点重优化' }),
     ).toBeDisabled();
+    expect(
+      screen.getByText('运力容量、承运委托与竞价分包'),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText('CapacityPool 原子预占与计划审批'),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText('CarrierTender、Award 与责任链'),
+    ).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: '登记承运运力' })).toBeDisabled();
+    expect(
+      screen.getByRole('button', { name: '审批并预占运力' }),
+    ).toBeDisabled();
+    expect(
+      screen.getByRole('button', { name: '直接委托承运商' }),
+    ).toBeDisabled();
+    expect(screen.getByRole('button', { name: '发起竞价询价' })).toBeDisabled();
+    expect(
+      screen.getByRole('button', { name: '登记转委托责任链' }),
+    ).toBeDisabled();
   });
 });

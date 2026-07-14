@@ -6954,6 +6954,8 @@ enum ConsolidationPlanStatus {
   DRAFT
   VALIDATED
   PUBLISHED
+  APPROVED
+  REJECTED
   CANCELLED
   @@schema("tms")
 }
@@ -6961,6 +6963,7 @@ enum ConsolidationPlanStatus {
 enum ShipmentStatus {
   PLANNED
   APPROVED
+  REJECTED
   TENDERED
   ACCEPTED
   DISPATCHED
@@ -7343,5 +7346,311 @@ model OptimizationScenario {
   @@unique([tenantId, routePlanId, scenarioNo], map: "optimization_scenario_tenant_plan_no_key")
   @@index([tenantId, routePlanId, status, score], map: "optimization_scenario_tenant_plan_status_score_idx")
   @@map("optimization_scenario")
+  @@schema("tms")
+}
+
+enum CapacitySourceType {
+  OWN_FLEET
+  CONTRACT
+  TEMPORARY
+  @@schema("tms")
+}
+
+enum CapacityPoolStatus {
+  ACTIVE
+  INACTIVE
+  @@schema("tms")
+}
+
+enum CapacityReservationStatus {
+  ACTIVE
+  CONSUMED
+  RELEASED
+  EXPIRED
+  @@schema("tms")
+}
+
+enum PlanApprovalDecision {
+  APPROVE
+  REJECT
+  @@schema("tms")
+}
+
+enum CarrierTenderStatus {
+  SENT
+  ACCEPTED
+  REJECTED
+  QUESTIONED
+  EXPIRED
+  REVOKED
+  @@schema("tms")
+}
+
+enum QuoteRequestStatus {
+  OPEN
+  CLOSED
+  AWARDED
+  CANCELLED
+  @@schema("tms")
+}
+
+enum CarrierBidStatus {
+  SUBMITTED
+  WITHDRAWN
+  AWARDED
+  REJECTED
+  @@schema("tms")
+}
+
+enum AwardDecisionStatus {
+  PROPOSED
+  APPROVED
+  REJECTED
+  @@schema("tms")
+}
+
+enum RetenderCaseStatus {
+  OPEN
+  RESOLVED
+  ESCALATED
+  @@schema("tms")
+}
+
+enum SubcontractAssignmentStatus {
+  PROPOSED
+  ACCEPTED
+  REJECTED
+  REVOKED
+  @@schema("tms")
+}
+
+model CapacityPool {
+  id                   String             @id @default(uuid()) @db.Uuid
+  tenantId             String             @map("tenant_id") @db.Uuid
+  createdAt            DateTime           @default(now()) @map("created_at") @db.Timestamptz(3)
+  createdBy            String             @map("created_by") @db.Uuid
+  updatedAt            DateTime           @updatedAt @map("updated_at") @db.Timestamptz(3)
+  updatedBy            String             @map("updated_by") @db.Uuid
+  version              Int                @default(1)
+  status               CapacityPoolStatus @default(ACTIVE)
+  poolNo               String             @map("pool_no") @db.VarChar(100)
+  sourceType           CapacitySourceType @map("source_type")
+  carrierRef           String             @map("carrier_ref") @db.VarChar(200)
+  carrierSnapshot      Json               @map("carrier_snapshot") @db.JsonB
+  vehicleType          String             @map("vehicle_type") @db.VarChar(100)
+  regionCode           String             @map("region_code") @db.VarChar(100)
+  serviceDate          DateTime           @map("service_date") @db.Date
+  totalWeightBase      Decimal            @map("total_weight_base") @db.Decimal(24, 12)
+  totalVolumeBase      Decimal            @map("total_volume_base") @db.Decimal(24, 12)
+  totalPallets         Decimal            @map("total_pallets") @db.Decimal(24, 12)
+  reservedWeightBase   Decimal            @default(0) @map("reserved_weight_base") @db.Decimal(24, 12)
+  reservedVolumeBase   Decimal            @default(0) @map("reserved_volume_base") @db.Decimal(24, 12)
+  reservedPallets      Decimal            @default(0) @map("reserved_pallets") @db.Decimal(24, 12)
+  calendarSnapshot     Json               @map("calendar_snapshot") @db.JsonB
+  qualificationSnapshot Json              @map("qualification_snapshot") @db.JsonB
+  @@unique([tenantId, poolNo], map: "capacity_pool_tenant_no_key")
+  @@index([tenantId, serviceDate, regionCode, vehicleType, status], map: "capacity_pool_tenant_date_region_vehicle_status_idx")
+  @@map("capacity_pool")
+  @@schema("tms")
+}
+
+model CapacityReservation {
+  id                 String                    @id @default(uuid()) @db.Uuid
+  tenantId           String                    @map("tenant_id") @db.Uuid
+  createdAt          DateTime                  @default(now()) @map("created_at") @db.Timestamptz(3)
+  createdBy          String                    @map("created_by") @db.Uuid
+  updatedAt          DateTime                  @updatedAt @map("updated_at") @db.Timestamptz(3)
+  updatedBy          String                    @map("updated_by") @db.Uuid
+  version            Int                       @default(1)
+  status             CapacityReservationStatus @default(ACTIVE)
+  reservationNo      String                    @map("reservation_no") @db.VarChar(100)
+  capacityPoolId     String                    @map("capacity_pool_id") @db.Uuid
+  shipmentId         String                    @map("shipment_id") @db.Uuid
+  weightBase         Decimal                   @map("weight_base") @db.Decimal(24, 12)
+  volumeBase         Decimal                   @map("volume_base") @db.Decimal(24, 12)
+  pallets            Decimal                   @db.Decimal(24, 12)
+  expiresAt          DateTime                  @map("expires_at") @db.Timestamptz(3)
+  consumedAt         DateTime?                 @map("consumed_at") @db.Timestamptz(3)
+  releasedAt         DateTime?                 @map("released_at") @db.Timestamptz(3)
+  releaseReason      String?                   @map("release_reason") @db.VarChar(500)
+  @@unique([tenantId, reservationNo], map: "capacity_reservation_tenant_no_key")
+  @@index([tenantId, capacityPoolId, status, expiresAt], map: "capacity_reservation_tenant_pool_status_expiry_idx")
+  @@index([tenantId, shipmentId, status], map: "capacity_reservation_tenant_shipment_status_idx")
+  @@map("capacity_reservation")
+  @@schema("tms")
+}
+
+model TransportPlanApproval {
+  id                  String               @id @default(uuid()) @db.Uuid
+  tenantId            String               @map("tenant_id") @db.Uuid
+  createdAt           DateTime             @default(now()) @map("created_at") @db.Timestamptz(3)
+  createdBy           String               @map("created_by") @db.Uuid
+  updatedAt           DateTime             @default(now()) @map("updated_at") @db.Timestamptz(3)
+  updatedBy           String               @map("updated_by") @db.Uuid
+  version             Int                  @default(1)
+  status              TmsRecordStatus      @default(ACTIVE)
+  consolidationPlanId String               @map("consolidation_plan_id") @db.Uuid
+  planVersion         Int                  @map("plan_version")
+  decision            PlanApprovalDecision
+  costAmount          Decimal              @map("cost_amount") @db.Decimal(24, 6)
+  currency            String               @db.Char(3)
+  variancePercentage  Decimal              @map("variance_percentage") @db.Decimal(12, 6)
+  riskSnapshot        Json                 @map("risk_snapshot") @db.JsonB
+  qualificationSnapshot Json               @map("qualification_snapshot") @db.JsonB
+  reason              String               @db.VarChar(500)
+  decidedAt           DateTime             @default(now()) @map("decided_at") @db.Timestamptz(3)
+  decidedBy           String               @map("decided_by") @db.Uuid
+  @@index([tenantId, consolidationPlanId, decidedAt], map: "plan_approval_tenant_plan_decided_idx")
+  @@map("transport_plan_approval")
+  @@schema("tms")
+}
+
+model CarrierTender {
+  id                    String              @id @default(uuid()) @db.Uuid
+  tenantId              String              @map("tenant_id") @db.Uuid
+  createdAt             DateTime            @default(now()) @map("created_at") @db.Timestamptz(3)
+  createdBy             String              @map("created_by") @db.Uuid
+  updatedAt             DateTime            @updatedAt @map("updated_at") @db.Timestamptz(3)
+  updatedBy             String              @map("updated_by") @db.Uuid
+  version               Int                 @default(1)
+  status                CarrierTenderStatus @default(SENT)
+  tenderNo              String              @map("tender_no") @db.VarChar(100)
+  shipmentId            String              @map("shipment_id") @db.Uuid
+  capacityReservationId String              @map("capacity_reservation_id") @db.Uuid
+  previousTenderId      String?             @map("previous_tender_id") @db.Uuid
+  carrierRef            String              @map("carrier_ref") @db.VarChar(200)
+  carrierSnapshot       Json                @map("carrier_snapshot") @db.JsonB
+  priceAmount           Decimal             @map("price_amount") @db.Decimal(24, 6)
+  currency              String              @db.Char(3)
+  expiresAt             DateTime            @map("expires_at") @db.Timestamptz(3)
+  requirementSnapshot   Json                @map("requirement_snapshot") @db.JsonB
+  sentAt                DateTime            @default(now()) @map("sent_at") @db.Timestamptz(3)
+  respondedAt           DateTime?           @map("responded_at") @db.Timestamptz(3)
+  responseReason        String?             @map("response_reason") @db.VarChar(500)
+  revokedAt             DateTime?           @map("revoked_at") @db.Timestamptz(3)
+  revokeReason          String?             @map("revoke_reason") @db.VarChar(500)
+  @@unique([tenantId, tenderNo], map: "carrier_tender_tenant_no_key")
+  @@index([tenantId, shipmentId, status, sentAt], map: "carrier_tender_tenant_shipment_status_sent_idx")
+  @@index([tenantId, carrierRef, status, expiresAt], map: "carrier_tender_tenant_carrier_status_expiry_idx")
+  @@map("carrier_tender")
+  @@schema("tms")
+}
+
+model QuoteRequest {
+  id                  String             @id @default(uuid()) @db.Uuid
+  tenantId            String             @map("tenant_id") @db.Uuid
+  createdAt           DateTime           @default(now()) @map("created_at") @db.Timestamptz(3)
+  createdBy           String             @map("created_by") @db.Uuid
+  updatedAt           DateTime           @updatedAt @map("updated_at") @db.Timestamptz(3)
+  updatedBy           String             @map("updated_by") @db.Uuid
+  version             Int                @default(1)
+  status              QuoteRequestStatus @default(OPEN)
+  requestNo           String             @map("request_no") @db.VarChar(100)
+  shipmentId          String             @map("shipment_id") @db.Uuid
+  requestType         String             @map("request_type") @db.VarChar(50)
+  candidateCarriers   Json               @map("candidate_carriers") @db.JsonB
+  requirementSnapshot Json               @map("requirement_snapshot") @db.JsonB
+  deadlineAt          DateTime           @map("deadline_at") @db.Timestamptz(3)
+  closedAt            DateTime?          @map("closed_at") @db.Timestamptz(3)
+  @@unique([tenantId, requestNo], map: "quote_request_tenant_no_key")
+  @@index([tenantId, shipmentId, status, deadlineAt], map: "quote_request_tenant_shipment_status_deadline_idx")
+  @@map("quote_request")
+  @@schema("tms")
+}
+
+model CarrierBid {
+  id                 String           @id @default(uuid()) @db.Uuid
+  tenantId           String           @map("tenant_id") @db.Uuid
+  createdAt          DateTime         @default(now()) @map("created_at") @db.Timestamptz(3)
+  createdBy          String           @map("created_by") @db.Uuid
+  updatedAt          DateTime         @updatedAt @map("updated_at") @db.Timestamptz(3)
+  updatedBy          String           @map("updated_by") @db.Uuid
+  version            Int              @default(1)
+  status             CarrierBidStatus @default(SUBMITTED)
+  quoteRequestId     String           @map("quote_request_id") @db.Uuid
+  carrierRef         String           @map("carrier_ref") @db.VarChar(200)
+  carrierSnapshot    Json             @map("carrier_snapshot") @db.JsonB
+  priceAmount        Decimal          @map("price_amount") @db.Decimal(24, 6)
+  currency           String           @db.Char(3)
+  promisedAt         DateTime         @map("promised_at") @db.Timestamptz(3)
+  conditions         Json             @db.JsonB
+  score              Decimal?         @db.Decimal(18, 6)
+  scoreBreakdown     Json             @default("{}") @map("score_breakdown") @db.JsonB
+  submittedAt        DateTime         @default(now()) @map("submitted_at") @db.Timestamptz(3)
+  @@unique([tenantId, quoteRequestId, carrierRef], map: "carrier_bid_tenant_request_carrier_key")
+  @@index([tenantId, quoteRequestId, status, priceAmount], map: "carrier_bid_tenant_request_status_price_idx")
+  @@map("carrier_bid")
+  @@schema("tms")
+}
+
+model AwardDecision {
+  id                    String              @id @default(uuid()) @db.Uuid
+  tenantId              String              @map("tenant_id") @db.Uuid
+  createdAt             DateTime            @default(now()) @map("created_at") @db.Timestamptz(3)
+  createdBy             String              @map("created_by") @db.Uuid
+  updatedAt             DateTime            @updatedAt @map("updated_at") @db.Timestamptz(3)
+  updatedBy             String              @map("updated_by") @db.Uuid
+  version               Int                 @default(1)
+  status                AwardDecisionStatus @default(PROPOSED)
+  quoteRequestId        String              @map("quote_request_id") @db.Uuid
+  carrierBidId          String              @map("carrier_bid_id") @db.Uuid
+  capacityReservationId String?             @map("capacity_reservation_id") @db.Uuid
+  recommendationSnapshot Json               @map("recommendation_snapshot") @db.JsonB
+  reason                String              @db.VarChar(500)
+  decidedAt             DateTime?           @map("decided_at") @db.Timestamptz(3)
+  decidedBy             String?             @map("decided_by") @db.Uuid
+  @@index([tenantId, quoteRequestId, status, createdAt], map: "award_decision_tenant_request_status_created_idx")
+  @@map("award_decision")
+  @@schema("tms")
+}
+
+model RetenderCase {
+  id                 String             @id @default(uuid()) @db.Uuid
+  tenantId           String             @map("tenant_id") @db.Uuid
+  createdAt          DateTime           @default(now()) @map("created_at") @db.Timestamptz(3)
+  createdBy          String             @map("created_by") @db.Uuid
+  updatedAt          DateTime           @updatedAt @map("updated_at") @db.Timestamptz(3)
+  updatedBy          String             @map("updated_by") @db.Uuid
+  version            Int                @default(1)
+  status             RetenderCaseStatus @default(OPEN)
+  shipmentId         String             @map("shipment_id") @db.Uuid
+  originalTenderId   String             @map("original_tender_id") @db.Uuid
+  replacementTenderId String?           @map("replacement_tender_id") @db.Uuid
+  reasonCode         String             @map("reason_code") @db.VarChar(100)
+  reason             String             @db.VarChar(500)
+  originalPriceAmount Decimal           @map("original_price_amount") @db.Decimal(24, 6)
+  replacementPriceAmount Decimal?       @map("replacement_price_amount") @db.Decimal(24, 6)
+  currency           String             @db.Char(3)
+  priceDifference    Decimal?           @map("price_difference") @db.Decimal(24, 6)
+  escalationRequired Boolean            @default(false) @map("escalation_required")
+  resolvedAt         DateTime?          @map("resolved_at") @db.Timestamptz(3)
+  @@index([tenantId, shipmentId, status, createdAt], map: "retender_case_tenant_shipment_status_created_idx")
+  @@map("retender_case")
+  @@schema("tms")
+}
+
+model SubcontractAssignment {
+  id                    String                      @id @default(uuid()) @db.Uuid
+  tenantId              String                      @map("tenant_id") @db.Uuid
+  createdAt             DateTime                    @default(now()) @map("created_at") @db.Timestamptz(3)
+  createdBy             String                      @map("created_by") @db.Uuid
+  updatedAt             DateTime                    @updatedAt @map("updated_at") @db.Timestamptz(3)
+  updatedBy             String                      @map("updated_by") @db.Uuid
+  version               Int                         @default(1)
+  status                SubcontractAssignmentStatus @default(PROPOSED)
+  shipmentId            String                      @map("shipment_id") @db.Uuid
+  parentTenderId        String                      @map("parent_tender_id") @db.Uuid
+  upstreamCarrierRef    String                      @map("upstream_carrier_ref") @db.VarChar(200)
+  downstreamCarrierRef  String                      @map("downstream_carrier_ref") @db.VarChar(200)
+  actualCarrierRef      String                      @map("actual_carrier_ref") @db.VarChar(200)
+  responsibilityChain   Json                        @map("responsibility_chain") @db.JsonB
+  visibilityScope       Json                        @map("visibility_scope") @db.JsonB
+  feeLayerSnapshot      Json                        @map("fee_layer_snapshot") @db.JsonB
+  complianceSnapshot    Json                        @map("compliance_snapshot") @db.JsonB
+  respondedAt           DateTime?                   @map("responded_at") @db.Timestamptz(3)
+  responseReason        String?                     @map("response_reason") @db.VarChar(500)
+  @@index([tenantId, shipmentId, status, createdAt], map: "subcontract_tenant_shipment_status_created_idx")
+  @@index([tenantId, parentTenderId, status], map: "subcontract_tenant_tender_status_idx")
+  @@map("subcontract_assignment")
   @@schema("tms")
 }

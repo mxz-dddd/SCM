@@ -10,6 +10,7 @@ import { Alert, Card, Typography } from 'antd';
 import { useSessionStore } from '../platform/session-store';
 import { TransportPlanningPanel } from './TransportPlanningPanel';
 import { LoadRouteOptimizationPanel } from './LoadRouteOptimizationPanel';
+import { CapacityTenderPanel } from './CapacityTenderPanel';
 
 type TransportStatus = 'OPEN' | 'PLANNED' | 'FROZEN' | 'RETURNED';
 
@@ -298,6 +299,7 @@ export function TransportOrderWorkbench() {
       </Card>
       <TransportPlanningPanel />
       <LoadRouteOptimizationPanel />
+      <CapacityTenderPanel />
     </section>
   );
 }
