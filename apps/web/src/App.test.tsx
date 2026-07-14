@@ -485,5 +485,14 @@ describe('App', () => {
       screen.getByRole('button', { name: '确认承运对账并生成 AP' }),
     ).toBeDisabled();
     expect(screen.getByRole('button', { name: '完成双边结算' })).toBeDisabled();
+    expect(
+      screen.getByText('车队运营、温控 IoT、运输 KPI 与客户追踪'),
+    ).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: '安排车辆保养' })).toBeDisabled();
+    expect(screen.getByRole('button', { name: '接收温控遥测' })).toBeDisabled();
+    expect(screen.getByRole('button', { name: '生成运输 KPI' })).toBeDisabled();
+    expect(
+      screen.getByRole('button', { name: '签发客户追踪码' }),
+    ).toBeDisabled();
   });
 });

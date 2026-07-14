@@ -7437,6 +7437,7 @@ model CapacityPool {
   sourceType           CapacitySourceType @map("source_type")
   carrierRef           String             @map("carrier_ref") @db.VarChar(200)
   carrierSnapshot      Json               @map("carrier_snapshot") @db.JsonB
+  vehicleRef           String?            @map("vehicle_ref") @db.Uuid
   vehicleType          String             @map("vehicle_type") @db.VarChar(100)
   regionCode           String             @map("region_code") @db.VarChar(100)
   serviceDate          DateTime           @map("service_date") @db.Date
@@ -7450,6 +7451,7 @@ model CapacityPool {
   qualificationSnapshot Json              @map("qualification_snapshot") @db.JsonB
   @@unique([tenantId, poolNo], map: "capacity_pool_tenant_no_key")
   @@index([tenantId, serviceDate, regionCode, vehicleType, status], map: "capacity_pool_tenant_date_region_vehicle_status_idx")
+  @@index([tenantId, vehicleRef, serviceDate, status], map: "capacity_pool_vehicle_availability_idx")
   @@map("capacity_pool")
   @@schema("tms")
 }
@@ -8758,5 +8760,254 @@ model ARVoucher {
   @@unique([tenantId,voucherNo],map:"ar_voucher_tenant_no_key")
   @@unique([tenantId,customerStatementId],map:"ar_voucher_statement_key")
   @@map("ar_voucher")
+  @@schema("tms")
+}
+
+enum MaintenancePlanStatus {
+  PLANNED
+  IN_PROGRESS
+  COMPLETED
+  CANCELLED
+  @@schema("tms")
+}
+
+enum VehicleAvailabilityStatus {
+  ACTIVE
+  RELEASED
+  @@schema("tms")
+}
+
+enum ConditionAlertStatus {
+  OPEN
+  ACKNOWLEDGED
+  RESOLVED
+  @@schema("tms")
+}
+
+enum TelemetryMetricType {
+  TEMPERATURE
+  HUMIDITY
+  DOOR
+  DEVICE_ALERT
+  @@schema("tms")
+}
+
+enum TrackingTokenStatus {
+  ACTIVE
+  REVOKED
+  EXPIRED
+  @@schema("tms")
+}
+
+model MaintenancePlan {
+  id String @id @default(uuid()) @db.Uuid
+  tenantId String @map("tenant_id") @db.Uuid
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  createdBy String @map("created_by") @db.Uuid
+  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
+  updatedBy String @map("updated_by") @db.Uuid
+  version Int @default(1)
+  status MaintenancePlanStatus @default(PLANNED)
+  planNo String @map("plan_no") @db.VarChar(100)
+  vehicleRef String @map("vehicle_ref") @db.Uuid
+  maintenanceType String @map("maintenance_type") @db.VarChar(50)
+  plannedFrom DateTime @map("planned_from") @db.Timestamptz(3)
+  plannedTo DateTime @map("planned_to") @db.Timestamptz(3)
+  odometer Decimal @db.Decimal(18,3)
+  detailSnapshot Json @map("detail_snapshot") @db.JsonB
+  startedAt DateTime? @map("started_at") @db.Timestamptz(3)
+  completedAt DateTime? @map("completed_at") @db.Timestamptz(3)
+  cancelledAt DateTime? @map("cancelled_at") @db.Timestamptz(3)
+  @@unique([tenantId,planNo],map:"maintenance_plan_tenant_no_key")
+  @@index([tenantId,vehicleRef,status,plannedFrom],map:"maintenance_plan_vehicle_idx")
+  @@map("maintenance_plan")
+  @@schema("tms")
+}
+
+model MaintenanceEvent {
+  id String @id @default(uuid()) @db.Uuid
+  tenantId String @map("tenant_id") @db.Uuid
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  createdBy String @map("created_by") @db.Uuid
+  updatedAt DateTime @default(now()) @map("updated_at") @db.Timestamptz(3)
+  updatedBy String @map("updated_by") @db.Uuid
+  version Int @default(1)
+  status TmsRecordStatus @default(ACTIVE)
+  maintenancePlanId String @map("maintenance_plan_id") @db.Uuid
+  fromStatus MaintenancePlanStatus @map("from_status")
+  toStatus MaintenancePlanStatus @map("to_status")
+  reason String @db.VarChar(1000)
+  occurredAt DateTime @default(now()) @map("occurred_at") @db.Timestamptz(3)
+  @@index([tenantId,maintenancePlanId,occurredAt],map:"maintenance_event_plan_idx")
+  @@map("maintenance_event")
+  @@schema("tms")
+}
+
+model VehicleAvailability {
+  id String @id @default(uuid()) @db.Uuid
+  tenantId String @map("tenant_id") @db.Uuid
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  createdBy String @map("created_by") @db.Uuid
+  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
+  updatedBy String @map("updated_by") @db.Uuid
+  version Int @default(1)
+  status VehicleAvailabilityStatus @default(ACTIVE)
+  vehicleRef String @map("vehicle_ref") @db.Uuid
+  maintenancePlanId String @map("maintenance_plan_id") @db.Uuid
+  unavailableFrom DateTime @map("unavailable_from") @db.Timestamptz(3)
+  unavailableTo DateTime @map("unavailable_to") @db.Timestamptz(3)
+  reason String @db.VarChar(1000)
+  affectedPoolIds Json @map("affected_pool_ids") @db.JsonB
+  releasedAt DateTime? @map("released_at") @db.Timestamptz(3)
+  @@unique([tenantId,maintenancePlanId],map:"vehicle_availability_plan_key")
+  @@index([tenantId,vehicleRef,status,unavailableFrom,unavailableTo],map:"vehicle_availability_window_idx")
+  @@map("vehicle_availability")
+  @@schema("tms")
+}
+
+model VehicleOperatingFact {
+  id String @id @default(uuid()) @db.Uuid
+  tenantId String @map("tenant_id") @db.Uuid
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  createdBy String @map("created_by") @db.Uuid
+  updatedAt DateTime @default(now()) @map("updated_at") @db.Timestamptz(3)
+  updatedBy String @map("updated_by") @db.Uuid
+  version Int @default(1)
+  status TmsRecordStatus @default(ACTIVE)
+  factNo String @map("fact_no") @db.VarChar(100)
+  vehicleRef String @map("vehicle_ref") @db.Uuid
+  factType String @map("fact_type") @db.VarChar(50)
+  value Decimal @db.Decimal(24,6)
+  uom String @db.VarChar(20)
+  occurredAt DateTime @map("occurred_at") @db.Timestamptz(3)
+  sourceRef String @map("source_ref") @db.VarChar(200)
+  detailSnapshot Json @map("detail_snapshot") @db.JsonB
+  @@unique([tenantId,factNo],map:"vehicle_operating_fact_tenant_no_key")
+  @@unique([tenantId,vehicleRef,factType,sourceRef],map:"vehicle_operating_fact_source_key")
+  @@index([tenantId,vehicleRef,occurredAt],map:"vehicle_operating_fact_vehicle_idx")
+  @@map("vehicle_operating_fact")
+  @@schema("tms")
+}
+
+model Telemetry {
+  id String @id @default(uuid()) @db.Uuid
+  tenantId String @map("tenant_id") @db.Uuid
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  createdBy String @map("created_by") @db.Uuid
+  updatedAt DateTime @default(now()) @map("updated_at") @db.Timestamptz(3)
+  updatedBy String @map("updated_by") @db.Uuid
+  version Int @default(1)
+  status TmsRecordStatus @default(ACTIVE)
+  shipmentId String @map("shipment_id") @db.Uuid
+  deviceRef String @map("device_ref") @db.VarChar(200)
+  externalMessageId String @map("external_message_id") @db.VarChar(200)
+  contentHash String @map("content_hash") @db.Char(64)
+  metricType TelemetryMetricType @map("metric_type")
+  value Decimal? @db.Decimal(24,6)
+  uom String? @db.VarChar(20)
+  observedAt DateTime @map("observed_at") @db.Timestamptz(3)
+  payloadSnapshot Json @map("payload_snapshot") @db.JsonB
+  retentionUntil DateTime @map("retention_until") @db.Timestamptz(3)
+  @@unique([tenantId,deviceRef,externalMessageId],map:"telemetry_device_message_key")
+  @@index([tenantId,shipmentId,metricType,observedAt],map:"telemetry_shipment_metric_idx")
+  @@index([tenantId,retentionUntil],map:"telemetry_retention_idx")
+  @@map("telemetry")
+  @@schema("tms")
+}
+
+model ConditionAlert {
+  id String @id @default(uuid()) @db.Uuid
+  tenantId String @map("tenant_id") @db.Uuid
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  createdBy String @map("created_by") @db.Uuid
+  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
+  updatedBy String @map("updated_by") @db.Uuid
+  version Int @default(1)
+  status ConditionAlertStatus @default(OPEN)
+  alertNo String @map("alert_no") @db.VarChar(100)
+  telemetryId String @map("telemetry_id") @db.Uuid
+  shipmentId String @map("shipment_id") @db.Uuid
+  transportExceptionId String? @map("transport_exception_id") @db.Uuid
+  alertType String @map("alert_type") @db.VarChar(50)
+  severity TransportExceptionSeverity
+  thresholdSnapshot Json @map("threshold_snapshot") @db.JsonB
+  evidenceSnapshot Json @map("evidence_snapshot") @db.JsonB
+  acknowledgedAt DateTime? @map("acknowledged_at") @db.Timestamptz(3)
+  resolvedAt DateTime? @map("resolved_at") @db.Timestamptz(3)
+  resolution String? @db.VarChar(1000)
+  @@unique([tenantId,alertNo],map:"condition_alert_tenant_no_key")
+  @@unique([tenantId,telemetryId],map:"condition_alert_telemetry_key")
+  @@index([tenantId,shipmentId,status,createdAt],map:"condition_alert_shipment_idx")
+  @@map("condition_alert")
+  @@schema("tms")
+}
+
+model TransportMetric {
+  id String @id @default(uuid()) @db.Uuid
+  tenantId String @map("tenant_id") @db.Uuid
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  createdBy String @map("created_by") @db.Uuid
+  updatedAt DateTime @default(now()) @map("updated_at") @db.Timestamptz(3)
+  updatedBy String @map("updated_by") @db.Uuid
+  version Int @default(1)
+  status TmsRecordStatus @default(ACTIVE)
+  runId String @map("run_id") @db.Uuid
+  metricCode String @map("metric_code") @db.VarChar(100)
+  dimensionType String @map("dimension_type") @db.VarChar(50)
+  dimensionValue String @map("dimension_value") @db.VarChar(300)
+  value Decimal @db.Decimal(24,6)
+  uom String @db.VarChar(20)
+  periodFrom DateTime @map("period_from") @db.Timestamptz(3)
+  periodTo DateTime @map("period_to") @db.Timestamptz(3)
+  dimensionSnapshot Json @map("dimension_snapshot") @db.JsonB
+  calculationTrace Json @map("calculation_trace") @db.JsonB
+  @@unique([tenantId,runId,metricCode,dimensionType,dimensionValue],map:"transport_metric_run_dimension_key")
+  @@index([tenantId,metricCode,dimensionType,periodFrom],map:"transport_metric_drilldown_idx")
+  @@map("transport_metric")
+  @@schema("tms")
+}
+
+model TrackingAccessToken {
+  id String @id @default(uuid()) @db.Uuid
+  tenantId String @map("tenant_id") @db.Uuid
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  createdBy String @map("created_by") @db.Uuid
+  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
+  updatedBy String @map("updated_by") @db.Uuid
+  version Int @default(1)
+  status TrackingTokenStatus @default(ACTIVE)
+  shipmentId String @map("shipment_id") @db.Uuid
+  tokenHash String @map("token_hash") @db.Char(64)
+  audienceSnapshot Json @map("audience_snapshot") @db.JsonB
+  allowPod Boolean @default(false) @map("allow_pod")
+  expiresAt DateTime @map("expires_at") @db.Timestamptz(3)
+  maxViews Int @map("max_views")
+  viewCount Int @default(0) @map("view_count")
+  lastViewedAt DateTime? @map("last_viewed_at") @db.Timestamptz(3)
+  revokedAt DateTime? @map("revoked_at") @db.Timestamptz(3)
+  revokeReason String? @map("revoke_reason") @db.VarChar(1000)
+  @@unique([tenantId,tokenHash],map:"tracking_access_token_hash_key")
+  @@index([tenantId,shipmentId,status,expiresAt],map:"tracking_access_token_shipment_idx")
+  @@map("tracking_access_token")
+  @@schema("tms")
+}
+
+model PublicTrackingAccessLog {
+  id String @id @default(uuid()) @db.Uuid
+  tenantId String @map("tenant_id") @db.Uuid
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  createdBy String @map("created_by") @db.Uuid
+  updatedAt DateTime @default(now()) @map("updated_at") @db.Timestamptz(3)
+  updatedBy String @map("updated_by") @db.Uuid
+  version Int @default(1)
+  status TmsRecordStatus @default(ACTIVE)
+  trackingAccessTokenId String @map("tracking_access_token_id") @db.Uuid
+  shipmentId String @map("shipment_id") @db.Uuid
+  accessSequence Int @map("access_sequence")
+  ipHash String? @map("ip_hash") @db.Char(64)
+  accessedAt DateTime @default(now()) @map("accessed_at") @db.Timestamptz(3)
+  @@unique([tenantId,trackingAccessTokenId,accessSequence],map:"public_tracking_access_sequence_key")
+  @@index([tenantId,shipmentId,accessedAt],map:"public_tracking_access_shipment_idx")
+  @@map("public_tracking_access_log")
   @@schema("tms")
 }

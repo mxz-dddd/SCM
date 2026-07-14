@@ -39,6 +39,10 @@ export class AppModule implements NestModule {
       .apply(TenantContextMiddleware)
       .exclude(
         { method: RequestMethod.GET, path: 'health' },
+        {
+          method: RequestMethod.GET,
+          path: 'api/v1/public/tracking/:token',
+        },
         { method: RequestMethod.POST, path: 'api/v1/auth/login' },
       )
       .forRoutes('*');

@@ -46,6 +46,28 @@ export class FleetAssignmentFacade {
     return { certificates, drivers, vehicles };
   }
 
+  async getVehicle(vehicleRef: string, context: TenantContext) {
+    if (!isUuid(vehicleRef))
+      throw new AppError(
+        'FLEET_VEHICLE_REFERENCE_INVALID',
+        'Vehicle reference is invalid',
+        400,
+      );
+    const vehicle = await this.prisma.vehicle.findFirst({
+      where: { id: vehicleRef, tenantId: context.tenantId },
+    });
+    if (!vehicle)
+      throw new AppError('VEHICLE_NOT_FOUND', 'Vehicle was not found', 404);
+    return {
+      carrierPartnerId: vehicle.carrierPartnerId,
+      equipmentTypeId: vehicle.equipmentTypeId,
+      id: vehicle.id,
+      plateNumber: vehicle.plateNumber,
+      status: vehicle.status,
+      version: vehicle.version,
+    };
+  }
+
   async inspect(input: FleetAssignmentInspectionInput, context: TenantContext) {
     if (!isUuid(input.vehicleRef) || !isUuid(input.driverRef))
       throw new AppError(

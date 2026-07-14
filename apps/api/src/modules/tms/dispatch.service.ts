@@ -186,6 +186,21 @@ export class DispatchService {
           409,
           { retryable: true },
         );
+      const unavailable = await tx.vehicleAvailability.count({
+        where: {
+          status: 'ACTIVE',
+          tenantId: context.tenantId,
+          unavailableFrom: { lt: scheduleTo },
+          unavailableTo: { gt: scheduleFrom },
+          vehicleRef: input.vehicleRef,
+        },
+      });
+      if (unavailable)
+        throw new AppError(
+          'TMS_VEHICLE_MAINTENANCE_CONFLICT',
+          'Vehicle is unavailable during the assignment schedule',
+          409,
+        );
       const id = randomUUID();
       const assignment = await tx.vehicleAssignment.create({
         data: {

@@ -95,6 +95,7 @@ export class CapacityTenderService {
       totalPallets: string;
       totalVolumeBase: string;
       totalWeightBase: string;
+      vehicleRef?: string;
       vehicleType: string;
     },
     context: TenantContext,
@@ -107,6 +108,7 @@ export class CapacityTenderService {
       !['OWN_FLEET', 'CONTRACT', 'TEMPORARY'].includes(input.sourceType)
     )
       this.invalid('Capacity carrier, region, vehicle and source are required');
+    if (input.vehicleRef) this.uuid(input.vehicleRef, 'vehicleRef');
     const serviceDate = new Date(`${input.serviceDate}T00:00:00.000Z`);
     if (
       !/^\d{4}-\d{2}-\d{2}$/.test(input.serviceDate) ||
@@ -115,6 +117,25 @@ export class CapacityTenderService {
       this.invalid('Service date is invalid');
     const id = randomUUID();
     return this.prisma.$transaction(async (tx) => {
+      if (input.vehicleRef) {
+        const unavailable = await tx.vehicleAvailability.count({
+          where: {
+            status: 'ACTIVE',
+            tenantId: context.tenantId,
+            unavailableFrom: {
+              lt: new Date(serviceDate.getTime() + 86_400_000),
+            },
+            unavailableTo: { gt: serviceDate },
+            vehicleRef: input.vehicleRef,
+          },
+        });
+        if (unavailable)
+          throw new AppError(
+            'TMS_CAPACITY_VEHICLE_UNAVAILABLE',
+            'Unavailable vehicle cannot enter the capacity pool',
+            409,
+          );
+      }
       const pool = await tx.capacityPool.create({
         data: {
           calendarSnapshot: json(input.calendarSnapshot),
@@ -132,6 +153,7 @@ export class CapacityTenderService {
           totalVolumeBase: this.positive(input.totalVolumeBase),
           totalWeightBase: this.positive(input.totalWeightBase),
           updatedBy: context.accountId,
+          vehicleRef: input.vehicleRef ?? null,
           vehicleType: input.vehicleType.trim().toUpperCase(),
         },
       });

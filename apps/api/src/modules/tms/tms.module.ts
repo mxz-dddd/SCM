@@ -11,6 +11,11 @@ import { DeliveryReverseController } from './delivery-reverse.controller';
 import { DeliveryReverseService } from './delivery-reverse.service';
 import { FreightBillingController } from './freight-billing.controller';
 import { FreightBillingService } from './freight-billing.service';
+import {
+  FleetInsightsController,
+  PublicTrackingController,
+} from './fleet-insights.controller';
+import { FleetInsightsService } from './fleet-insights.service';
 import { LoadRouteController } from './load-route.controller';
 import { LoadRouteService } from './load-route.service';
 import { InTransitOperationsController } from './in-transit-operations.controller';
@@ -28,9 +33,11 @@ import { TransportOrderService } from './transport-order.service';
     DispatchController,
     DeliveryReverseController,
     FreightBillingController,
+    FleetInsightsController,
     InTransitOperationsController,
     LoadRouteController,
     PlanningController,
+    PublicTrackingController,
     TrackingController,
     TransportOrderController,
   ],
@@ -40,6 +47,7 @@ import { TransportOrderService } from './transport-order.service';
     DispatchService,
     DeliveryReverseService,
     FreightBillingService,
+    FleetInsightsService,
     InTransitOperationsService,
     LoadRouteService,
     PlanningService,

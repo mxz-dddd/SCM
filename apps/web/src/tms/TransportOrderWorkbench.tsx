@@ -16,6 +16,7 @@ import { DriverTrackingPanel } from './DriverTrackingPanel';
 import { InTransitOperationsPanel } from './InTransitOperationsPanel';
 import { DeliveryReversePanel } from './DeliveryReversePanel';
 import { FreightBillingPanel } from './FreightBillingPanel';
+import { FleetInsightsPanel } from './FleetInsightsPanel';
 
 type TransportStatus = 'OPEN' | 'PLANNED' | 'FROZEN' | 'RETURNED';
 
@@ -310,6 +311,7 @@ export function TransportOrderWorkbench() {
       <InTransitOperationsPanel />
       <DeliveryReversePanel />
       <FreightBillingPanel />
+      <FleetInsightsPanel />
     </section>
   );
 }
