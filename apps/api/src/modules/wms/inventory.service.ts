@@ -899,6 +899,210 @@ export class InventoryService {
     };
   }
 
+  async finalizeOutboundReservation(
+    tx: Prisma.TransactionClient,
+    reservationId: string,
+    shippedBaseInput: string,
+    businessRef: string,
+    context: TenantContext,
+    metadata: CommandMetadata,
+  ) {
+    this.uuid(reservationId, 'reservationId');
+    const reservation = await tx.inventoryReservation.findFirst({
+      where: {
+        id: reservationId,
+        status: 'RESERVED',
+        tenantId: context.tenantId,
+      },
+    });
+    if (!reservation) throw this.conflict('INVENTORY_SHIPMENT_CONFLICT');
+    const shippedBase = new Prisma.Decimal(shippedBaseInput);
+    if (
+      shippedBase.isNegative() ||
+      shippedBase.greaterThan(reservation.quantityBase)
+    )
+      throw this.conflict('INVENTORY_SHIPMENT_QUANTITY_CONFLICT');
+    const shippedOriginal = reservation.quantityBase.equals(0)
+      ? new Prisma.Decimal(0)
+      : shippedBase.mul(reservation.quantityOriginal).div(reservation.quantityBase);
+    const releasedBase = reservation.quantityBase.sub(shippedBase);
+    const releasedOriginal = reservation.quantityOriginal.sub(shippedOriginal);
+    const before = await tx.inventoryBalance.findFirstOrThrow({
+      where: { id: reservation.balanceId, tenantId: context.tenantId },
+    });
+    const rows = await tx.$queryRaw<
+      { base_uom: string; original_uom: string; version: number }[]
+    >`
+      UPDATE wms.inventory_balance
+      SET on_hand_original = on_hand_original - ${shippedOriginal},
+          on_hand_base = on_hand_base - ${shippedBase},
+          allocated_original = allocated_original - ${reservation.quantityOriginal},
+          allocated_base = allocated_base - ${reservation.quantityBase},
+          available_original = available_original + ${releasedOriginal},
+          available_base = available_base + ${releasedBase},
+          updated_at = CURRENT_TIMESTAMP,
+          updated_by = ${context.accountId}::uuid,
+          version = version + 1
+      WHERE id = ${reservation.balanceId}::uuid
+        AND tenant_id = ${context.tenantId}::uuid
+        AND on_hand_original >= ${shippedOriginal}
+        AND on_hand_base >= ${shippedBase}
+        AND allocated_original >= ${reservation.quantityOriginal}
+        AND allocated_base >= ${reservation.quantityBase}
+      RETURNING original_uom, base_uom, version
+    `;
+    if (!rows.length) throw this.conflict('INVENTORY_SHIPMENT_CONFLICT');
+    const consumed = await tx.inventoryReservation.updateMany({
+      data: {
+        releasedAt: new Date(),
+        releaseReason: releasedBase.greaterThan(0)
+          ? 'SHIPMENT_SHORT_RELEASE'
+          : 'SHIPMENT_CONSUMED',
+        status: 'CONSUMED',
+        updatedBy: context.accountId,
+        version: { increment: 1 },
+      },
+      where: { id: reservationId, status: 'RESERVED' },
+    });
+    if (consumed.count !== 1)
+      throw this.conflict('INVENTORY_SHIPMENT_CONFLICT');
+    const movementIds: string[] = [];
+    if (shippedBase.greaterThan(0)) {
+      const movement = await this.appendMovement(
+        tx,
+        reservation.balanceId,
+        'SHIPMENT',
+        { base: shippedBase, original: shippedOriginal },
+        rows[0]!.original_uom,
+        rows[0]!.base_uom,
+        'OUTBOUND_SHIPMENT',
+        businessRef,
+        context,
+        metadata,
+        dimensionSnapshot(before),
+        {},
+      );
+      movementIds.push(movement.id);
+    }
+    if (releasedBase.greaterThan(0)) {
+      const movement = await this.appendMovement(
+        tx,
+        reservation.balanceId,
+        'RELEASE_RESERVATION',
+        { base: releasedBase, original: releasedOriginal },
+        rows[0]!.original_uom,
+        rows[0]!.base_uom,
+        'OUTBOUND_SHORT_PICK',
+        businessRef,
+        context,
+        metadata,
+      );
+      movementIds.push(movement.id);
+    }
+    await this.record(
+      tx,
+      reservation.balanceId,
+      'InventoryBalance',
+      rows[0]!.version,
+      'inventory.changed.v1',
+      context,
+      metadata,
+      {
+        balanceKey: dimensionSnapshot(before),
+        businessRef,
+        delta: {
+          releasedBase: releasedBase.toString(),
+          shippedBase: shippedBase.negated().toString(),
+        },
+        movementIds,
+        movementType: 'SHIPMENT',
+      },
+    );
+    return {
+      balanceId: reservation.balanceId,
+      balanceVersion: rows[0]!.version,
+      movementIds,
+      releasedBase: releasedBase.toString(),
+      shippedBase: shippedBase.toString(),
+    };
+  }
+
+  async cancelOutboundReservation(
+    tx: Prisma.TransactionClient,
+    reservationId: string,
+    businessRef: string,
+    context: TenantContext,
+    metadata: CommandMetadata,
+  ) {
+    this.uuid(reservationId, 'reservationId');
+    const reservation = await tx.inventoryReservation.findFirst({
+      where: {
+        id: reservationId,
+        status: 'RESERVED',
+        tenantId: context.tenantId,
+      },
+    });
+    if (!reservation) return { replayed: true };
+    const rows = await tx.$queryRaw<
+      { base_uom: string; original_uom: string; version: number }[]
+    >`
+      UPDATE wms.inventory_balance
+      SET allocated_original = allocated_original - ${reservation.quantityOriginal},
+          allocated_base = allocated_base - ${reservation.quantityBase},
+          available_original = available_original + ${reservation.quantityOriginal},
+          available_base = available_base + ${reservation.quantityBase},
+          updated_at = CURRENT_TIMESTAMP,
+          updated_by = ${context.accountId}::uuid,
+          version = version + 1
+      WHERE id = ${reservation.balanceId}::uuid
+        AND tenant_id = ${context.tenantId}::uuid
+        AND allocated_original >= ${reservation.quantityOriginal}
+        AND allocated_base >= ${reservation.quantityBase}
+      RETURNING original_uom, base_uom, version
+    `;
+    if (!rows.length) throw this.conflict('INVENTORY_RESERVATION_CONFLICT');
+    await tx.inventoryReservation.update({
+      data: {
+        releasedAt: new Date(),
+        releaseReason: 'OUTBOUND_CANCELLED',
+        status: 'RELEASED',
+        updatedBy: context.accountId,
+        version: { increment: 1 },
+      },
+      where: { id: reservationId },
+    });
+    const movement = await this.appendMovement(
+      tx,
+      reservation.balanceId,
+      'RELEASE_RESERVATION',
+      {
+        base: reservation.quantityBase,
+        original: reservation.quantityOriginal,
+      },
+      rows[0]!.original_uom,
+      rows[0]!.base_uom,
+      'OUTBOUND_CANCELLATION',
+      businessRef,
+      context,
+      metadata,
+    );
+    await this.record(
+      tx,
+      reservationId,
+      'InventoryReservation',
+      reservation.version + 1,
+      'inventory.reservation-released.v1',
+      context,
+      metadata,
+      {
+        balanceId: reservation.balanceId,
+        movementId: movement.id,
+        reservationId,
+      },
+    );
+    return { balanceVersion: rows[0]!.version, replayed: false };
+  }
+
   async transfer(
     id: string,
     input: TransferInventoryInput,

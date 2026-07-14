@@ -11,6 +11,8 @@ import { InventoryController } from './inventory.controller';
 import { InventoryService } from './inventory.service';
 import { OutboundController } from './outbound.controller';
 import { OutboundService } from './outbound.service';
+import { PackShipController } from './pack-ship.controller';
+import { PackShipService } from './pack-ship.service';
 import { PickController } from './pick.controller';
 import { PickService } from './pick.service';
 import { QualityPutawayController } from './quality-putaway.controller';
@@ -26,6 +28,7 @@ import { ReceivingDetailService } from './receiving-detail.service';
     InventoryGovernanceController,
     OutboundController,
     PickController,
+    PackShipController,
   ],
   imports: [MdmModule, PlatformModule],
   providers: [
@@ -36,6 +39,7 @@ import { ReceivingDetailService } from './receiving-detail.service';
     InventoryGovernanceService,
     OutboundService,
     PickService,
+    PackShipService,
     PermissionGuard,
     PermissionService,
   ],

@@ -5,6 +5,7 @@ import { afterAll, describe, expect, it } from 'vitest';
 import { MdmReferenceService } from '../mdm/public/mdm-reference.service';
 import { InventoryService } from './inventory.service';
 import { OutboundService } from './outbound.service';
+import { PackShipService } from './pack-ship.service';
 import { PickService } from './pick.service';
 
 const databaseDescribe = process.env.DATABASE_URL ? describe : describe.skip;
@@ -87,6 +88,7 @@ databaseDescribe('WMS outbound planning and allocation persistence', () => {
     const inventory = new InventoryService(prisma as never, mdm);
     const service = new OutboundService(prisma as never, mdm, inventory);
     const picking = new PickService(prisma as never, mdm);
+    const packShip = new PackShipService(prisma as never, mdm, inventory);
     const stock = await inventory.receive(
       {
         baseUom: 'EA',
@@ -511,6 +513,288 @@ databaseDescribe('WMS outbound planning and allocation persistence', () => {
       prisma.pickVerificationResult.update({
         data: { scopeRef: 'MUTATED' },
         where: { id: failed.verificationId },
+      }),
+    ).rejects.toBeTruthy();
+
+    const outboundId = selectedTask.outboundOrderId!;
+    const pack = await packShip.createPackTask(
+      outboundId,
+      {
+        boxes: [{ code: 'BOX-L', maxVolume: '100', maxWeight: '100' }],
+        materialSnapshot: { buffer: 'paper' },
+        ruleSnapshot: {
+          defaultUnitVolume: '1',
+          defaultUnitWeight: '1',
+          volumeTolerancePct: '10',
+          weightTolerancePct: '10',
+        },
+        serviceSnapshot: { service: 'STANDARD_PACK' },
+      },
+      context,
+      command(),
+    );
+    expect(pack.status).toBe('PACKING');
+    expect(pack.packageIds).toHaveLength(1);
+    let packageUnit = await prisma.packageUnit.findUniqueOrThrow({
+      where: { id: pack.packageIds[0]! },
+    });
+    const excessive = await packShip.measurePackage(
+      packageUnit.id,
+      {
+        deviceId: 'SCALE-P2-20',
+        deviceSequence: '1',
+        height: '2',
+        length: '2',
+        measuredAt: new Date().toISOString(),
+        rawSnapshot: { protocol: 'TEST-SCALE' },
+        source: 'ELECTRONIC_SCALE',
+        volume: '20',
+        weight: '20',
+        width: '2',
+      },
+      context,
+      command(),
+    );
+    expect(excessive.status).toBe('EXCEPTION');
+    packageUnit = await prisma.packageUnit.findUniqueOrThrow({
+      where: { id: packageUnit.id },
+    });
+    await expect(
+      packShip.sealPackage(
+        packageUnit.id,
+        { expectedVersion: packageUnit.version },
+        context,
+        command(),
+      ),
+    ).rejects.toMatchObject({ code: 'PACKAGE_WEIGHT_EXCEPTION_OPEN' });
+    const weightException = await prisma.weightException.findUniqueOrThrow({
+      where: { id: excessive.exceptionId! },
+    });
+    await packShip.resolveWeightException(
+      weightException.id,
+      {
+        expectedVersion: weightException.version,
+        resolutionSnapshot: {
+          approval: actorId,
+          reason: 'manual count confirms extra buffer material',
+        },
+      },
+      context,
+      command(),
+    );
+    const sealed = await packShip.sealPackage(
+      packageUnit.id,
+      { expectedVersion: packageUnit.version },
+      context,
+      command(),
+    );
+    expect(sealed.status).toBe('SEALED');
+    const label = await packShip.issueLabel(
+      packageUnit.id,
+      {
+        contentRef: 's3://labels/p2-20-v1.pdf',
+        labelType: 'SHIPPING',
+        templateVersion: 'carrier-v1',
+      },
+      context,
+      command(),
+    );
+    const voided = await packShip.voidLabel(
+      label.labelId,
+      { reason: 'printer damaged first copy' },
+      context,
+      command(),
+    );
+    expect(voided.status).toBe('VOID');
+    await expect(
+      packShip.stagePackage(
+        packageUnit.id,
+        {
+          loadSequence: 1,
+          maxVolume: '100',
+          routeCode: 'R-01',
+          shipmentRef: 'TMS-SHIP-P2-20',
+          stagingLocationId: locationId,
+          tripRef: 'TRIP-P2-20',
+        },
+        context,
+        command(),
+      ),
+    ).rejects.toMatchObject({ code: 'STAGING_ACTIVE_LABEL_REQUIRED' });
+    const reprinted = await packShip.issueLabel(
+      packageUnit.id,
+      {
+        contentRef: 's3://labels/p2-20-v2.pdf',
+        labelType: 'SHIPPING',
+        reason: 'replacement print',
+        replaceLabelId: label.labelId,
+        templateVersion: 'carrier-v1',
+      },
+      context,
+      command(),
+    );
+    expect(reprinted.labelVersion).toBe(3);
+    const staged = await packShip.stagePackage(
+      packageUnit.id,
+      {
+        loadSequence: 1,
+        maxVolume: '100',
+        routeCode: 'R-01',
+        shipmentRef: 'TMS-SHIP-P2-20',
+        stagingLocationId: locationId,
+        tripRef: 'TRIP-P2-20',
+      },
+      context,
+      command(),
+    );
+    expect(staged.status).toBe('STAGED');
+    expect(
+      await prisma.platformOutbox.count({
+        where: { aggregateId: outboundId, eventName: 'outbound.ready.v1' },
+      }),
+    ).toBe(1);
+    const load = await packShip.createLoadTask(
+      outboundId,
+      {
+        dockRef: 'DOCK-P2-20',
+        maxVolume: '100',
+        maxWeight: '100',
+        sealNo: 'SEAL-P2-20',
+        shipmentRef: 'TMS-SHIP-P2-20',
+        vehicleRef: 'VEHICLE-P2-20',
+      },
+      context,
+      command(),
+    );
+    await expect(
+      packShip.confirmLoad(
+        load.loadTaskId,
+        {
+          deviceId: 'RF-LOAD-P2-20',
+          deviceSequence: '1',
+          dockRef: 'WRONG-DOCK',
+          packageId: packageUnit.id,
+          sealNo: 'SEAL-P2-20',
+          vehicleRef: 'VEHICLE-P2-20',
+        },
+        context,
+        command(),
+      ),
+    ).rejects.toMatchObject({ code: 'LOAD_SCAN_MISMATCH' });
+    const loadScan = {
+      deviceId: 'RF-LOAD-P2-20',
+      deviceSequence: '2',
+      dockRef: 'DOCK-P2-20',
+      packageId: packageUnit.id,
+      sealNo: 'SEAL-P2-20',
+      vehicleRef: 'VEHICLE-P2-20',
+    };
+    const loaded = await packShip.confirmLoad(
+      load.loadTaskId,
+      loadScan,
+      context,
+      command(),
+    );
+    expect(loaded.loaded).toBe(true);
+    await expect(
+      packShip.confirmLoad(
+        load.loadTaskId,
+        loadScan,
+        context,
+        command(),
+      ),
+    ).resolves.toMatchObject({
+      confirmationId: loaded.confirmationId,
+      replayed: true,
+    });
+    const loadedTask = await prisma.loadTask.findUniqueOrThrow({
+      where: { id: load.loadTaskId },
+    });
+    const concurrentShipInput = {
+      actualAt: new Date().toISOString(),
+      expectedVersion: loadedTask.version,
+    };
+    const concurrentShip = await Promise.all([
+      packShip.ship(
+        load.loadTaskId,
+        concurrentShipInput,
+        context,
+        command(),
+      ),
+      packShip.ship(
+        load.loadTaskId,
+        concurrentShipInput,
+        context,
+        command(),
+      ),
+    ]);
+    const shipped = concurrentShip[0]!;
+    expect(shipped.status).toBe('SHIPPED');
+    expect(concurrentShip[1]!.dispatchId).toBe(shipped.dispatchId);
+    expect(concurrentShip.filter(({ replayed }) => replayed)).toHaveLength(1);
+    const shippedOrder = await prisma.outboundOrder.findUniqueOrThrow({
+      where: { id: outboundId },
+    });
+    expect(shippedOrder.status).toBe('SHIPPED');
+    expect(
+      await prisma.platformOutbox.count({
+        where: { aggregateId: outboundId, eventName: 'outbound.shipped.v1' },
+      }),
+    ).toBe(1);
+    const finalBalance = await prisma.inventoryBalance.findUniqueOrThrow({
+      where: { id: stock.balanceId },
+    });
+    expect(
+      finalBalance.availableBase
+        .add(finalBalance.allocatedBase)
+        .add(finalBalance.holdBase)
+        .toString(),
+    ).toBe(finalBalance.onHandBase.toString());
+    await expect(
+      packShip.cancelOutbound(
+        outboundId,
+        { reason: 'customer request after shipment', reasonCode: 'CUSTOMER' },
+        context,
+        command(),
+      ),
+    ).rejects.toMatchObject({ code: 'OUTBOUND_SHIPPED_IRREVERSIBLE' });
+    expect(
+      await prisma.cancellationPlan.count({
+        where: { outboundOrderId: outboundId, status: 'REJECTED', tenantId },
+      }),
+    ).toBe(1);
+    const otherOrderId = orders.find(({ outboundId: id }) => id !== outboundId)!
+      .outboundId;
+    await expect(
+      packShip.cancelOutbound(
+        otherOrderId,
+        { reason: 'customer cancelled before shipment', reasonCode: 'CUSTOMER' },
+        context,
+        command(),
+      ),
+    ).resolves.toMatchObject({ status: 'CANCELLED' });
+    await expect(
+      prisma.packageMeasurement.update({
+        data: { weight: '999' },
+        where: { id: excessive.measurementId },
+      }),
+    ).rejects.toBeTruthy();
+    await expect(
+      prisma.shippingLabel.update({
+        data: { contentRef: 'mutated' },
+        where: { id: label.labelId },
+      }),
+    ).rejects.toBeTruthy();
+    await expect(
+      prisma.loadConfirmation.update({
+        data: { confirmedAt: new Date(0) },
+        where: { id: loaded.confirmationId },
+      }),
+    ).rejects.toBeTruthy();
+    await expect(
+      prisma.outboundDispatch.update({
+        data: { shipmentRef: 'mutated' },
+        where: { id: shipped.dispatchId },
       }),
     ).rejects.toBeTruthy();
   });

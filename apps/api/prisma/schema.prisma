@@ -1235,7 +1235,60 @@ enum OutboundOrderStatus {
   WAVED
   ALLOCATED
   PICKING
+  PACKED
+  STAGED
+  LOADED
+  SHIPPED
   CANCELLED
+  @@schema("wms")
+}
+enum PackTaskStatus {
+  OPEN
+  PACKING
+  EXCEPTION
+  PACKED
+  CANCELLED
+  @@schema("wms")
+}
+enum PackageUnitStatus {
+  OPEN
+  SEALED
+  LABELLED
+  STAGED
+  LOADED
+  SHIPPED
+  CANCELLED
+  @@schema("wms")
+}
+enum WeightExceptionStatus {
+  OPEN
+  RESOLVED
+  @@schema("wms")
+}
+enum ShippingLabelStatus {
+  ACTIVE
+  VOID
+  @@schema("wms")
+}
+enum StagingTaskStatus {
+  OPEN
+  STAGED
+  RETURNED
+  CANCELLED
+  @@schema("wms")
+}
+enum LoadTaskStatus {
+  OPEN
+  LOADING
+  LOADED
+  SHIPPED
+  CANCELLED
+  @@schema("wms")
+}
+enum CancellationPlanStatus {
+  PLANNED
+  COMPLETED
+  REJECTED
   @@schema("wms")
 }
 enum PickTaskStatus {
@@ -4622,6 +4675,265 @@ model PickVerificationResult {
   correctedAt DateTime? @map("corrected_at") @db.Timestamptz(3)
   @@index([tenantId,taskId,createdAt],map:"pick_verification_task_idx")
   @@map("pick_verification_result")
+  @@schema("wms")
+}
+
+model PackTask {
+  id String @id @default(uuid()) @db.Uuid
+  tenantId String @map("tenant_id") @db.Uuid
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  createdBy String @map("created_by") @db.Uuid
+  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
+  updatedBy String @map("updated_by") @db.Uuid
+  version Int @default(1)
+  status PackTaskStatus @default(OPEN)
+  taskNo String @map("task_no") @db.VarChar(100)
+  outboundOrderId String @map("outbound_order_id") @db.Uuid
+  recommendationSnapshot Json @map("recommendation_snapshot") @db.JsonB
+  ruleSnapshot Json @map("rule_snapshot") @db.JsonB
+  startedAt DateTime? @map("started_at") @db.Timestamptz(3)
+  completedAt DateTime? @map("completed_at") @db.Timestamptz(3)
+  @@unique([tenantId,outboundOrderId],map:"pack_task_order_key")
+  @@unique([tenantId,taskNo],map:"pack_task_tenant_no_key")
+  @@index([tenantId,status,createdAt],map:"pack_task_workbench_idx")
+  @@map("pack_task")
+  @@schema("wms")
+}
+
+model PackageUnit {
+  id String @id @default(uuid()) @db.Uuid
+  tenantId String @map("tenant_id") @db.Uuid
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  createdBy String @map("created_by") @db.Uuid
+  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
+  updatedBy String @map("updated_by") @db.Uuid
+  version Int @default(1)
+  status PackageUnitStatus @default(OPEN)
+  packageNo String @map("package_no") @db.VarChar(100)
+  packTaskId String @map("pack_task_id") @db.Uuid
+  outboundOrderId String @map("outbound_order_id") @db.Uuid
+  parentPackageId String? @map("parent_package_id") @db.Uuid
+  boxTypeCode String @map("box_type_code") @db.VarChar(100)
+  materialSnapshot Json @map("material_snapshot") @db.JsonB
+  serviceSnapshot Json @map("service_snapshot") @db.JsonB
+  theoreticalWeight Decimal @map("theoretical_weight") @db.Decimal(24,6)
+  theoreticalVolume Decimal @map("theoretical_volume") @db.Decimal(24,6)
+  actualWeight Decimal? @map("actual_weight") @db.Decimal(24,6)
+  actualVolume Decimal? @map("actual_volume") @db.Decimal(24,6)
+  temperatureZone String? @map("temperature_zone") @db.VarChar(50)
+  routeCode String? @map("route_code") @db.VarChar(100)
+  sealedAt DateTime? @map("sealed_at") @db.Timestamptz(3)
+  @@unique([tenantId,packageNo],map:"package_unit_tenant_no_key")
+  @@index([tenantId,outboundOrderId,status,createdAt],map:"package_unit_order_idx")
+  @@map("package_unit")
+  @@schema("wms")
+}
+
+model PackageItem {
+  id String @id @default(uuid()) @db.Uuid
+  tenantId String @map("tenant_id") @db.Uuid
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  createdBy String @map("created_by") @db.Uuid
+  updatedAt DateTime @default(now()) @map("updated_at") @db.Timestamptz(3)
+  updatedBy String @map("updated_by") @db.Uuid
+  version Int @default(1)
+  status WmsRecordStatus @default(ACTIVE)
+  packageId String @map("package_id") @db.Uuid
+  pickTaskLineId String @map("pick_task_line_id") @db.Uuid
+  allocationId String @map("allocation_id") @db.Uuid
+  productId String @map("product_id") @db.Uuid
+  inventoryLotId String? @map("inventory_lot_id") @db.Uuid
+  serialNumberId String? @map("serial_number_id") @db.Uuid
+  quantityBase Decimal @map("quantity_base") @db.Decimal(24,12)
+  @@index([tenantId,packageId,createdAt],map:"package_item_package_idx")
+  @@index([tenantId,allocationId],map:"package_item_allocation_idx")
+  @@map("package_item")
+  @@schema("wms")
+}
+
+model PackageMeasurement {
+  id String @id @default(uuid()) @db.Uuid
+  tenantId String @map("tenant_id") @db.Uuid
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  createdBy String @map("created_by") @db.Uuid
+  updatedAt DateTime @default(now()) @map("updated_at") @db.Timestamptz(3)
+  updatedBy String @map("updated_by") @db.Uuid
+  version Int @default(1)
+  status WmsRecordStatus @default(ACTIVE)
+  packageId String @map("package_id") @db.Uuid
+  deviceId String @map("device_id") @db.VarChar(200)
+  deviceSequence BigInt @map("device_sequence")
+  source String @db.VarChar(100)
+  weight Decimal @db.Decimal(24,6)
+  length Decimal @db.Decimal(24,6)
+  width Decimal @db.Decimal(24,6)
+  height Decimal @db.Decimal(24,6)
+  volume Decimal @db.Decimal(24,6)
+  measuredAt DateTime @map("measured_at") @db.Timestamptz(3)
+  rawSnapshot Json @map("raw_snapshot") @db.JsonB
+  @@unique([tenantId,deviceId,deviceSequence],map:"package_measurement_device_seq_key")
+  @@index([tenantId,packageId,createdAt],map:"package_measurement_package_idx")
+  @@map("package_measurement")
+  @@schema("wms")
+}
+
+model WeightException {
+  id String @id @default(uuid()) @db.Uuid
+  tenantId String @map("tenant_id") @db.Uuid
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  createdBy String @map("created_by") @db.Uuid
+  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
+  updatedBy String @map("updated_by") @db.Uuid
+  version Int @default(1)
+  status WeightExceptionStatus @default(OPEN)
+  packageId String @map("package_id") @db.Uuid
+  measurementId String @map("measurement_id") @db.Uuid
+  exceptionNo String @map("exception_no") @db.VarChar(100)
+  varianceSnapshot Json @map("variance_snapshot") @db.JsonB
+  resolutionSnapshot Json? @map("resolution_snapshot") @db.JsonB
+  resolvedAt DateTime? @map("resolved_at") @db.Timestamptz(3)
+  @@unique([tenantId,exceptionNo],map:"weight_exception_tenant_no_key")
+  @@index([tenantId,packageId,status,createdAt],map:"weight_exception_package_idx")
+  @@map("weight_exception")
+  @@schema("wms")
+}
+
+model ShippingLabel {
+  id String @id @default(uuid()) @db.Uuid
+  tenantId String @map("tenant_id") @db.Uuid
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  createdBy String @map("created_by") @db.Uuid
+  updatedAt DateTime @default(now()) @map("updated_at") @db.Timestamptz(3)
+  updatedBy String @map("updated_by") @db.Uuid
+  version Int @default(1)
+  status ShippingLabelStatus
+  packageId String @map("package_id") @db.Uuid
+  labelType String @map("label_type") @db.VarChar(100)
+  labelVersion Int @map("label_version")
+  templateVersion String @map("template_version") @db.VarChar(100)
+  contentRef String @map("content_ref") @db.VarChar(500)
+  action String @db.VarChar(50)
+  supersedesId String? @map("supersedes_id") @db.Uuid
+  reason String? @db.VarChar(500)
+  @@unique([tenantId,packageId,labelType,labelVersion],map:"shipping_label_package_version_key")
+  @@index([tenantId,packageId,status,createdAt],map:"shipping_label_package_idx")
+  @@map("shipping_label")
+  @@schema("wms")
+}
+
+model StagingTask {
+  id String @id @default(uuid()) @db.Uuid
+  tenantId String @map("tenant_id") @db.Uuid
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  createdBy String @map("created_by") @db.Uuid
+  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
+  updatedBy String @map("updated_by") @db.Uuid
+  version Int @default(1)
+  status StagingTaskStatus @default(OPEN)
+  taskNo String @map("task_no") @db.VarChar(100)
+  packageId String @map("package_id") @db.Uuid
+  outboundOrderId String @map("outbound_order_id") @db.Uuid
+  stagingLocationId String @map("staging_location_id") @db.Uuid
+  routeCode String @map("route_code") @db.VarChar(100)
+  shipmentRef String @map("shipment_ref") @db.VarChar(200)
+  tripRef String @map("trip_ref") @db.VarChar(200)
+  loadSequence Int @map("load_sequence")
+  capacitySnapshot Json @map("capacity_snapshot") @db.JsonB
+  stagedAt DateTime? @map("staged_at") @db.Timestamptz(3)
+  returnedAt DateTime? @map("returned_at") @db.Timestamptz(3)
+  @@unique([tenantId,packageId],map:"staging_task_package_key")
+  @@unique([tenantId,taskNo],map:"staging_task_tenant_no_key")
+  @@index([tenantId,routeCode,tripRef,status],map:"staging_task_route_idx")
+  @@map("staging_task")
+  @@schema("wms")
+}
+
+model LoadTask {
+  id String @id @default(uuid()) @db.Uuid
+  tenantId String @map("tenant_id") @db.Uuid
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  createdBy String @map("created_by") @db.Uuid
+  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
+  updatedBy String @map("updated_by") @db.Uuid
+  version Int @default(1)
+  status LoadTaskStatus @default(OPEN)
+  taskNo String @map("task_no") @db.VarChar(100)
+  outboundOrderId String @map("outbound_order_id") @db.Uuid
+  shipmentRef String @map("shipment_ref") @db.VarChar(200)
+  dockRef String @map("dock_ref") @db.VarChar(200)
+  vehicleRef String @map("vehicle_ref") @db.VarChar(200)
+  sealNo String @map("seal_no") @db.VarChar(200)
+  temperatureZone String? @map("temperature_zone") @db.VarChar(50)
+  expectedSnapshot Json @map("expected_snapshot") @db.JsonB
+  loadedAt DateTime? @map("loaded_at") @db.Timestamptz(3)
+  shippedAt DateTime? @map("shipped_at") @db.Timestamptz(3)
+  @@unique([tenantId,outboundOrderId],map:"load_task_order_key")
+  @@unique([tenantId,taskNo],map:"load_task_tenant_no_key")
+  @@index([tenantId,shipmentRef,status,createdAt],map:"load_task_shipment_idx")
+  @@map("load_task")
+  @@schema("wms")
+}
+
+model LoadConfirmation {
+  id String @id @default(uuid()) @db.Uuid
+  tenantId String @map("tenant_id") @db.Uuid
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  createdBy String @map("created_by") @db.Uuid
+  updatedAt DateTime @default(now()) @map("updated_at") @db.Timestamptz(3)
+  updatedBy String @map("updated_by") @db.Uuid
+  version Int @default(1)
+  status WmsRecordStatus @default(ACTIVE)
+  loadTaskId String @map("load_task_id") @db.Uuid
+  packageId String @map("package_id") @db.Uuid
+  deviceId String @map("device_id") @db.VarChar(200)
+  deviceSequence BigInt @map("device_sequence")
+  scanSnapshot Json @map("scan_snapshot") @db.JsonB
+  confirmedAt DateTime @map("confirmed_at") @db.Timestamptz(3)
+  @@unique([tenantId,loadTaskId,packageId],map:"load_confirmation_package_key")
+  @@unique([tenantId,deviceId,deviceSequence],map:"load_confirmation_device_seq_key")
+  @@map("load_confirmation")
+  @@schema("wms")
+}
+
+model OutboundDispatch {
+  id String @id @default(uuid()) @db.Uuid
+  tenantId String @map("tenant_id") @db.Uuid
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  createdBy String @map("created_by") @db.Uuid
+  updatedAt DateTime @default(now()) @map("updated_at") @db.Timestamptz(3)
+  updatedBy String @map("updated_by") @db.Uuid
+  version Int @default(1)
+  status WmsRecordStatus @default(ACTIVE)
+  outboundOrderId String @map("outbound_order_id") @db.Uuid
+  loadTaskId String @map("load_task_id") @db.Uuid
+  shipmentRef String @map("shipment_ref") @db.VarChar(200)
+  actualAt DateTime @map("actual_at") @db.Timestamptz(3)
+  packageSnapshot Json @map("package_snapshot") @db.JsonB
+  inventorySnapshot Json @map("inventory_snapshot") @db.JsonB
+  @@unique([tenantId,outboundOrderId],map:"outbound_dispatch_order_key")
+  @@map("outbound_dispatch")
+  @@schema("wms")
+}
+
+model CancellationPlan {
+  id String @id @default(uuid()) @db.Uuid
+  tenantId String @map("tenant_id") @db.Uuid
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  createdBy String @map("created_by") @db.Uuid
+  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
+  updatedBy String @map("updated_by") @db.Uuid
+  version Int @default(1)
+  status CancellationPlanStatus
+  planNo String @map("plan_no") @db.VarChar(100)
+  outboundOrderId String @map("outbound_order_id") @db.Uuid
+  fromStatus OutboundOrderStatus @map("from_status")
+  reasonCode String @map("reason_code") @db.VarChar(100)
+  reason String @db.VarChar(500)
+  compensationSteps Json @map("compensation_steps") @db.JsonB
+  completedAt DateTime? @map("completed_at") @db.Timestamptz(3)
+  @@unique([tenantId,planNo],map:"cancellation_plan_tenant_no_key")
+  @@index([tenantId,outboundOrderId,createdAt],map:"cancellation_plan_order_idx")
+  @@map("cancellation_plan")
   @@schema("wms")
 }
 

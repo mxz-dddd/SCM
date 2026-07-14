@@ -45,6 +45,22 @@ interface PickingView {
   >;
 }
 
+interface PackShipView {
+  dispatches: Array<Record<string, unknown> & { id: string }>;
+  exceptions: Array<
+    Record<string, unknown> & { id: string; status: string; version: number }
+  >;
+  labels: Array<Record<string, unknown> & { id: string; status: string }>;
+  loads: Array<
+    Record<string, unknown> & { id: string; status: string; version: number }
+  >;
+  packages: Array<
+    Record<string, unknown> & { id: string; status: string; version: number }
+  >;
+  packTasks: Array<Record<string, unknown> & { id: string; status: string }>;
+  staging: Array<Record<string, unknown> & { id: string; status: string }>;
+}
+
 const actions = createActionRegistry<'READY'>([
   {
     id: 'receive-outbound',
@@ -121,6 +137,51 @@ const actions = createActionRegistry<'READY'>([
     label: '纠正差异',
     requiredPermissions: ['wms.picking.verify'],
   },
+  {
+    id: 'create-pack',
+    label: '推荐箱型并包装',
+    requiredPermissions: ['wms.pack.execute'],
+  },
+  {
+    id: 'measure-seal',
+    label: '称重量方与封箱',
+    requiredPermissions: ['wms.pack.execute'],
+  },
+  {
+    id: 'resolve-pack-exception',
+    label: '处置包装超差',
+    requiredPermissions: ['wms.pack.supervise'],
+  },
+  {
+    id: 'issue-label',
+    label: '签发出库标签',
+    requiredPermissions: ['wms.pack.label'],
+  },
+  {
+    id: 'stage-package',
+    label: '集货暂存',
+    requiredPermissions: ['wms.ship.stage'],
+  },
+  {
+    id: 'create-load',
+    label: '创建装车任务',
+    requiredPermissions: ['wms.ship.load'],
+  },
+  {
+    id: 'confirm-load',
+    label: '扫描装车',
+    requiredPermissions: ['wms.ship.load'],
+  },
+  {
+    id: 'ship-outbound',
+    label: '确认发运',
+    requiredPermissions: ['wms.ship.confirm'],
+  },
+  {
+    id: 'cancel-outbound',
+    label: '取消出库',
+    requiredPermissions: ['wms.ship.cancel'],
+  },
 ]);
 
 export function OutboundWorkbench() {
@@ -142,6 +203,15 @@ export function OutboundWorkbench() {
     shortPicks: [],
     tasks: [],
     verifications: [],
+  });
+  const [packShip, setPackShip] = useState<PackShipView>({
+    dispatches: [],
+    exceptions: [],
+    labels: [],
+    loads: [],
+    packages: [],
+    packTasks: [],
+    staging: [],
   });
   const permissions = useMemo(
     () =>
@@ -194,12 +264,14 @@ export function OutboundWorkbench() {
   const refresh = useCallback(async () => {
     if (!accessToken || !claims) return;
     try {
-      const [outboundView, pickingView] = await Promise.all([
+      const [outboundView, pickingView, packShipView] = await Promise.all([
         request('/api/v1/wms/outbounds'),
         request('/api/v1/wms/picking'),
+        request('/api/v1/wms/pack-ship'),
       ]);
       setView(outboundView as unknown as OutboundView);
       setPicking(pickingView as unknown as PickingView);
+      setPackShip(packShipView as unknown as PackShipView);
       setError(undefined);
     } catch (caught) {
       setError(caught instanceof Error ? caught.message : '出库查询失败');
@@ -509,6 +581,160 @@ export function OutboundWorkbench() {
           },
         );
         setNotice('差异纠正已追加，原始复核事实保持不变');
+      } else if (id === 'create-pack') {
+        const order = view.orders.find(({ status }) => status === 'PICKING');
+        const outboundId = window.prompt('出库单 UUID', order?.id ?? '');
+        if (!outboundId) return;
+        await request(`/api/v1/wms/outbounds/${outboundId}/pack-tasks`, {
+          body: JSON.stringify({
+            boxes: [
+              {
+                code: window.prompt('箱型代码', 'BOX-M'),
+                maxVolume: window.prompt('箱型最大体积', '1000000'),
+                maxWeight: window.prompt('箱型最大重量', '30'),
+              },
+            ],
+            materialSnapshot: { buffer: window.prompt('缓冲材料', 'PAPER') },
+            ruleSnapshot: {
+              defaultUnitVolume: '1',
+              defaultUnitWeight: '1',
+              volumeTolerancePct: '10',
+              weightTolerancePct: '10',
+            },
+            serviceSnapshot: { service: window.prompt('包装服务', 'STANDARD') },
+          }),
+          method: 'POST',
+        });
+        setNotice('箱型推荐与多箱包装任务已生成');
+      } else if (id === 'measure-seal') {
+        const unit = packShip.packages.find(({ status }) => status === 'OPEN');
+        if (!unit) return;
+        const measurement = (await request(
+          `/api/v1/wms/packages/${unit.id}/measurements`,
+          {
+            body: JSON.stringify({
+              deviceId: 'WEB-SCALE',
+              deviceSequence: String(Date.now()),
+              height: window.prompt('实测高', '1'),
+              length: window.prompt('实测长', '1'),
+              measuredAt: new Date().toISOString(),
+              rawSnapshot: { source: 'WEB' },
+              source: 'ELECTRONIC_SCALE',
+              weight: window.prompt('实测重量', '1'),
+              width: window.prompt('实测宽', '1'),
+            }),
+            method: 'POST',
+          },
+        )) as unknown as { status: string };
+        if (measurement.status === 'ACCEPTED') {
+          const latest = (await request(
+            '/api/v1/wms/pack-ship',
+          )) as unknown as PackShipView;
+          const measured = latest.packages.find(({ id }) => id === unit.id);
+          if (measured)
+            await request(`/api/v1/wms/packages/${unit.id}/seal`, {
+              body: JSON.stringify({ expectedVersion: measured.version }),
+              method: 'POST',
+            });
+          setNotice('称重量方通过并已封箱');
+        } else setNotice('称重量方超差，已阻止封箱并生成复核工单');
+      } else if (id === 'resolve-pack-exception') {
+        const exception = packShip.exceptions.find(
+          ({ status }) => status === 'OPEN',
+        );
+        const reason = window.prompt('超差复核说明');
+        if (!exception || !reason) return;
+        await request(`/api/v1/wms/weight-exceptions/${exception.id}/resolve`, {
+          body: JSON.stringify({
+            expectedVersion: exception.version,
+            resolutionSnapshot: { reason },
+          }),
+          method: 'POST',
+        });
+        setNotice('包装超差已复核处置');
+      } else if (id === 'issue-label') {
+        const unit = packShip.packages.find(({ status }) => status === 'SEALED');
+        if (!unit) return;
+        await request(`/api/v1/wms/packages/${unit.id}/labels`, {
+          body: JSON.stringify({
+            contentRef: window.prompt('标签文件引用', `label://${unit.id}`),
+            labelType: 'SHIPPING',
+            templateVersion: window.prompt('标签模板版本', 'carrier-v1'),
+          }),
+          method: 'POST',
+        });
+        setNotice('出库标签已按包裹和模板版本绑定');
+      } else if (id === 'stage-package') {
+        const unit = packShip.packages.find(({ status }) => status === 'LABELLED');
+        const stagingLocationId = window.prompt('暂存位 UUID');
+        if (!unit || !stagingLocationId) return;
+        await request(`/api/v1/wms/packages/${unit.id}/stage`, {
+          body: JSON.stringify({
+            loadSequence: 1,
+            maxVolume: window.prompt('暂存位最大体积', '1000000'),
+            routeCode: window.prompt('路线代码', String(unit.routeCode ?? '')),
+            shipmentRef: window.prompt('TMS 运单引用'),
+            stagingLocationId,
+            tripRef: window.prompt('车次引用'),
+          }),
+          method: 'POST',
+        });
+        setNotice('包裹已通过线路与容量校验进入暂存');
+      } else if (id === 'create-load') {
+        const order = view.orders.find(({ status }) => status === 'STAGED');
+        if (!order) return;
+        await request(`/api/v1/wms/outbounds/${order.id}/load-tasks`, {
+          body: JSON.stringify({
+            dockRef: window.prompt('月台引用'),
+            maxVolume: window.prompt('车辆最大体积', '1000000'),
+            maxWeight: window.prompt('车辆最大重量', '10000'),
+            sealNo: window.prompt('封签号'),
+            shipmentRef: window.prompt('TMS 运单引用'),
+            vehicleRef: window.prompt('车辆引用'),
+          }),
+          method: 'POST',
+        });
+        setNotice('装车任务已生成，应装清单已固化');
+      } else if (id === 'confirm-load') {
+        const load = packShip.loads.find(({ status }) =>
+          ['OPEN', 'LOADING'].includes(status),
+        );
+        const unit = packShip.packages.find(({ status }) => status === 'STAGED');
+        if (!load || !unit) return;
+        await request(`/api/v1/wms/load-tasks/${load.id}/confirm`, {
+          body: JSON.stringify({
+            deviceId: 'WEB-LOAD-RF',
+            deviceSequence: String(Date.now()),
+            dockRef: String(load.dockRef ?? ''),
+            packageId: unit.id,
+            sealNo: String(load.sealNo ?? ''),
+            vehicleRef: String(load.vehicleRef ?? ''),
+          }),
+          method: 'POST',
+        });
+        setNotice('包裹装车扫描已确认');
+      } else if (id === 'ship-outbound') {
+        const load = packShip.loads.find(({ status }) => status === 'LOADED');
+        if (!load) return;
+        await request(`/api/v1/wms/load-tasks/${load.id}/ship`, {
+          body: JSON.stringify({
+            actualAt: new Date().toISOString(),
+            expectedVersion: load.version,
+          }),
+          method: 'POST',
+        });
+        setNotice('发运已确认，库存已幂等扣减并发布 shipped 事件');
+      } else if (id === 'cancel-outbound') {
+        const order = view.orders.find(
+          ({ status }) => !['CANCELLED', 'SHIPPED'].includes(status),
+        );
+        const reason = window.prompt('取消说明');
+        if (!order || !reason) return;
+        await request(`/api/v1/wms/outbounds/${order.id}/cancel`, {
+          body: JSON.stringify({ reason, reasonCode: 'CUSTOMER_CANCEL' }),
+          method: 'POST',
+        });
+        setNotice('出库取消补偿计划已执行');
       }
       await refresh();
     } catch (caught) {
@@ -518,11 +744,12 @@ export function OutboundWorkbench() {
 
   return (
     <section>
-      <Typography.Title level={2}>出库、波次、拣选与复核</Typography.Title>
+      <Typography.Title level={2}>出库、拣选、包装与发运</Typography.Title>
       <Typography.Paragraph>
         波次模板支持候选与工作量模拟；发布时按整箱、FEFO/FIFO
         和最少拆分原子预占，缺口进入可回写 OMS 的处置工单。
         波次发布生成温层隔离的拣选任务，RF 错扫即时阻止，短拣必须处置后才能复核。
+        包装超差阻止封箱，集货与装车防混线路，发运事务原子扣减库存并发布交接事件。
       </Typography.Paragraph>
       {error ? <Alert message={error} showIcon type="error" /> : null}
       {notice ? <Alert message={notice} showIcon type="success" /> : null}
@@ -577,6 +804,33 @@ export function OutboundWorkbench() {
           <Typography.Text>
             RF 事件 {picking.scans.length} 条；短拣工单 {picking.shortPicks.length}{' '}
             条；复核事实 {picking.verifications.length} 条
+          </Typography.Text>
+        </Card>
+        <Card title="包装、集货、装车与发运">
+          <DataGrid
+            columns={[
+              { key: 'packageNo', label: '包裹号' },
+              { key: 'boxTypeCode', label: '箱型' },
+              {
+                key: 'status',
+                label: '状态',
+                render: (value) => <StatusBadge status={String(value)} />,
+              },
+              { key: 'actualWeight', label: '实重' },
+              { key: 'actualVolume', label: '实积' },
+              { key: 'routeCode', label: '路线' },
+            ]}
+            onPageChange={() => undefined}
+            page={1}
+            pageSize={100}
+            rows={packShip.packages}
+            total={packShip.packages.length}
+          />
+          <Typography.Text>
+            包装任务 {packShip.packTasks.length} 条；超差工单{' '}
+            {packShip.exceptions.length} 条；标签 {packShip.labels.length} 版；
+            暂存 {packShip.staging.length} 条；装车 {packShip.loads.length} 条；
+            发运 {packShip.dispatches.length} 条
           </Typography.Text>
         </Card>
       </Space>
