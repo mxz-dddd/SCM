@@ -8,6 +8,7 @@ import {
 } from '@scm/ui';
 import { Alert, Card, Typography } from 'antd';
 import { useSessionStore } from '../platform/session-store';
+import { TransportPlanningPanel } from './TransportPlanningPanel';
 
 type TransportStatus = 'OPEN' | 'PLANNED' | 'FROZEN' | 'RETURNED';
 
@@ -294,6 +295,7 @@ export function TransportOrderWorkbench() {
           total={total}
         />
       </Card>
+      <TransportPlanningPanel />
     </section>
   );
 }

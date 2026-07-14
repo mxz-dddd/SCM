@@ -6934,3 +6934,252 @@ model TransportOrderApproval {
   @@map("transport_order_approval")
   @@schema("tms")
 }
+
+enum PlanningBatchStatus {
+  DRAFT
+  PLANNING
+  PLANNED
+  CANCELLED
+  @@schema("tms")
+}
+
+enum PlanningLockStatus {
+  ACTIVE
+  RELEASED
+  EXPIRED
+  @@schema("tms")
+}
+
+enum ConsolidationPlanStatus {
+  DRAFT
+  VALIDATED
+  PUBLISHED
+  CANCELLED
+  @@schema("tms")
+}
+
+enum ShipmentStatus {
+  PLANNED
+  APPROVED
+  TENDERED
+  ACCEPTED
+  DISPATCHED
+  TRACKING
+  DELIVERED
+  POD
+  SETTLED
+  CLOSED
+  CANCELLED
+  @@schema("tms")
+}
+
+enum TransportLegStatus {
+  PLANNED
+  TENDERED
+  ACCEPTED
+  DISPATCHED
+  TRACKING
+  DELIVERED
+  CANCELLED
+  @@schema("tms")
+}
+
+enum TransportMode {
+  ROAD_FTL
+  ROAD_LTL
+  EXPRESS
+  RAIL
+  SEA
+  AIR
+  MULTIMODAL
+  @@schema("tms")
+}
+
+model PlanningBatch {
+  id            String              @id @default(uuid()) @db.Uuid
+  tenantId      String              @map("tenant_id") @db.Uuid
+  createdAt     DateTime            @default(now()) @map("created_at") @db.Timestamptz(3)
+  createdBy     String              @map("created_by") @db.Uuid
+  updatedAt     DateTime            @updatedAt @map("updated_at") @db.Timestamptz(3)
+  updatedBy     String              @map("updated_by") @db.Uuid
+  version       Int                 @default(1)
+  status        PlanningBatchStatus @default(DRAFT)
+  batchNo       String              @map("batch_no") @db.VarChar(100)
+  planningDate  DateTime            @map("planning_date") @db.Date
+  regionCode    String              @map("region_code") @db.VarChar(100)
+  mode          TransportMode?
+  customerRef   String?             @map("customer_ref") @db.VarChar(200)
+  priorityFrom  Int                 @default(1) @map("priority_from")
+  priorityTo    Int                 @default(999) @map("priority_to")
+  criteria      Json                @db.JsonB
+  plannedAt     DateTime?           @map("planned_at") @db.Timestamptz(3)
+  @@unique([tenantId, batchNo], map: "planning_batch_tenant_no_key")
+  @@index([tenantId, planningDate, regionCode, status], map: "planning_batch_tenant_date_region_status_idx")
+  @@map("planning_batch")
+  @@schema("tms")
+}
+
+model PlanningLock {
+  id               String             @id @default(uuid()) @db.Uuid
+  tenantId         String             @map("tenant_id") @db.Uuid
+  createdAt        DateTime           @default(now()) @map("created_at") @db.Timestamptz(3)
+  createdBy        String             @map("created_by") @db.Uuid
+  updatedAt        DateTime           @updatedAt @map("updated_at") @db.Timestamptz(3)
+  updatedBy        String             @map("updated_by") @db.Uuid
+  version          Int                @default(1)
+  status           PlanningLockStatus @default(ACTIVE)
+  planningBatchId  String             @map("planning_batch_id") @db.Uuid
+  transportOrderId String             @map("transport_order_id") @db.Uuid
+  plannerId        String             @map("planner_id") @db.Uuid
+  expiresAt        DateTime           @map("expires_at") @db.Timestamptz(3)
+  releasedAt       DateTime?          @map("released_at") @db.Timestamptz(3)
+  releaseReason    String?            @map("release_reason") @db.VarChar(500)
+  @@index([tenantId, planningBatchId, status, createdAt], map: "planning_lock_tenant_batch_status_created_idx")
+  @@index([tenantId, transportOrderId, status], map: "planning_lock_tenant_order_status_idx")
+  @@map("planning_lock")
+  @@schema("tms")
+}
+
+model ConsolidationPlan {
+  id              String                  @id @default(uuid()) @db.Uuid
+  tenantId        String                  @map("tenant_id") @db.Uuid
+  createdAt       DateTime                @default(now()) @map("created_at") @db.Timestamptz(3)
+  createdBy       String                  @map("created_by") @db.Uuid
+  updatedAt       DateTime                @updatedAt @map("updated_at") @db.Timestamptz(3)
+  updatedBy       String                  @map("updated_by") @db.Uuid
+  version         Int                     @default(1)
+  status          ConsolidationPlanStatus @default(DRAFT)
+  planNo          String                  @map("plan_no") @db.VarChar(100)
+  planningBatchId String                  @map("planning_batch_id") @db.Uuid
+  policySnapshot  Json                    @map("policy_snapshot") @db.JsonB
+  validatedAt     DateTime?               @map("validated_at") @db.Timestamptz(3)
+  publishedAt     DateTime?               @map("published_at") @db.Timestamptz(3)
+  @@unique([tenantId, planNo], map: "consolidation_plan_tenant_no_key")
+  @@index([tenantId, planningBatchId, status, createdAt], map: "consolidation_plan_tenant_batch_status_created_idx")
+  @@map("consolidation_plan")
+  @@schema("tms")
+}
+
+model Shipment {
+  id                  String         @id @default(uuid()) @db.Uuid
+  tenantId            String         @map("tenant_id") @db.Uuid
+  createdAt           DateTime       @default(now()) @map("created_at") @db.Timestamptz(3)
+  createdBy           String         @map("created_by") @db.Uuid
+  updatedAt           DateTime       @updatedAt @map("updated_at") @db.Timestamptz(3)
+  updatedBy           String         @map("updated_by") @db.Uuid
+  version             Int            @default(1)
+  status              ShipmentStatus @default(PLANNED)
+  shipmentNo          String         @map("shipment_no") @db.VarChar(100)
+  consolidationPlanId String         @map("consolidation_plan_id") @db.Uuid
+  mode                TransportMode
+  originSnapshot      Json           @map("origin_snapshot") @db.JsonB
+  destinationSnapshot Json           @map("destination_snapshot") @db.JsonB
+  pickupWindowFrom    DateTime       @map("pickup_window_from") @db.Timestamptz(3)
+  deliveryWindowTo    DateTime       @map("delivery_window_to") @db.Timestamptz(3)
+  totalWeightBase     Decimal        @map("total_weight_base") @db.Decimal(24, 12)
+  totalVolumeBase     Decimal        @map("total_volume_base") @db.Decimal(24, 12)
+  totalPallets        Decimal        @default(0) @map("total_pallets") @db.Decimal(24, 12)
+  temperatureMin      Decimal?       @map("temperature_min") @db.Decimal(8, 3)
+  temperatureMax      Decimal?       @map("temperature_max") @db.Decimal(8, 3)
+  requirementSnapshot Json           @map("requirement_snapshot") @db.JsonB
+  @@unique([tenantId, shipmentNo], map: "shipment_tenant_no_key")
+  @@index([tenantId, consolidationPlanId, status, createdAt], map: "shipment_tenant_plan_status_created_idx")
+  @@map("shipment")
+  @@schema("tms")
+}
+
+model ShipmentItem {
+  id               String          @id @default(uuid()) @db.Uuid
+  tenantId         String          @map("tenant_id") @db.Uuid
+  createdAt        DateTime        @default(now()) @map("created_at") @db.Timestamptz(3)
+  createdBy        String          @map("created_by") @db.Uuid
+  updatedAt        DateTime        @default(now()) @map("updated_at") @db.Timestamptz(3)
+  updatedBy        String          @map("updated_by") @db.Uuid
+  version          Int             @default(1)
+  status           TmsRecordStatus @default(ACTIVE)
+  shipmentId       String          @map("shipment_id") @db.Uuid
+  transportOrderId String          @map("transport_order_id") @db.Uuid
+  sourceLineRef    String          @map("source_line_ref") @db.VarChar(200)
+  quantity         Decimal         @db.Decimal(24, 12)
+  quantityUom      String          @map("quantity_uom") @db.VarChar(20)
+  quantityBase     Decimal         @map("quantity_base") @db.Decimal(24, 12)
+  quantityBaseUom  String          @map("quantity_base_uom") @db.VarChar(20)
+  allocationRatio  Decimal         @map("allocation_ratio") @db.Decimal(18, 12)
+  weightBase       Decimal         @map("weight_base") @db.Decimal(24, 12)
+  volumeBase       Decimal         @map("volume_base") @db.Decimal(24, 12)
+  itemSnapshot     Json            @map("item_snapshot") @db.JsonB
+  @@index([tenantId, shipmentId, sourceLineRef], map: "shipment_item_tenant_shipment_line_idx")
+  @@index([tenantId, transportOrderId, sourceLineRef], map: "shipment_item_tenant_order_line_idx")
+  @@map("shipment_item")
+  @@schema("tms")
+}
+
+model TransportLeg {
+  id                  String             @id @default(uuid()) @db.Uuid
+  tenantId            String             @map("tenant_id") @db.Uuid
+  createdAt           DateTime           @default(now()) @map("created_at") @db.Timestamptz(3)
+  createdBy           String             @map("created_by") @db.Uuid
+  updatedAt           DateTime           @updatedAt @map("updated_at") @db.Timestamptz(3)
+  updatedBy           String             @map("updated_by") @db.Uuid
+  version             Int                @default(1)
+  status              TransportLegStatus @default(PLANNED)
+  shipmentId          String             @map("shipment_id") @db.Uuid
+  sequence            Int
+  mode                TransportMode
+  carrierRef          String?            @map("carrier_ref") @db.VarChar(200)
+  carrierSnapshot     Json               @default("{}") @map("carrier_snapshot") @db.JsonB
+  originNodeSnapshot  Json               @map("origin_node_snapshot") @db.JsonB
+  destinationSnapshot Json               @map("destination_snapshot") @db.JsonB
+  plannedStartAt      DateTime           @map("planned_start_at") @db.Timestamptz(3)
+  plannedEndAt        DateTime           @map("planned_end_at") @db.Timestamptz(3)
+  slaSnapshot         Json               @map("sla_snapshot") @db.JsonB
+  @@unique([tenantId, shipmentId, sequence], map: "transport_leg_tenant_shipment_sequence_key")
+  @@index([tenantId, carrierRef, status, plannedStartAt], map: "transport_leg_tenant_carrier_status_start_idx")
+  @@map("transport_leg")
+  @@schema("tms")
+}
+
+model ModeDecision {
+  id           String          @id @default(uuid()) @db.Uuid
+  tenantId     String          @map("tenant_id") @db.Uuid
+  createdAt    DateTime        @default(now()) @map("created_at") @db.Timestamptz(3)
+  createdBy    String          @map("created_by") @db.Uuid
+  updatedAt    DateTime        @default(now()) @map("updated_at") @db.Timestamptz(3)
+  updatedBy    String          @map("updated_by") @db.Uuid
+  version      Int             @default(1)
+  status       TmsRecordStatus @default(ACTIVE)
+  shipmentId   String          @map("shipment_id") @db.Uuid
+  selectedMode TransportMode   @map("selected_mode")
+  ruleVersion  String          @map("rule_version") @db.VarChar(100)
+  candidates   Json            @db.JsonB
+  explanation  Json            @db.JsonB
+  @@index([tenantId, shipmentId, createdAt], map: "mode_decision_tenant_shipment_created_idx")
+  @@map("mode_decision")
+  @@schema("tms")
+}
+
+model EquipmentSelection {
+  id                    String          @id @default(uuid()) @db.Uuid
+  tenantId              String          @map("tenant_id") @db.Uuid
+  createdAt             DateTime        @default(now()) @map("created_at") @db.Timestamptz(3)
+  createdBy             String          @map("created_by") @db.Uuid
+  updatedAt             DateTime        @default(now()) @map("updated_at") @db.Timestamptz(3)
+  updatedBy             String          @map("updated_by") @db.Uuid
+  version               Int             @default(1)
+  status                TmsRecordStatus @default(ACTIVE)
+  transportLegId        String          @map("transport_leg_id") @db.Uuid
+  equipmentType         String          @map("equipment_type") @db.VarChar(100)
+  equipmentSnapshot     Json            @map("equipment_snapshot") @db.JsonB
+  capacityWeightBase    Decimal         @map("capacity_weight_base") @db.Decimal(24, 12)
+  capacityVolumeBase    Decimal         @map("capacity_volume_base") @db.Decimal(24, 12)
+  capacityPallets       Decimal         @map("capacity_pallets") @db.Decimal(24, 12)
+  requiredWeightBase    Decimal         @map("required_weight_base") @db.Decimal(24, 12)
+  requiredVolumeBase    Decimal         @map("required_volume_base") @db.Decimal(24, 12)
+  requiredPallets       Decimal         @map("required_pallets") @db.Decimal(24, 12)
+  compatible            Boolean
+  exclusionReasons      Json            @map("exclusion_reasons") @db.JsonB
+  requirementSnapshot   Json            @map("requirement_snapshot") @db.JsonB
+  @@index([tenantId, transportLegId, createdAt], map: "equipment_selection_tenant_leg_created_idx")
+  @@map("equipment_selection")
+  @@schema("tms")
+}

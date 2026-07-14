@@ -388,5 +388,16 @@ describe('App', () => {
     ).toBeDisabled();
     expect(screen.getByRole('button', { name: '冻结异常订单' })).toBeDisabled();
     expect(screen.getByRole('button', { name: '退回来源方' })).toBeDisabled();
+    expect(screen.getByText('计划批次、合拆运与多段线路')).toBeInTheDocument();
+    expect(screen.getByText('PlanningBatch 与订单池')).toBeInTheDocument();
+    expect(
+      screen.getByText('Shipment、TransportLeg 与独立承运 SLA'),
+    ).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: '新建计划批次' })).toBeDisabled();
+    expect(screen.getByRole('button', { name: '领取订单' })).toBeDisabled();
+    expect(
+      screen.getByRole('button', { name: '构建合拆运计划' }),
+    ).toBeDisabled();
+    expect(screen.getByRole('button', { name: '发布运输计划' })).toBeDisabled();
   });
 });

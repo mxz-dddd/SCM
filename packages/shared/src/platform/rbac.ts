@@ -30,6 +30,30 @@ export const ADMIN_PERMISSIONS = [
     resourceType: 'BUTTON',
   },
   {
+    code: 'tms.planning.read',
+    name: '查看运输计划工作台',
+    resourceRef: '/api/v1/tms/planning/workbench',
+    resourceType: 'PAGE',
+  },
+  {
+    code: 'tms.planning.manage',
+    name: '创建批次与构建运输计划',
+    resourceRef: '/api/v1/tms/planning/*',
+    resourceType: 'BUTTON',
+  },
+  {
+    code: 'tms.planning.claim',
+    name: '领取和释放计划订单',
+    resourceRef: '/api/v1/tms/planning/*/claim',
+    resourceType: 'BUTTON',
+  },
+  {
+    code: 'tms.planning.publish',
+    name: '校验并发布运输计划',
+    resourceRef: '/api/v1/tms/planning/plans/*/publish',
+    resourceType: 'BUTTON',
+  },
+  {
     code: 'wms.inventory.read',
     name: '查看库存余额',
     resourceRef: '/api/v1/wms/inventory',
