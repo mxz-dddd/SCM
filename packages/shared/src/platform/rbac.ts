@@ -12,6 +12,90 @@ export type PermissionResourceType = (typeof PERMISSION_RESOURCE_TYPES)[number];
 
 export const ADMIN_PERMISSIONS = [
   {
+    code: 'wms.inbound.read',
+    name: '查看入库与收货任务',
+    resourceRef: '/api/v1/wms/inbounds*',
+    resourceType: 'PAGE',
+  },
+  {
+    code: 'wms.inbound.write',
+    name: '创建入库单',
+    resourceRef: '/api/v1/wms/inbounds',
+    resourceType: 'BUTTON',
+  },
+  {
+    code: 'wms.inbound.publish',
+    name: '发布预期入库',
+    resourceRef: '/api/v1/wms/inbounds/*/publish',
+    resourceType: 'BUTTON',
+  },
+  {
+    code: 'wms.inbound.package',
+    name: '解析 ASN 包装层级',
+    resourceRef: '/api/v1/wms/inbounds/*/packages/parse',
+    resourceType: 'BUTTON',
+  },
+  {
+    code: 'wms.inbound.appointment.project',
+    name: '接收预约投影',
+    resourceRef: '/api/v1/wms/inbounds/*/appointment-projections',
+    resourceType: 'API',
+  },
+  {
+    code: 'wms.inbound.checkin',
+    name: '入库到场签到',
+    resourceRef: '/api/v1/wms/inbounds/*/check-in',
+    resourceType: 'BUTTON',
+  },
+  {
+    code: 'wms.receipt.task.write',
+    name: '创建收货任务',
+    resourceRef: '/api/v1/wms/inbounds/*/receipt-tasks',
+    resourceType: 'BUTTON',
+  },
+  {
+    code: 'wms.receipt.task.assign',
+    name: '自动指派收货任务',
+    resourceRef: '/api/v1/wms/receipt-tasks/*/assign',
+    resourceType: 'BUTTON',
+  },
+  {
+    code: 'wms.receipt.task.claim',
+    name: '抢领收货任务',
+    resourceRef: '/api/v1/wms/receipt-tasks/*/claim',
+    resourceType: 'BUTTON',
+  },
+  {
+    code: 'wms.receipt.task.transfer',
+    name: '转派收货任务',
+    resourceRef: '/api/v1/wms/receipt-tasks/*/transfer',
+    resourceType: 'BUTTON',
+  },
+  {
+    code: 'wms.receipt.task.execute',
+    name: '执行收货任务',
+    resourceRef: '/api/v1/wms/receipt-tasks/*/transition',
+    resourceType: 'BUTTON',
+  },
+  {
+    code: 'wms.inbound.complete',
+    name: '完成入库单',
+    resourceRef: '/api/v1/wms/inbounds/*/complete',
+    resourceType: 'BUTTON',
+  },
+  {
+    code: 'wms.scan.write',
+    name: '记录 RF 条码扫描',
+    resourceRef: '/api/v1/wms/scans',
+    resourceType: 'BUTTON',
+  },
+  {
+    code: 'wms.scan.resolve',
+    name: '人工解析条码',
+    resourceRef: '/api/v1/wms/scans/*/manual-resolution',
+    resourceType: 'BUTTON',
+  },
+  {
     code: 'oms.order.read',
     name: '查看订单与接入异常',
     resourceRef: '/api/v1/oms/orders/*',

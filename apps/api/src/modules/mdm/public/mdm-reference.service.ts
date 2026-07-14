@@ -15,18 +15,39 @@ export interface OrderReferenceRequest {
 export class MdmReferenceService {
   constructor(@Inject(PrismaService) private readonly prisma: PrismaService) {}
 
-  async resolveOrderReferences(input: OrderReferenceRequest, context: TenantContext) {
-    const productIds = [...new Set(input.lines.flatMap(({ productId }) => (productId ? [productId] : [])))];
-    const packageSpecIds = [...new Set(input.lines.flatMap(({ packageSpecId }) => (packageSpecId ? [packageSpecId] : [])))];
+  async resolveOrderReferences(
+    input: OrderReferenceRequest,
+    context: TenantContext,
+  ) {
+    const productIds = [
+      ...new Set(
+        input.lines.flatMap(({ productId }) => (productId ? [productId] : [])),
+      ),
+    ];
+    const packageSpecIds = [
+      ...new Set(
+        input.lines.flatMap(({ packageSpecId }) =>
+          packageSpecId ? [packageSpecId] : [],
+        ),
+      ),
+    ];
     const [customer, address, products, packageSpecs] = await Promise.all([
       input.customerId
         ? this.prisma.partner.findFirst({
-            where: { id: input.customerId, status: 'ACTIVE', tenantId: context.tenantId },
+            where: {
+              id: input.customerId,
+              status: 'ACTIVE',
+              tenantId: context.tenantId,
+            },
           })
         : null,
       input.addressId
         ? this.prisma.partnerAddress.findFirst({
-            where: { id: input.addressId, status: 'ACTIVE', tenantId: context.tenantId },
+            where: {
+              id: input.addressId,
+              status: 'ACTIVE',
+              tenantId: context.tenantId,
+            },
           })
         : null,
       this.prisma.product.findMany({
@@ -66,7 +87,11 @@ export class MdmReferenceService {
           }
         : null,
       customer: customer
-        ? { code: customer.code, id: customer.id, legalName: customer.legalName }
+        ? {
+            code: customer.code,
+            id: customer.id,
+            legalName: customer.legalName,
+          }
         : null,
       packageSpecs: packageSpecs.map((specification) => ({
         baseUom: specification.baseUom,
@@ -87,9 +112,99 @@ export class MdmReferenceService {
         versionSnapshot:
           versions.find(
             ({ productId, versionNumber }) =>
-              productId === product.id && versionNumber === product.currentVersionNumber,
+              productId === product.id &&
+              versionNumber === product.currentVersionNumber,
           )?.snapshot ?? {},
       })),
     };
+  }
+
+  async resolveBarcode(
+    barcode: string,
+    customerId: string | undefined,
+    context: TenantContext,
+  ) {
+    const candidates = await this.prisma.productBarcode.findMany({
+      orderBy: [{ isPrimary: 'desc' }, { createdAt: 'asc' }],
+      where: {
+        barcode,
+        ...(customerId
+          ? { OR: [{ customerId }, { customerId: null }] }
+          : { customerId: null }),
+        status: 'ACTIVE',
+        tenantId: context.tenantId,
+      },
+    });
+    const match =
+      candidates.find(({ customerId: scope }) => scope === customerId) ??
+      candidates[0];
+    if (!match) return null;
+    const [product, packageSpec] = await Promise.all([
+      this.prisma.product.findFirst({
+        where: {
+          id: match.productId,
+          status: 'ACTIVE',
+          tenantId: context.tenantId,
+        },
+      }),
+      match.packageSpecId
+        ? this.prisma.packageSpec.findFirst({
+            where: {
+              id: match.packageSpecId,
+              status: 'PUBLISHED',
+              tenantId: context.tenantId,
+            },
+          })
+        : null,
+    ]);
+    if (!product) return null;
+    return {
+      barcodeId: match.id,
+      barcodeType: match.type,
+      packageSpec: packageSpec
+        ? {
+            baseUom: packageSpec.baseUom,
+            id: packageSpec.id,
+            originalUom: packageSpec.originalUom,
+            quantityInBase: packageSpec.quantityInBase.toString(),
+            versionNumber: packageSpec.versionNumber,
+          }
+        : null,
+      product: {
+        baseUom: product.baseUom,
+        id: product.id,
+        name: product.name,
+        sku: product.sku,
+        versionNumber: product.currentVersionNumber,
+      },
+      scope: match.customerId ? 'CUSTOMER' : 'TENANT',
+    };
+  }
+
+  async scanObjectExists(
+    objectType: 'PRODUCT' | 'LOCATION',
+    objectId: string,
+    context: TenantContext,
+  ) {
+    if (objectType === 'PRODUCT') {
+      return (
+        (await this.prisma.product.count({
+          where: {
+            id: objectId,
+            status: 'ACTIVE',
+            tenantId: context.tenantId,
+          },
+        })) === 1
+      );
+    }
+    return (
+      (await this.prisma.warehouseLocation.count({
+        where: {
+          id: objectId,
+          status: 'ACTIVE',
+          tenantId: context.tenantId,
+        },
+      })) === 1
+    );
   }
 }

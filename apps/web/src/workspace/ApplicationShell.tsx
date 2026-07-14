@@ -31,6 +31,7 @@ import { PartnerWorkbench } from '../mdm/PartnerWorkbench';
 import { WarehouseFleetWorkbench } from '../mdm/WarehouseFleetWorkbench';
 import { MdmGovernanceWorkbench } from '../mdm/MdmGovernanceWorkbench';
 import { OrderIntakeWorkbench } from '../oms/OrderIntakeWorkbench';
+import { InboundWorkbench } from '../wms/InboundWorkbench';
 import { useSessionStore } from '../platform/session-store';
 import { ComponentGallery } from '../ui/ComponentGallery';
 import { useWorkspaceStore } from './workspace-store';
@@ -106,12 +107,28 @@ const pageRegistry: readonly WorkspaceTab[] = [
     route: '/platform/events',
     title: '业务事件',
   },
-  { dirty: false, id: 'finalization', route: '/platform/finalization', title: '平台收尾' },
+  {
+    dirty: false,
+    id: 'finalization',
+    route: '/platform/finalization',
+    title: '平台收尾',
+  },
   { dirty: false, id: 'products', route: '/mdm/products', title: '商品主数据' },
   { dirty: false, id: 'partners', route: '/mdm/partners', title: '伙伴与地址' },
-  { dirty: false, id: 'warehouses', route: '/mdm/warehouses', title: '仓库与车队' },
-  { dirty: false, id: 'mdm-governance', route: '/mdm/governance', title: '主数据治理' },
+  {
+    dirty: false,
+    id: 'warehouses',
+    route: '/mdm/warehouses',
+    title: '仓库与车队',
+  },
+  {
+    dirty: false,
+    id: 'mdm-governance',
+    route: '/mdm/governance',
+    title: '主数据治理',
+  },
   { dirty: false, id: 'orders', route: '/oms/orders', title: '订单中心' },
+  { dirty: false, id: 'inbound', route: '/wms/inbounds', title: '入库接入' },
   { dirty: false, id: 'inventory', route: '/wms/inventory', title: '库存视图' },
   { dirty: false, id: 'transport', route: '/tms/shipments', title: '运输执行' },
 ];
@@ -135,6 +152,7 @@ const modules = [
   ['仓库', 'warehouses'],
   ['治理', 'mdm-governance'],
   ['订单', 'orders'],
+  ['入库', 'inbound'],
   ['仓储', 'inventory'],
   ['运输', 'transport'],
 ] as const;
@@ -286,6 +304,7 @@ export function ApplicationShell() {
     if (tabId === 'warehouses') return <WarehouseFleetWorkbench />;
     if (tabId === 'mdm-governance') return <MdmGovernanceWorkbench />;
     if (tabId === 'orders') return <OrderIntakeWorkbench />;
+    if (tabId === 'inbound') return <InboundWorkbench />;
     return (
       <section className="workspace-placeholder">
         <Typography.Title level={2}>

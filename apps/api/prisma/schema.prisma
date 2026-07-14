@@ -927,6 +927,74 @@ enum SettlementRequestStatus {
   CANCELLED
   @@schema("oms")
 }
+enum InboundStatus {
+  DRAFT
+  EXPECTED
+  ARRIVED
+  RECEIVING
+  COMPLETED
+  CANCELLED
+  @@schema("wms")
+}
+enum InboundSourceType {
+  PURCHASE
+  RETURN
+  TRANSFER
+  PRODUCTION
+  ASN
+  @@schema("wms")
+}
+enum InboundAsnMode {
+  FULL
+  SIMPLIFIED
+  NONE
+  @@schema("wms")
+}
+enum WmsRecordStatus {
+  ACTIVE
+  INACTIVE
+  @@schema("wms")
+}
+enum InboundPackageType {
+  CARTON
+  PALLET
+  @@schema("wms")
+}
+enum AppointmentLinkStatus {
+  PENDING
+  CONFIRMED
+  RESCHEDULED
+  CANCELLED
+  @@schema("wms")
+}
+enum ReceiptTaskStatus {
+  OPEN
+  ASSIGNED
+  IN_PROGRESS
+  PAUSED
+  COMPLETED
+  CANCELLED
+  @@schema("wms")
+}
+enum LaborAssignmentMode {
+  AUTO
+  CLAIM
+  TRANSFER
+  @@schema("wms")
+}
+enum ScanResolutionStatus {
+  RESOLVED
+  UNRESOLVED
+  MANUAL
+  @@schema("wms")
+}
+enum BarcodeObjectType {
+  ORDER
+  PRODUCT
+  PACKAGE
+  LOCATION
+  @@schema("wms")
+}
 
 enum OrderType {
   SALES
@@ -2753,6 +2821,248 @@ model BatchCommandItem {
   @@unique([tenantId,batchCommandResultId,businessOrderId],map:"batch_command_item_order_key")
   @@map("batch_command_item")
   @@schema("oms")
+}
+
+model InboundOrder {
+  id String @id @default(uuid()) @db.Uuid
+  tenantId String @map("tenant_id") @db.Uuid
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  createdBy String @map("created_by") @db.Uuid
+  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
+  updatedBy String @map("updated_by") @db.Uuid
+  version Int @default(1)
+  status InboundStatus @default(DRAFT)
+  inboundNo String @map("inbound_no") @db.VarChar(100)
+  sourceType InboundSourceType @map("source_type")
+  sourceRef String @map("source_ref") @db.VarChar(200)
+  sourceVersion Int @map("source_version")
+  warehouseId String @map("warehouse_id") @db.Uuid
+  ownerId String @map("owner_id") @db.Uuid
+  supplierId String? @map("supplier_id") @db.Uuid
+  expectedArrival DateTime? @map("expected_arrival") @db.Timestamptz(3)
+  asnMode InboundAsnMode @default(NONE) @map("asn_mode")
+  appointmentSnapshot Json @default("{}") @map("appointment_snapshot") @db.JsonB
+  arrivalSnapshot Json @default("{}") @map("arrival_snapshot") @db.JsonB
+  completedAt DateTime? @map("completed_at") @db.Timestamptz(3)
+  @@unique([tenantId,inboundNo],map:"inbound_order_tenant_no_key")
+  @@unique([tenantId,sourceType,sourceRef,sourceVersion,warehouseId,ownerId],map:"inbound_order_source_key")
+  @@index([tenantId,warehouseId,status,expectedArrival],map:"inbound_order_workbench_idx")
+  @@map("inbound_order")
+  @@schema("wms")
+}
+
+model InboundLine {
+  id String @id @default(uuid()) @db.Uuid
+  tenantId String @map("tenant_id") @db.Uuid
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  createdBy String @map("created_by") @db.Uuid
+  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
+  updatedBy String @map("updated_by") @db.Uuid
+  version Int @default(1)
+  status WmsRecordStatus @default(ACTIVE)
+  inboundOrderId String @map("inbound_order_id") @db.Uuid
+  lineNo Int @map("line_no")
+  sourceLineRef String? @map("source_line_ref") @db.VarChar(200)
+  productId String @map("product_id") @db.Uuid
+  productSnapshot Json @map("product_snapshot") @db.JsonB
+  packageSpecId String? @map("package_spec_id") @db.Uuid
+  packageSpecVersion Int? @map("package_spec_version")
+  packageSpecSnapshot Json @default("{}") @map("package_spec_snapshot") @db.JsonB
+  quantityOriginal Decimal @map("quantity_original") @db.Decimal(24,12)
+  originalUom String @map("original_uom") @db.VarChar(20)
+  quantityBase Decimal @map("quantity_base") @db.Decimal(24,12)
+  baseUom String @map("base_uom") @db.VarChar(20)
+  batchRequired Boolean @default(false) @map("batch_required")
+  serialRequired Boolean @default(false) @map("serial_required")
+  @@unique([tenantId,inboundOrderId,lineNo],map:"inbound_line_order_no_key")
+  @@index([tenantId,inboundOrderId,status],map:"inbound_line_order_idx")
+  @@map("inbound_line")
+  @@schema("wms")
+}
+
+model InboundPackage {
+  id String @id @default(uuid()) @db.Uuid
+  tenantId String @map("tenant_id") @db.Uuid
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  createdBy String @map("created_by") @db.Uuid
+  updatedAt DateTime @default(now()) @map("updated_at") @db.Timestamptz(3)
+  updatedBy String @map("updated_by") @db.Uuid
+  version Int @default(1)
+  status WmsRecordStatus @default(ACTIVE)
+  inboundOrderId String @map("inbound_order_id") @db.Uuid
+  parentPackageId String? @map("parent_package_id") @db.Uuid
+  packageType InboundPackageType @map("package_type")
+  lpn String @db.VarChar(200)
+  packageSnapshot Json @default("{}") @map("package_snapshot") @db.JsonB
+  @@unique([tenantId,lpn],map:"inbound_package_lpn_key")
+  @@index([tenantId,inboundOrderId,parentPackageId],map:"inbound_package_tree_idx")
+  @@map("inbound_package")
+  @@schema("wms")
+}
+
+model InboundPackageContent {
+  id String @id @default(uuid()) @db.Uuid
+  tenantId String @map("tenant_id") @db.Uuid
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  createdBy String @map("created_by") @db.Uuid
+  updatedAt DateTime @default(now()) @map("updated_at") @db.Timestamptz(3)
+  updatedBy String @map("updated_by") @db.Uuid
+  version Int @default(1)
+  status WmsRecordStatus @default(ACTIVE)
+  inboundPackageId String @map("inbound_package_id") @db.Uuid
+  inboundLineId String @map("inbound_line_id") @db.Uuid
+  quantityOriginal Decimal @map("quantity_original") @db.Decimal(24,12)
+  originalUom String @map("original_uom") @db.VarChar(20)
+  quantityBase Decimal @map("quantity_base") @db.Decimal(24,12)
+  baseUom String @map("base_uom") @db.VarChar(20)
+  batchNo String? @map("batch_no") @db.VarChar(100)
+  @@unique([tenantId,inboundPackageId,inboundLineId,batchNo],map:"inbound_package_content_key")
+  @@index([tenantId,inboundLineId,status],map:"inbound_package_content_line_idx")
+  @@map("inbound_package_content")
+  @@schema("wms")
+}
+
+model AppointmentOrderLink {
+  id String @id @default(uuid()) @db.Uuid
+  tenantId String @map("tenant_id") @db.Uuid
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  createdBy String @map("created_by") @db.Uuid
+  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
+  updatedBy String @map("updated_by") @db.Uuid
+  version Int @default(1)
+  status AppointmentLinkStatus @default(PENDING)
+  inboundOrderId String @map("inbound_order_id") @db.Uuid
+  appointmentId String @map("appointment_id") @db.Uuid
+  sourceVersion Int @map("source_version")
+  appointmentSnapshot Json @map("appointment_snapshot") @db.JsonB
+  expectedArrival DateTime? @map("expected_arrival") @db.Timestamptz(3)
+  vehicleSnapshot Json @default("{}") @map("vehicle_snapshot") @db.JsonB
+  dockId String? @map("dock_id") @db.Uuid
+  @@unique([tenantId,inboundOrderId,appointmentId],map:"appointment_order_link_key")
+  @@index([tenantId,appointmentId,status],map:"appointment_link_appointment_idx")
+  @@map("appointment_order_link")
+  @@schema("wms")
+}
+
+model ArrivalEvent {
+  id String @id @default(uuid()) @db.Uuid
+  tenantId String @map("tenant_id") @db.Uuid
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  createdBy String @map("created_by") @db.Uuid
+  updatedAt DateTime @default(now()) @map("updated_at") @db.Timestamptz(3)
+  updatedBy String @map("updated_by") @db.Uuid
+  version Int @default(1)
+  status WmsRecordStatus @default(ACTIVE)
+  inboundOrderId String @map("inbound_order_id") @db.Uuid
+  appointmentId String? @map("appointment_id") @db.Uuid
+  eventType String @map("event_type") @db.VarChar(50)
+  occurredAt DateTime @map("occurred_at") @db.Timestamptz(3)
+  vehicleSnapshot Json @default("{}") @map("vehicle_snapshot") @db.JsonB
+  gateId String? @map("gate_id") @db.Uuid
+  temporaryRegistration Boolean @default(false) @map("temporary_registration")
+  approvalReference String? @map("approval_reference") @db.VarChar(200)
+  @@index([tenantId,inboundOrderId,occurredAt],map:"arrival_event_order_idx")
+  @@map("arrival_event")
+  @@schema("wms")
+}
+
+model ReceiptTask {
+  id String @id @default(uuid()) @db.Uuid
+  tenantId String @map("tenant_id") @db.Uuid
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  createdBy String @map("created_by") @db.Uuid
+  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
+  updatedBy String @map("updated_by") @db.Uuid
+  version Int @default(1)
+  status ReceiptTaskStatus @default(OPEN)
+  taskNo String @map("task_no") @db.VarChar(100)
+  inboundOrderId String @map("inbound_order_id") @db.Uuid
+  dockId String? @map("dock_id") @db.Uuid
+  teamId String? @map("team_id") @db.Uuid
+  assignedTo String? @map("assigned_to") @db.Uuid
+  workload Decimal @db.Decimal(24,6)
+  workloadUom String @map("workload_uom") @db.VarChar(20)
+  priority Int @default(50)
+  pausedReason String? @map("paused_reason") @db.VarChar(500)
+  claimedAt DateTime? @map("claimed_at") @db.Timestamptz(3)
+  completedAt DateTime? @map("completed_at") @db.Timestamptz(3)
+  @@unique([tenantId,taskNo],map:"receipt_task_tenant_no_key")
+  @@index([tenantId,inboundOrderId,status],map:"receipt_task_order_idx")
+  @@index([tenantId,status,priority,createdAt],map:"receipt_task_claim_idx")
+  @@map("receipt_task")
+  @@schema("wms")
+}
+
+model LaborAssignment {
+  id String @id @default(uuid()) @db.Uuid
+  tenantId String @map("tenant_id") @db.Uuid
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  createdBy String @map("created_by") @db.Uuid
+  updatedAt DateTime @default(now()) @map("updated_at") @db.Timestamptz(3)
+  updatedBy String @map("updated_by") @db.Uuid
+  version Int @default(1)
+  status WmsRecordStatus @default(ACTIVE)
+  receiptTaskId String @map("receipt_task_id") @db.Uuid
+  mode LaborAssignmentMode
+  fromAssignee String? @map("from_assignee") @db.Uuid
+  toAssignee String @map("to_assignee") @db.Uuid
+  reason String @db.VarChar(500)
+  assignedAt DateTime @default(now()) @map("assigned_at") @db.Timestamptz(3)
+  @@index([tenantId,receiptTaskId,assignedAt],map:"labor_assignment_task_idx")
+  @@map("labor_assignment")
+  @@schema("wms")
+}
+
+model ScanEvent {
+  id String @id @default(uuid()) @db.Uuid
+  tenantId String @map("tenant_id") @db.Uuid
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  createdBy String @map("created_by") @db.Uuid
+  updatedAt DateTime @default(now()) @map("updated_at") @db.Timestamptz(3)
+  updatedBy String @map("updated_by") @db.Uuid
+  version Int @default(1)
+  status ScanResolutionStatus
+  rawBarcode String @map("raw_barcode") @db.VarChar(500)
+  normalizedBarcode String @map("normalized_barcode") @db.VarChar(500)
+  deviceId String @map("device_id") @db.VarChar(200)
+  deviceSequence Int @map("device_sequence")
+  scannedAt DateTime @map("scanned_at") @db.Timestamptz(3)
+  inboundOrderId String? @map("inbound_order_id") @db.Uuid
+  customerId String? @map("customer_id") @db.Uuid
+  gs1Snapshot Json @default("{}") @map("gs1_snapshot") @db.JsonB
+  resolvedObjectType BarcodeObjectType? @map("resolved_object_type")
+  resolvedObjectId String? @map("resolved_object_id") @db.Uuid
+  resolutionReason String? @map("resolution_reason") @db.VarChar(500)
+  resolvedBy String? @map("resolved_by") @db.Uuid
+  resolvedAt DateTime? @map("resolved_at") @db.Timestamptz(3)
+  @@unique([tenantId,deviceId,deviceSequence],map:"scan_event_device_sequence_key")
+  @@index([tenantId,normalizedBarcode,scannedAt],map:"scan_event_barcode_idx")
+  @@index([tenantId,status,createdAt],map:"scan_event_resolution_idx")
+  @@map("scan_event")
+  @@schema("wms")
+}
+
+model BarcodeResolution {
+  id String @id @default(uuid()) @db.Uuid
+  tenantId String @map("tenant_id") @db.Uuid
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  createdBy String @map("created_by") @db.Uuid
+  updatedAt DateTime @default(now()) @map("updated_at") @db.Timestamptz(3)
+  updatedBy String @map("updated_by") @db.Uuid
+  version Int @default(1)
+  status WmsRecordStatus @default(ACTIVE)
+  scanEventId String @map("scan_event_id") @db.Uuid
+  resolutionStatus ScanResolutionStatus @map("resolution_status")
+  objectType BarcodeObjectType @map("object_type")
+  objectId String @map("object_id") @db.Uuid
+  resolutionSnapshot Json @default("{}") @map("resolution_snapshot") @db.JsonB
+  reason String @db.VarChar(500)
+  resolvedBy String @map("resolved_by") @db.Uuid
+  resolvedAt DateTime @default(now()) @map("resolved_at") @db.Timestamptz(3)
+  @@unique([tenantId,scanEventId],map:"barcode_resolution_scan_key")
+  @@index([tenantId,objectType,objectId],map:"barcode_resolution_object_idx")
+  @@map("barcode_resolution")
+  @@schema("wms")
 }
 
 model Tenant {

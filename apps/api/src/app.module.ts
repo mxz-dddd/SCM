@@ -14,9 +14,17 @@ import { AuthModule } from './modules/platform/auth/auth.module';
 import { TenantContextMiddleware } from './modules/platform/auth/tenant-context.middleware';
 import { PlatformModule } from './modules/platform/platform.module';
 import { IdempotencyInterceptor } from './modules/platform/idempotency.interceptor';
+import { WmsModule } from './modules/wms/wms.module';
 
 @Module({
-  imports: [DatabaseModule, AuthModule, MdmModule, OmsModule, PlatformModule],
+  imports: [
+    DatabaseModule,
+    AuthModule,
+    MdmModule,
+    OmsModule,
+    PlatformModule,
+    WmsModule,
+  ],
   controllers: [HealthController],
   providers: [
     { provide: APP_FILTER, useClass: ApiExceptionFilter },
