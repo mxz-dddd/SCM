@@ -13,6 +13,7 @@ import { PrismaService } from '../../database/prisma.service';
 import { MdmReferenceService } from '../mdm/public/mdm-reference.service';
 import { RuleEvaluationFacade } from '../platform/public/rule-evaluation.facade';
 import type { CommandMetadata } from '../platform/tenant.service';
+import { InventoryService } from './inventory.service';
 
 export interface CreateInspectionInput {
   readonly attachmentRefs?: readonly { readonly attachmentId: string }[];
@@ -111,6 +112,7 @@ export class QualityPutawayService {
     @Inject(PrismaService) private readonly prisma: PrismaService,
     @Inject(MdmReferenceService) private readonly mdm: MdmReferenceService,
     @Inject(RuleEvaluationFacade) private readonly rules: RuleEvaluationFacade,
+    @Inject(InventoryService) private readonly inventory: InventoryService,
   ) {}
 
   async get(inboundId: string, context: TenantContext) {
@@ -935,12 +937,15 @@ export class QualityPutawayService {
         task.version !== input.expectedVersion
       )
         throw this.conflict('PUTAWAY_TASK_CONFLICT');
-      const [order, unit] = await Promise.all([
+      const [order, unit, decision] = await Promise.all([
         tx.inboundOrder.findFirstOrThrow({
           where: { id: task.inboundOrderId, tenantId: context.tenantId },
         }),
         tx.handlingUnit.findFirstOrThrow({
           where: { id: task.handlingUnitId, tenantId: context.tenantId },
+        }),
+        tx.putawayDecision.findFirstOrThrow({
+          where: { id: task.putawayDecisionId, tenantId: context.tenantId },
         }),
       ]);
       const locations = await this.mdm.listWarehouseLocations(
@@ -998,6 +1003,28 @@ export class QualityPutawayService {
         where: { id, status: 'IN_PROGRESS', version: input.expectedVersion },
       });
       if (changed.count !== 1) throw this.conflict('PUTAWAY_TASK_CONFLICT');
+      await this.inventory.postPutaway(
+        tx,
+        {
+          baseUom: task.baseUom,
+          businessRef: task.id,
+          businessType: 'PUTAWAY_TASK',
+          handlingUnitId: task.handlingUnitId,
+          ...(decision.inventoryLotId
+            ? { inventoryLotId: decision.inventoryLotId }
+            : {}),
+          locationId: task.targetLocationId,
+          originalUom: task.originalUom,
+          ownerId: order.ownerId,
+          productId: decision.productId,
+          quantityBase: task.quantityBase.toString(),
+          quantityOriginal: task.quantityOriginal.toString(),
+          status: 'AVAILABLE',
+          warehouseId: order.warehouseId,
+        },
+        context,
+        metadata,
+      );
       const completed = await tx.putawayMovement.aggregate({
         _sum: { quantityBase: true, quantityOriginal: true },
         where: {

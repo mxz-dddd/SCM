@@ -216,6 +216,22 @@ describe('App', () => {
     expect(screen.getByRole('button', { name: '越库匹配' })).toBeDisabled();
   });
 
+  it('opens inventory balances, TraceChain, holds and reservations', () => {
+    render(<App />);
+    fireEvent.click(screen.getByRole('button', { name: '仓储' }));
+    expect(
+      screen.getByRole('heading', { name: '库存余额、状态与预占' }),
+    ).toBeInTheDocument();
+    expect(screen.getByRole('form', { name: '查询条件' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: '登记库存入账' })).toBeDisabled();
+    expect(screen.getByRole('button', { name: '变更库存状态' })).toBeDisabled();
+    expect(screen.getByRole('button', { name: '冻结库存' })).toBeDisabled();
+    expect(screen.getByRole('button', { name: '预占库存' })).toBeDisabled();
+    expect(
+      screen.getByText(/available = onHand - allocated - hold/),
+    ).toBeInTheDocument();
+  });
+
   it('opens partner, address and service-zone master data', () => {
     render(<App />);
     fireEvent.click(screen.getByRole('button', { name: '伙伴' }));

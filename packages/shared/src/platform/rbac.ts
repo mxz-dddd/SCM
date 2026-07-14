@@ -12,6 +12,54 @@ export type PermissionResourceType = (typeof PERMISSION_RESOURCE_TYPES)[number];
 
 export const ADMIN_PERMISSIONS = [
   {
+    code: 'wms.inventory.read',
+    name: '查看库存余额',
+    resourceRef: '/api/v1/wms/inventory',
+    resourceType: 'PAGE',
+  },
+  {
+    code: 'wms.inventory.trace',
+    name: '查看库存追溯链',
+    resourceRef: '/api/v1/wms/inventory/*/trace',
+    resourceType: 'PAGE',
+  },
+  {
+    code: 'wms.inventory.receive',
+    name: '登记库存入账',
+    resourceRef: '/api/v1/wms/inventory/receipts',
+    resourceType: 'BUTTON',
+  },
+  {
+    code: 'wms.inventory.status.write',
+    name: '变更库存状态',
+    resourceRef: '/api/v1/wms/inventory/*/status-transitions',
+    resourceType: 'BUTTON',
+  },
+  {
+    code: 'wms.inventory.hold',
+    name: '冻结库存',
+    resourceRef: '/api/v1/wms/inventory/*/holds',
+    resourceType: 'BUTTON',
+  },
+  {
+    code: 'wms.inventory.hold.release',
+    name: '审批解冻库存',
+    resourceRef: '/api/v1/wms/inventory-holds/*/release',
+    resourceType: 'BUTTON',
+  },
+  {
+    code: 'wms.inventory.reserve',
+    name: '预占库存',
+    resourceRef: '/api/v1/wms/inventory/*/reservations',
+    resourceType: 'BUTTON',
+  },
+  {
+    code: 'wms.inventory.reserve.release',
+    name: '释放库存预占',
+    resourceRef: '/api/v1/wms/inventory-reservations/*/release',
+    resourceType: 'BUTTON',
+  },
+  {
     code: 'wms.quality.read',
     name: '查看质检与上架',
     resourceRef: '/api/v1/wms/inbounds/*/quality-putaway',

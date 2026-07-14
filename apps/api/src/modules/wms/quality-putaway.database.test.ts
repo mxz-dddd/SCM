@@ -7,6 +7,7 @@ import { IdempotencyService } from '../platform/idempotency.service';
 import { RuleEvaluationFacade } from '../platform/public/rule-evaluation.facade';
 import { RuleEngineService } from '../platform/rule-engine.service';
 import { InboundService } from './inbound.service';
+import { InventoryService } from './inventory.service';
 import { QualityPutawayService } from './quality-putaway.service';
 
 const databaseDescribe = process.env.DATABASE_URL ? describe : describe.skip;
@@ -186,6 +187,7 @@ databaseDescribe('WMS quality, putaway and cross-dock persistence', () => {
           prisma as never,
         ),
       ),
+      new InventoryService(prisma as never, mdm),
     );
 
     async function seedInbound(options: { lot: boolean; unit: boolean }) {

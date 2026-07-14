@@ -32,6 +32,7 @@ import { WarehouseFleetWorkbench } from '../mdm/WarehouseFleetWorkbench';
 import { MdmGovernanceWorkbench } from '../mdm/MdmGovernanceWorkbench';
 import { OrderIntakeWorkbench } from '../oms/OrderIntakeWorkbench';
 import { InboundWorkbench } from '../wms/InboundWorkbench';
+import { InventoryWorkbench } from '../wms/InventoryWorkbench';
 import { useSessionStore } from '../platform/session-store';
 import { ComponentGallery } from '../ui/ComponentGallery';
 import { useWorkspaceStore } from './workspace-store';
@@ -305,6 +306,7 @@ export function ApplicationShell() {
     if (tabId === 'mdm-governance') return <MdmGovernanceWorkbench />;
     if (tabId === 'orders') return <OrderIntakeWorkbench />;
     if (tabId === 'inbound') return <InboundWorkbench />;
+    if (tabId === 'inventory') return <InventoryWorkbench />;
     return (
       <section className="workspace-placeholder">
         <Typography.Title level={2}>
