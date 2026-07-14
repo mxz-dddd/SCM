@@ -356,6 +356,47 @@ enum ExternalCodeStatus {
   @@schema("mdm")
 }
 
+enum WarehouseStatus {
+  DRAFT
+  ACTIVE
+  INACTIVE
+
+  @@schema("mdm")
+}
+
+enum MdmResourceStatus {
+  ACTIVE
+  INACTIVE
+
+  @@schema("mdm")
+}
+
+enum LocationType {
+  ZONE
+  AISLE
+  LOCATION
+  STAGING
+
+  @@schema("mdm")
+}
+
+enum FleetStatus {
+  DRAFT
+  AVAILABLE
+  UNAVAILABLE
+  INACTIVE
+
+  @@schema("mdm")
+}
+
+enum DriverCertificateStatus {
+  ACTIVE
+  EXPIRED
+  REVOKED
+
+  @@schema("mdm")
+}
+
 enum ConfigScopeType {
   TENANT
   ORGANIZATION
@@ -988,6 +1029,221 @@ model ExternalCodeMap {
   @@index([tenantId, objectType, objectId, status], map: "external_code_tenant_object_idx")
   @@index([tenantId, sourceSystem, objectType, externalCode, status], map: "external_code_tenant_lookup_idx")
   @@map("external_code_map")
+  @@schema("mdm")
+}
+
+model Warehouse {
+  id                      String          @id @default(uuid()) @db.Uuid
+  tenantId                String          @map("tenant_id") @db.Uuid
+  createdAt               DateTime        @default(now()) @map("created_at") @db.Timestamptz(3)
+  createdBy               String          @map("created_by") @db.Uuid
+  updatedAt               DateTime        @updatedAt @map("updated_at") @db.Timestamptz(3)
+  updatedBy               String          @map("updated_by") @db.Uuid
+  version                 Int             @default(1)
+  status                  WarehouseStatus @default(DRAFT)
+  code                    String          @db.VarChar(100)
+  name                    String          @db.VarChar(200)
+  addressId               String?         @map("address_id") @db.Uuid
+  timeZone                String          @map("time_zone") @db.VarChar(100)
+  temperatureCapabilities Json            @default("[]") @map("temperature_capabilities") @db.JsonB
+  serviceCapabilities     Json            @default("{}") @map("service_capabilities") @db.JsonB
+
+  @@unique([tenantId, code], map: "warehouse_tenant_code_key")
+  @@index([tenantId, status, name], map: "warehouse_tenant_status_name_idx")
+  @@map("warehouse")
+  @@schema("mdm")
+}
+
+model WarehouseUsageProjection {
+  id                     String            @id @default(uuid()) @db.Uuid
+  tenantId               String            @map("tenant_id") @db.Uuid
+  createdAt              DateTime          @default(now()) @map("created_at") @db.Timestamptz(3)
+  createdBy              String            @map("created_by") @db.Uuid
+  updatedAt              DateTime          @updatedAt @map("updated_at") @db.Timestamptz(3)
+  updatedBy              String            @map("updated_by") @db.Uuid
+  version                Int               @default(1)
+  status                 MdmResourceStatus @default(ACTIVE)
+  warehouseId            String            @map("warehouse_id") @db.Uuid
+  inventoryQuantity      Decimal           @default(0) @map("inventory_quantity") @db.Decimal(24, 12)
+  openTaskCount          Int               @default(0) @map("open_task_count")
+  futureAppointmentCount Int               @default(0) @map("future_appointment_count")
+  sourceVersions         Json              @default("{}") @map("source_versions") @db.JsonB
+  projectedAt            DateTime          @default(now()) @map("projected_at") @db.Timestamptz(3)
+
+  @@unique([tenantId, warehouseId], map: "warehouse_usage_tenant_warehouse_key")
+  @@index([tenantId, projectedAt], map: "warehouse_usage_tenant_projected_idx")
+  @@map("warehouse_usage_projection")
+  @@schema("mdm")
+}
+
+model WarehouseLocation {
+  id               String            @id @default(uuid()) @db.Uuid
+  tenantId         String            @map("tenant_id") @db.Uuid
+  createdAt        DateTime          @default(now()) @map("created_at") @db.Timestamptz(3)
+  createdBy        String            @map("created_by") @db.Uuid
+  updatedAt        DateTime          @updatedAt @map("updated_at") @db.Timestamptz(3)
+  updatedBy        String            @map("updated_by") @db.Uuid
+  version          Int               @default(1)
+  status           MdmResourceStatus @default(ACTIVE)
+  warehouseId      String            @map("warehouse_id") @db.Uuid
+  parentId         String?           @map("parent_id") @db.Uuid
+  type             LocationType
+  code             String            @db.VarChar(100)
+  name             String            @db.VarChar(200)
+  sequence         Int               @default(0)
+  maxWeight        Decimal?          @map("max_weight") @db.Decimal(24, 12)
+  weightUom        String?           @map("weight_uom") @db.VarChar(20)
+  maxVolume        Decimal?          @map("max_volume") @db.Decimal(24, 12)
+  volumeUom        String?           @map("volume_uom") @db.VarChar(20)
+  palletCapacity   Decimal?          @map("pallet_capacity") @db.Decimal(24, 12)
+  temperatureZone  TemperatureZone?  @map("temperature_zone")
+  hazardousAllowed Boolean           @default(false) @map("hazardous_allowed")
+  mixingRules      Json              @default("{}") @map("mixing_rules") @db.JsonB
+
+  @@unique([tenantId, warehouseId, code], map: "warehouse_location_tenant_warehouse_code_key")
+  @@index([tenantId, warehouseId, parentId, status], map: "warehouse_location_tenant_parent_idx")
+  @@map("warehouse_location")
+  @@schema("mdm")
+}
+
+model WarehouseDock {
+  id                      String            @id @default(uuid()) @db.Uuid
+  tenantId                String            @map("tenant_id") @db.Uuid
+  createdAt               DateTime          @default(now()) @map("created_at") @db.Timestamptz(3)
+  createdBy               String            @map("created_by") @db.Uuid
+  updatedAt               DateTime          @updatedAt @map("updated_at") @db.Timestamptz(3)
+  updatedBy               String            @map("updated_by") @db.Uuid
+  version                 Int               @default(1)
+  status                  MdmResourceStatus @default(ACTIVE)
+  warehouseId             String            @map("warehouse_id") @db.Uuid
+  code                    String            @db.VarChar(100)
+  name                    String            @db.VarChar(200)
+  maxVehicleWeight        Decimal?          @map("max_vehicle_weight") @db.Decimal(24, 12)
+  maxVehicleLength        Decimal?          @map("max_vehicle_length") @db.Decimal(24, 12)
+  temperatureCapabilities Json              @default("[]") @map("temperature_capabilities") @db.JsonB
+  serviceCapabilities     Json              @default("{}") @map("service_capabilities") @db.JsonB
+
+  @@unique([tenantId, warehouseId, code], map: "warehouse_dock_tenant_warehouse_code_key")
+  @@index([tenantId, warehouseId, status], map: "warehouse_dock_tenant_status_idx")
+  @@map("warehouse_dock")
+  @@schema("mdm")
+}
+
+model WarehouseGate {
+  id                  String            @id @default(uuid()) @db.Uuid
+  tenantId            String            @map("tenant_id") @db.Uuid
+  createdAt           DateTime          @default(now()) @map("created_at") @db.Timestamptz(3)
+  createdBy           String            @map("created_by") @db.Uuid
+  updatedAt           DateTime          @updatedAt @map("updated_at") @db.Timestamptz(3)
+  updatedBy           String            @map("updated_by") @db.Uuid
+  version             Int               @default(1)
+  status              MdmResourceStatus @default(ACTIVE)
+  warehouseId         String            @map("warehouse_id") @db.Uuid
+  code                String            @db.VarChar(100)
+  name                String            @db.VarChar(200)
+  direction           String            @db.VarChar(20)
+  accessInstructions  String?           @map("access_instructions") @db.VarChar(1000)
+  serviceCapabilities Json               @default("{}") @map("service_capabilities") @db.JsonB
+
+  @@unique([tenantId, warehouseId, code], map: "warehouse_gate_tenant_warehouse_code_key")
+  @@index([tenantId, warehouseId, status], map: "warehouse_gate_tenant_status_idx")
+  @@map("warehouse_gate")
+  @@schema("mdm")
+}
+
+model EquipmentType {
+  id                      String            @id @default(uuid()) @db.Uuid
+  tenantId                String            @map("tenant_id") @db.Uuid
+  createdAt               DateTime          @default(now()) @map("created_at") @db.Timestamptz(3)
+  createdBy               String            @map("created_by") @db.Uuid
+  updatedAt               DateTime          @updatedAt @map("updated_at") @db.Timestamptz(3)
+  updatedBy               String            @map("updated_by") @db.Uuid
+  version                 Int               @default(1)
+  status                  MdmResourceStatus @default(ACTIVE)
+  code                    String            @db.VarChar(100)
+  name                    String            @db.VarChar(200)
+  maxPayload              Decimal           @map("max_payload") @db.Decimal(24, 12)
+  payloadUom              String            @map("payload_uom") @db.VarChar(20)
+  maxVolume               Decimal           @map("max_volume") @db.Decimal(24, 12)
+  volumeUom               String            @map("volume_uom") @db.VarChar(20)
+  temperatureControlled   Boolean           @default(false) @map("temperature_controlled")
+  serviceCapabilities     Json              @default("{}") @map("service_capabilities") @db.JsonB
+
+  @@unique([tenantId, code], map: "equipment_type_tenant_code_key")
+  @@index([tenantId, status], map: "equipment_type_tenant_status_idx")
+  @@map("equipment_type")
+  @@schema("mdm")
+}
+
+model Vehicle {
+  id                    String      @id @default(uuid()) @db.Uuid
+  tenantId              String      @map("tenant_id") @db.Uuid
+  createdAt             DateTime    @default(now()) @map("created_at") @db.Timestamptz(3)
+  createdBy             String      @map("created_by") @db.Uuid
+  updatedAt             DateTime    @updatedAt @map("updated_at") @db.Timestamptz(3)
+  updatedBy             String      @map("updated_by") @db.Uuid
+  version               Int         @default(1)
+  status                FleetStatus @default(DRAFT)
+  plateNumber           String      @map("plate_number") @db.VarChar(50)
+  equipmentTypeId       String      @map("equipment_type_id") @db.Uuid
+  carrierPartnerId      String?     @map("carrier_partner_id") @db.Uuid
+  maxPayload            Decimal     @map("max_payload") @db.Decimal(24, 12)
+  payloadUom            String      @map("payload_uom") @db.VarChar(20)
+  maxVolume             Decimal     @map("max_volume") @db.Decimal(24, 12)
+  volumeUom             String      @map("volume_uom") @db.VarChar(20)
+  temperatureControlled Boolean     @default(false) @map("temperature_controlled")
+  temperatureMin        Decimal?    @map("temperature_min") @db.Decimal(8, 3)
+  temperatureMax        Decimal?    @map("temperature_max") @db.Decimal(8, 3)
+  unavailableReason     String?     @map("unavailable_reason") @db.VarChar(500)
+
+  @@unique([tenantId, plateNumber], map: "vehicle_tenant_plate_key")
+  @@index([tenantId, status, equipmentTypeId], map: "vehicle_tenant_status_type_idx")
+  @@map("vehicle")
+  @@schema("mdm")
+}
+
+model Driver {
+  id               String      @id @default(uuid()) @db.Uuid
+  tenantId         String      @map("tenant_id") @db.Uuid
+  createdAt        DateTime    @default(now()) @map("created_at") @db.Timestamptz(3)
+  createdBy        String      @map("created_by") @db.Uuid
+  updatedAt        DateTime    @updatedAt @map("updated_at") @db.Timestamptz(3)
+  updatedBy        String      @map("updated_by") @db.Uuid
+  version          Int         @default(1)
+  status           FleetStatus @default(DRAFT)
+  driverNo         String      @map("driver_no") @db.VarChar(100)
+  name             String      @db.VarChar(200)
+  carrierPartnerId String?     @map("carrier_partner_id") @db.Uuid
+  phone            String      @db.VarChar(50)
+  identityRef      String?     @map("identity_ref") @db.VarChar(200)
+  unavailableReason String?    @map("unavailable_reason") @db.VarChar(500)
+
+  @@unique([tenantId, driverNo], map: "driver_tenant_no_key")
+  @@index([tenantId, status, carrierPartnerId], map: "driver_tenant_status_carrier_idx")
+  @@map("driver")
+  @@schema("mdm")
+}
+
+model DriverCertificate {
+  id                    String                  @id @default(uuid()) @db.Uuid
+  tenantId              String                  @map("tenant_id") @db.Uuid
+  createdAt             DateTime                @default(now()) @map("created_at") @db.Timestamptz(3)
+  createdBy             String                  @map("created_by") @db.Uuid
+  updatedAt             DateTime                @updatedAt @map("updated_at") @db.Timestamptz(3)
+  updatedBy             String                  @map("updated_by") @db.Uuid
+  version               Int                     @default(1)
+  status                DriverCertificateStatus @default(ACTIVE)
+  driverId              String                  @map("driver_id") @db.Uuid
+  certificateType       String                  @map("certificate_type") @db.VarChar(100)
+  certificateNo         String                  @map("certificate_no") @db.VarChar(150)
+  validFrom             DateTime                @map("valid_from") @db.Date
+  validUntil            DateTime                @map("valid_until") @db.Date
+  requiredForAssignment Boolean                 @default(true) @map("required_for_assignment")
+  attachmentId          String?                 @map("attachment_id") @db.Uuid
+
+  @@unique([tenantId, driverId, certificateType, certificateNo], map: "driver_certificate_tenant_driver_type_no_key")
+  @@index([tenantId, driverId, status, validUntil], map: "driver_certificate_tenant_driver_expiry_idx")
+  @@map("driver_certificate")
   @@schema("mdm")
 }
 

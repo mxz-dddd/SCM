@@ -6,9 +6,11 @@ import { ProductController } from './product.controller';
 import { ProductService } from './product.service';
 import { PartnerController } from './partner.controller';
 import { PartnerService } from './partner.service';
+import { WarehouseFleetController } from './warehouse-fleet.controller';
+import { WarehouseFleetService } from './warehouse-fleet.service';
 
 @Module({
-  controllers: [PartnerController, ProductController],
-  providers: [IdempotencyService, PartnerService, PermissionGuard, PermissionService, ProductService],
+  controllers: [PartnerController, ProductController, WarehouseFleetController],
+  providers: [IdempotencyService, PartnerService, PermissionGuard, PermissionService, ProductService, WarehouseFleetService],
 })
 export class MdmModule {}

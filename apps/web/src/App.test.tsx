@@ -194,4 +194,11 @@ describe('App', () => {
     expect(screen.getByText('地理编码人工校正队列')).toBeInTheDocument();
     expect(screen.getByRole('button', { name: '启用' })).toBeDisabled();
   });
+  it('opens warehouse hierarchy and fleet eligibility master data', () => {
+    render(<App />); fireEvent.click(screen.getByRole('button', { name: '仓库' }));
+    expect(screen.getByRole('heading', { name: '仓库层级与车辆司机' })).toBeInTheDocument();
+    expect(screen.getByText('仓库、库区、门岗与月台')).toBeInTheDocument();
+    expect(screen.getByText('司机证照到期预警')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: '停用仓库' })).toBeDisabled();
+  });
 });

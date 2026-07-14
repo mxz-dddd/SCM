@@ -11,6 +11,12 @@ export type PermissionEffect = 'ALLOW' | 'DENY';
 export type PermissionResourceType = (typeof PERMISSION_RESOURCE_TYPES)[number];
 
 export const ADMIN_PERMISSIONS = [
+  { code: 'mdm.warehouse.read', name: '查看仓库层级与停用投影', resourceRef: '/api/v1/mdm/warehouses/*', resourceType: 'API' },
+  { code: 'mdm.warehouse.write', name: '维护仓库、库位、门岗与月台', resourceRef: '/api/v1/mdm/warehouse*', resourceType: 'API' },
+  { code: 'mdm.warehouse.project', name: '回写仓库跨域使用投影', resourceRef: '/api/v1/mdm/warehouses/*/usage-projection', resourceType: 'API' },
+  { code: 'mdm.fleet.read', name: '查看车型、车辆、司机与指派校验', resourceRef: '/api/v1/mdm/fleet/*', resourceType: 'API' },
+  { code: 'mdm.fleet.write', name: '维护车型、车辆、司机与证照', resourceRef: '/api/v1/mdm/vehicles/*', resourceType: 'API' },
+  { code: 'mdm.warehouse.page', name: '访问仓库与车队工作台', resourceRef: 'warehouses', resourceType: 'PAGE' },
   {
     code: 'mdm.partner.read',
     name: '查看伙伴、地址与服务区域',
