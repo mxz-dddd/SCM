@@ -24,4 +24,17 @@ export class RuleEvaluationFacade {
       metadata,
     );
   }
+
+  evaluatePutaway(
+    input: Omit<EvaluateRuleInput, 'scenario'>,
+    context: TenantContext,
+    metadata: CommandMetadata,
+  ) {
+    return this.rules.evaluate(
+      'EXECUTION',
+      { ...input, scenario: 'PUTAWAY' },
+      context,
+      metadata,
+    );
+  }
 }

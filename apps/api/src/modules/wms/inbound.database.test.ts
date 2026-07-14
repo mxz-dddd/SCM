@@ -416,13 +416,14 @@ databaseDescribe('WMS inbound access persistence', () => {
         where: { receiptTaskId: taskId, tenantId },
       }),
     ).toBe(2);
-    const completed = await service.complete(
-      created.inboundId,
-      { expectedVersion: receiving.version },
-      context,
-      command(),
-    );
-    expect(completed).toMatchObject({ status: 'COMPLETED', version: 7 });
+    await expect(
+      service.complete(
+        created.inboundId,
+        { expectedVersion: receiving.version },
+        context,
+        command(),
+      ),
+    ).rejects.toMatchObject({ code: 'INBOUND_COMPLETE_PRECONDITION_FAILED' });
 
     const customerScan = await service.scan(
       {

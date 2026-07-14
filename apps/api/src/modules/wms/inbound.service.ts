@@ -1074,28 +1074,210 @@ export class InboundService {
   ) {
     const order = await this.order(id, context);
     if (order.version !== input.expectedVersion) throw this.conflict();
+    if (order.status !== 'RECEIVING')
+      throw new AppError(
+        'INBOUND_COMPLETE_PRECONDITION_FAILED',
+        'Inbound must be receiving',
+        409,
+      );
+    const [openReceiptTasks, inboundLines, receiptLines, pendingVariances] =
+      await Promise.all([
+        this.prisma.receiptTask.count({
+          where: {
+            inboundOrderId: id,
+            status: { notIn: ['COMPLETED', 'CANCELLED'] },
+            tenantId: context.tenantId,
+          },
+        }),
+        this.prisma.inboundLine.findMany({
+          select: { id: true },
+          where: {
+            inboundOrderId: id,
+            status: 'ACTIVE',
+            tenantId: context.tenantId,
+          },
+        }),
+        this.prisma.receiptLine.findMany({
+          where: {
+            inboundOrderId: id,
+            status: 'CONFIRMED',
+            tenantId: context.tenantId,
+          },
+        }),
+        this.prisma.receivingVariance.count({
+          where: {
+            inboundOrderId: id,
+            status: 'PENDING',
+            tenantId: context.tenantId,
+          },
+        }),
+      ]);
     if (
-      order.status !== 'RECEIVING' ||
-      (await this.prisma.receiptTask.count({
+      openReceiptTasks ||
+      pendingVariances ||
+      new Set(receiptLines.map(({ inboundLineId }) => inboundLineId)).size !==
+        inboundLines.length
+    )
+      throw new AppError(
+        'INBOUND_COMPLETE_PRECONDITION_FAILED',
+        'Receipt tasks, lines and variances must be terminal',
+        409,
+      );
+    const [
+      inspections,
+      dispositions,
+      openPutawayTasks,
+      activeUnits,
+      openCrossDocks,
+    ] = await Promise.all([
+      this.prisma.qualityInspection.findMany({
+        where: { inboundOrderId: id, tenantId: context.tenantId },
+      }),
+      this.prisma.qualityDisposition.findMany({
+        where: { inboundOrderId: id, tenantId: context.tenantId },
+      }),
+      this.prisma.putawayTask.count({
         where: {
           inboundOrderId: id,
           status: { notIn: ['COMPLETED', 'CANCELLED'] },
           tenantId: context.tenantId,
         },
-      }))
+      }),
+      this.prisma.handlingUnit.count({
+        where: {
+          inboundOrderId: id,
+          status: 'ACTIVE',
+          tenantId: context.tenantId,
+        },
+      }),
+      this.prisma.crossDockAllocation.count({
+        where: {
+          inboundOrderId: id,
+          status: { in: ['PROPOSED', 'RESERVED'] },
+          tenantId: context.tenantId,
+        },
+      }),
+    ]);
+    const qualityIncomplete = receiptLines.some((receipt) => {
+      const related = inspections.filter(
+        ({ receiptLineId }) => receiptLineId === receipt.id,
+      );
+      return (
+        !related.length ||
+        related.some(
+          (inspection) =>
+            ['PENDING', 'INSPECTING'].includes(inspection.status) ||
+            (['REJECTED', 'HOLD'].includes(inspection.status) &&
+              !dispositions.some(
+                ({ inspectionId }) => inspectionId === inspection.id,
+              )),
+        )
+      );
+    });
+    if (qualityIncomplete || openPutawayTasks || activeUnits || openCrossDocks)
+      throw new AppError(
+        'INBOUND_COMPLETE_PRECONDITION_FAILED',
+        'Quality, putaway or cross-dock work is incomplete',
+        409,
+      );
+    const routedReceiptIds = new Set<string>();
+    const completedCrossDocks = await this.prisma.crossDockAllocation.findMany({
+      select: { id: true, receiptLineId: true },
+      where: {
+        inboundOrderId: id,
+        status: 'COMPLETED',
+        tenantId: context.tenantId,
+      },
+    });
+    completedCrossDocks.forEach(({ receiptLineId }) =>
+      routedReceiptIds.add(receiptLineId),
+    );
+    const completedMovements = await this.prisma.putawayMovement.findMany({
+      select: { handlingUnitId: true, id: true },
+      where: { inboundOrderId: id, tenantId: context.tenantId },
+    });
+    const movedUnitIds = completedMovements.map(
+      ({ handlingUnitId }) => handlingUnitId,
+    );
+    if (movedUnitIds.length) {
+      const contents = await this.prisma.handlingUnitContent.findMany({
+        where: {
+          handlingUnitId: { in: movedUnitIds },
+          tenantId: context.tenantId,
+        },
+      });
+      contents.forEach(({ receiptLineId }) =>
+        routedReceiptIds.add(receiptLineId),
+      );
+    }
+    if (
+      receiptLines.some(
+        (receipt) =>
+          receipt.acceptedQuantityBase
+            .add(receipt.pendingQuantityBase)
+            .isPositive() && !routedReceiptIds.has(receipt.id),
+      )
     )
       throw new AppError(
         'INBOUND_COMPLETE_PRECONDITION_FAILED',
-        'All receipt tasks must be terminal',
+        'Every accepted receipt must be put away or cross-docked',
         409,
       );
-    return this.transitionOrder(
-      id,
-      input.expectedVersion,
-      'COMPLETED',
-      context,
-      metadata,
+    const totals = receiptLines.reduce(
+      (sum, receipt) => ({
+        accepted: sum.accepted.add(receipt.acceptedQuantityBase),
+        pending: sum.pending.add(receipt.pendingQuantityBase),
+        received: sum.received.add(receipt.receivedQuantityBase),
+        rejected: sum.rejected.add(receipt.rejectedQuantityBase),
+      }),
+      {
+        accepted: new Prisma.Decimal(0),
+        pending: new Prisma.Decimal(0),
+        received: new Prisma.Decimal(0),
+        rejected: new Prisma.Decimal(0),
+      },
     );
+    return this.prisma.$transaction(async (tx) => {
+      const changed = await tx.inboundOrder.updateMany({
+        data: {
+          completedAt: new Date(),
+          status: 'COMPLETED',
+          updatedBy: context.accountId,
+          version: { increment: 1 },
+        },
+        where: {
+          id,
+          status: 'RECEIVING',
+          tenantId: context.tenantId,
+          version: input.expectedVersion,
+        },
+      });
+      if (changed.count !== 1) throw this.conflict();
+      const payload = {
+        accepted: totals.accepted.toString(),
+        inboundId: id,
+        inventoryRefs: [
+          ...completedMovements.map(({ id: movementId }) => ({ movementId })),
+          ...completedCrossDocks.map(({ id: crossDockAllocationId }) => ({
+            crossDockAllocationId,
+          })),
+        ],
+        pending: totals.pending.toString(),
+        received: totals.received.toString(),
+        rejected: totals.rejected.toString(),
+      };
+      await this.record(
+        tx,
+        id,
+        'InboundOrder',
+        order.version + 1,
+        'inbound.completed.v1',
+        context,
+        metadata,
+        payload,
+      );
+      return { ...payload, status: 'COMPLETED', version: order.version + 1 };
+    });
   }
 
   async scan(

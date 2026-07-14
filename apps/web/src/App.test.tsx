@@ -210,6 +210,10 @@ describe('App', () => {
     expect(screen.getByRole('button', { name: '授权超短收' })).toBeDisabled();
     expect(screen.getByRole('button', { name: '拆托' })).toBeDisabled();
     expect(screen.getByRole('button', { name: '处置差异' })).toBeDisabled();
+    expect(screen.getByRole('button', { name: '创建质检计划' })).toBeDisabled();
+    expect(screen.getByRole('button', { name: '计算上架库位' })).toBeDisabled();
+    expect(screen.getByRole('button', { name: '执行上架扫描' })).toBeDisabled();
+    expect(screen.getByRole('button', { name: '越库匹配' })).toBeDisabled();
   });
 
   it('opens partner, address and service-zone master data', () => {

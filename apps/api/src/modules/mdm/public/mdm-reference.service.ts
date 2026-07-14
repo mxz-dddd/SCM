@@ -112,6 +112,7 @@ export class MdmReferenceService {
         serialControl: product.serialControl,
         shelfLifeDays: product.shelfLifeDays,
         sku: product.sku,
+        temperatureZone: product.temperatureZone,
         versionNumber: product.currentVersionNumber,
         versionSnapshot:
           versions.find(
@@ -210,5 +211,39 @@ export class MdmReferenceService {
         },
       })) === 1
     );
+  }
+
+  async listWarehouseLocations(warehouseId: string, context: TenantContext) {
+    const warehouse = await this.prisma.warehouse.findFirst({
+      where: {
+        id: warehouseId,
+        status: 'ACTIVE',
+        tenantId: context.tenantId,
+      },
+    });
+    if (!warehouse) return [];
+    const locations = await this.prisma.warehouseLocation.findMany({
+      orderBy: [{ sequence: 'asc' }, { code: 'asc' }],
+      where: {
+        status: 'ACTIVE',
+        tenantId: context.tenantId,
+        warehouseId,
+      },
+    });
+    return locations.map((location) => ({
+      code: location.code,
+      hazardousAllowed: location.hazardousAllowed,
+      id: location.id,
+      maxVolume: location.maxVolume?.toString() ?? null,
+      maxWeight: location.maxWeight?.toString() ?? null,
+      mixingRules: location.mixingRules,
+      name: location.name,
+      palletCapacity: location.palletCapacity?.toString() ?? null,
+      parentId: location.parentId,
+      sequence: location.sequence,
+      temperatureZone: location.temperatureZone,
+      type: location.type,
+      warehouseId,
+    }));
   }
 }

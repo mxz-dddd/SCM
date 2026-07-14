@@ -122,6 +122,50 @@ interface ReceivingDetail {
   serials: Array<{ id: string; serialNumber: string; status: string }>;
   variances: ReceivingVarianceRow[];
 }
+interface QualityPutawayDetail {
+  crossDocks: Array<{
+    demandRef: string;
+    id: string;
+    status: string;
+    version: number;
+  }>;
+  decisions: Array<{
+    evaluationTraceId: string;
+    handlingUnitId: string;
+    id: string;
+    selectedLocationId: string;
+    status: string;
+    version: number;
+  }>;
+  dispositions: Array<{
+    id: string;
+    reason: string;
+    type: string;
+  }>;
+  inspections: Array<{
+    id: string;
+    inventoryLotId: string | null;
+    planMode: string;
+    receiptLineId: string;
+    sampleSize: number;
+    status: string;
+    version: number;
+  }>;
+  movements: Array<{
+    id: string;
+    scannedLpn: string;
+    scannedTargetCode: string;
+  }>;
+  results: Array<{ id: string; itemCode: string; passed: boolean }>;
+  tasks: Array<{
+    handlingUnitId: string;
+    id: string;
+    quantityBase: string;
+    status: string;
+    targetLocationId: string;
+    version: number;
+  }>;
+}
 interface InboundDetail extends InboundRow {
   appointments: AppointmentLink[];
   arrivals: ArrivalEvent[];
@@ -267,6 +311,49 @@ const actions = createActionRegistry<InboundStatus>([
   },
   {
     allowedStatuses: ['RECEIVING'],
+    id: 'plan-inspection',
+    label: '创建质检计划',
+    requiredPermissions: ['wms.quality.plan'],
+  },
+  {
+    allowedStatuses: ['RECEIVING'],
+    id: 'advance-inspection',
+    label: '推进质检',
+    requiredPermissions: ['wms.quality.inspect'],
+  },
+  {
+    allowedStatuses: ['RECEIVING'],
+    confirmMessage: '不合格品处置将记录审批引用、数量与计费事实快照。',
+    id: 'dispose-quality',
+    label: '不合格处置',
+    requiredPermissions: ['wms.quality.dispose'],
+  },
+  {
+    allowedStatuses: ['RECEIVING'],
+    id: 'decide-putaway',
+    label: '计算上架库位',
+    requiredPermissions: ['wms.putaway.decide'],
+  },
+  {
+    allowedStatuses: ['RECEIVING'],
+    id: 'create-putaway-task',
+    label: '生成上架任务',
+    requiredPermissions: ['wms.putaway.task.write'],
+  },
+  {
+    allowedStatuses: ['RECEIVING'],
+    id: 'execute-putaway',
+    label: '执行上架扫描',
+    requiredPermissions: ['wms.putaway.task.execute'],
+  },
+  {
+    allowedStatuses: ['RECEIVING'],
+    id: 'cross-dock',
+    label: '越库匹配',
+    requiredPermissions: ['wms.cross-dock.write'],
+  },
+  {
+    allowedStatuses: ['RECEIVING'],
     confirmMessage: '仅当全部收货任务终态时才可完成入库。',
     id: 'complete',
     label: '完成入库',
@@ -298,6 +385,7 @@ export function InboundWorkbench() {
   const [selectedIds, setSelectedIds] = useState<readonly string[]>([]);
   const [detail, setDetail] = useState<InboundDetail>();
   const [receivingDetail, setReceivingDetail] = useState<ReceivingDetail>();
+  const [qualityPutaway, setQualityPutaway] = useState<QualityPutawayDetail>();
   const [error, setError] = useState<string>();
   const [notice, setNotice] = useState<string>();
   const permissions = useMemo(
@@ -360,12 +448,15 @@ export function InboundWorkbench() {
 
   async function loadDetail(id: string) {
     try {
-      const [nextDetail, nextReceivingDetail] = await Promise.all([
-        request(`/api/v1/wms/inbounds/${id}`),
-        request(`/api/v1/wms/inbounds/${id}/receiving-detail`),
-      ]);
+      const [nextDetail, nextReceivingDetail, nextQualityPutaway] =
+        await Promise.all([
+          request(`/api/v1/wms/inbounds/${id}`),
+          request(`/api/v1/wms/inbounds/${id}/receiving-detail`),
+          request(`/api/v1/wms/inbounds/${id}/quality-putaway`),
+        ]);
       setDetail(nextDetail as unknown as InboundDetail);
       setReceivingDetail(nextReceivingDetail as unknown as ReceivingDetail);
+      setQualityPutaway(nextQualityPutaway as unknown as QualityPutawayDetail);
     } catch (caught) {
       setError(caught instanceof Error ? caught.message : '入库详情查询失败');
     }
@@ -759,6 +850,226 @@ export function InboundWorkbench() {
           },
         );
         setNotice(`差异已处置为 ${targetStatus}`);
+      } else if (selected && actionId === 'plan-inspection') {
+        const receipt = receivingDetail?.receiptLines[0];
+        const lot = receivingDetail?.lots[0];
+        const planMode = window.prompt(
+          '质检方式 EXEMPT / FULL / SAMPLE',
+          'SAMPLE',
+        );
+        const sampleSize = Number(
+          planMode === 'EXEMPT' ? 0 : window.prompt('抽样数量', '1'),
+        );
+        if (!receipt || !planMode || !Number.isInteger(sampleSize))
+          throw new Error('需要已确认收货行、质检方式和抽样数量');
+        await request(`/api/v1/wms/inbounds/${selected.id}/inspections`, {
+          body: JSON.stringify({
+            ...(lot ? { inventoryLotId: lot.id } : {}),
+            planMode,
+            planSnapshot: { source: 'WEB_WORKBENCH' },
+            receiptLineId: receipt.id,
+            riskScore: window.prompt('风险分', '0') ?? '0',
+            sampleSize,
+          }),
+          method: 'POST',
+        });
+        setNotice('质检计划已创建，未放行库存保持不可用');
+      } else if (selected && actionId === 'advance-inspection') {
+        const inspection = qualityPutaway?.inspections.find(({ status }) =>
+          ['PENDING', 'INSPECTING', 'HOLD'].includes(status),
+        );
+        if (!inspection) throw new Error('没有可推进的质检单');
+        const targetStatus =
+          inspection.status === 'PENDING' && inspection.planMode !== 'EXEMPT'
+            ? 'INSPECTING'
+            : inspection.status === 'HOLD'
+              ? 'INSPECTING'
+              : inspection.planMode === 'EXEMPT'
+                ? 'ACCEPTED'
+                : window.prompt('质检结果 ACCEPTED / REJECTED / HOLD');
+        if (!targetStatus) return;
+        const terminal = ['ACCEPTED', 'REJECTED', 'HOLD'].includes(
+          targetStatus,
+        );
+        await request(`/api/v1/wms/inspections/${inspection.id}/transition`, {
+          body: JSON.stringify({
+            expectedVersion: inspection.version,
+            ...(terminal && inspection.planMode !== 'EXEMPT'
+              ? {
+                  resultSummary: { source: 'WEB_WORKBENCH' },
+                  results: Array.from(
+                    { length: inspection.sampleSize },
+                    (_, index) => ({
+                      expectedSnapshot: { accepted: true },
+                      itemCode: 'VISUAL',
+                      measuredSnapshot: {
+                        accepted: targetStatus === 'ACCEPTED',
+                      },
+                      passed: targetStatus === 'ACCEPTED',
+                      sampleRef: `WEB-${index + 1}`,
+                    }),
+                  ),
+                }
+              : {}),
+            targetStatus,
+          }),
+          method: 'POST',
+        });
+        setNotice(`质检已推进至 ${targetStatus}`);
+      } else if (selected && actionId === 'dispose-quality') {
+        const inspection = qualityPutaway?.inspections.find(({ status }) =>
+          ['REJECTED', 'HOLD'].includes(status),
+        );
+        const receipt = receivingDetail?.receiptLines.find(
+          ({ id }) => id === inspection?.receiptLineId,
+        );
+        const type = window.prompt(
+          '处置 RETURN_SUPPLIER / REWORK / DOWNGRADE / SCRAP / CONCESSION',
+          'CONCESSION',
+        );
+        const reason = window.prompt('处置原因');
+        if (!inspection || !receipt || !type || !reason)
+          throw new Error('没有待处置质检单或处置信息不完整');
+        await request(`/api/v1/wms/inspections/${inspection.id}/dispositions`, {
+          body: JSON.stringify({
+            ...(type === 'CONCESSION'
+              ? { approvalReference: window.prompt('特采审批引用') }
+              : {}),
+            expectedInspectionVersion: inspection.version,
+            quantityBase: receipt.acceptedQuantityBase,
+            quantityOriginal: receipt.acceptedQuantityBase,
+            reason,
+            type,
+          }),
+          method: 'POST',
+        });
+        setNotice(`不合格品已处置为 ${type}`);
+      } else if (selected && actionId === 'decide-putaway') {
+        const unit = receivingDetail?.handlingUnits.find(
+          ({ status }) => status === 'ACTIVE',
+        );
+        const content = receivingDetail?.handlingUnitContents.find(
+          ({ handlingUnitId, status }) =>
+            handlingUnitId === unit?.id && status === 'ACTIVE',
+        );
+        const receipt = receivingDetail?.receiptLines.find(
+          ({ id }) => id === content?.receiptLineId,
+        );
+        const lot = receivingDetail?.lots.find(
+          ({ status }) => status === 'RELEASED',
+        );
+        if (!unit || !receipt) throw new Error('需要已质检放行的活动 LPN');
+        await request(`/api/v1/wms/inbounds/${selected.id}/putaway-decisions`, {
+          body: JSON.stringify({
+            handlingUnitId: unit.id,
+            ...(lot ? { inventoryLotId: lot.id } : {}),
+            productId: receipt.productId,
+            ruleSetCode:
+              window.prompt('上架规则集代码', 'PUTAWAY_DEFAULT') ??
+              'PUTAWAY_DEFAULT',
+          }),
+          method: 'POST',
+        });
+        setNotice('硬约束过滤与规则评估已完成，StrategyTrace 已保存');
+      } else if (selected && actionId === 'create-putaway-task') {
+        const decision = qualityPutaway?.decisions.find(
+          ({ status }) => status === 'PROPOSED',
+        );
+        const unit = receivingDetail?.handlingUnits.find(
+          ({ id }) => id === decision?.handlingUnitId,
+        );
+        const content = receivingDetail?.handlingUnitContents.find(
+          ({ handlingUnitId, status }) =>
+            handlingUnitId === unit?.id && status === 'ACTIVE',
+        );
+        if (!decision || !content) throw new Error('没有可确认的上架决策');
+        const quantity =
+          window.prompt('本次上架数量', content.quantityBase) ??
+          content.quantityBase;
+        await request(`/api/v1/wms/putaway-decisions/${decision.id}/tasks`, {
+          body: JSON.stringify({
+            assignedTo: claims!.subject,
+            decisionExpectedVersion: decision.version,
+            quantityBase: quantity,
+            quantityOriginal: quantity,
+          }),
+          method: 'POST',
+        });
+        setNotice('上架任务已按路径顺序生成');
+      } else if (selected && actionId === 'execute-putaway') {
+        const task = qualityPutaway?.tasks.find(({ status }) =>
+          ['OPEN', 'ASSIGNED', 'IN_PROGRESS'].includes(status),
+        );
+        if (!task) throw new Error('没有可执行的上架任务');
+        if (task.status !== 'IN_PROGRESS') {
+          await request(`/api/v1/wms/putaway-tasks/${task.id}/start`, {
+            body: JSON.stringify({ expectedVersion: task.version }),
+            method: 'POST',
+          });
+          setNotice('上架任务已开始，请再次执行并扫描 LPN/目标库位');
+        } else {
+          const unit = receivingDetail?.handlingUnits.find(
+            ({ id }) => id === task.handlingUnitId,
+          );
+          const scannedLpn = window.prompt('扫描 LPN', unit?.lpn);
+          const scannedTargetCode = window.prompt('扫描目标库位编码');
+          if (!scannedLpn || !scannedTargetCode)
+            throw new Error('LPN 与目标库位扫描必填');
+          await request(`/api/v1/wms/putaway-tasks/${task.id}/confirm`, {
+            body: JSON.stringify({
+              expectedVersion: task.version,
+              scannedLpn,
+              scannedTargetCode,
+            }),
+            method: 'POST',
+          });
+          setNotice('上架移动已确认并形成不可变库存引用');
+        }
+      } else if (selected && actionId === 'cross-dock') {
+        const existing = qualityPutaway?.crossDocks.find(({ status }) =>
+          ['PROPOSED', 'RESERVED'].includes(status),
+        );
+        if (existing) {
+          const targetStatus =
+            existing.status === 'PROPOSED' ? 'RESERVED' : 'COMPLETED';
+          await request(
+            `/api/v1/wms/cross-dock-allocations/${existing.id}/transition`,
+            {
+              body: JSON.stringify({
+                expectedVersion: existing.version,
+                targetStatus,
+              }),
+              method: 'POST',
+            },
+          );
+          setNotice(`越库分配已推进至 ${targetStatus}`);
+        } else {
+          const receipt = receivingDetail?.receiptLines[0];
+          const stagingLocationId = window.prompt('暂存库位 UUID');
+          const demandRef = window.prompt('需求单号');
+          if (!receipt || !stagingLocationId || !demandRef)
+            throw new Error('需要收货行、暂存库位和需求单号');
+          const windowStart = new Date(Date.now() + 60_000);
+          const windowEnd = new Date(Date.now() + 3_660_000);
+          await request(
+            `/api/v1/wms/inbounds/${selected.id}/cross-dock-allocations`,
+            {
+              body: JSON.stringify({
+                demandRef,
+                demandSnapshot: { productId: receipt.productId },
+                productId: receipt.productId,
+                quantityBase: receipt.acceptedQuantityBase,
+                quantityOriginal: receipt.acceptedQuantityBase,
+                receiptLineId: receipt.id,
+                stagingLocationId,
+                windowEnd: windowEnd.toISOString(),
+                windowStart: windowStart.toISOString(),
+              }),
+              method: 'POST',
+            },
+          );
+          setNotice('越库需求、品质状态与时间窗匹配成功');
+        }
       } else if (selected && actionId === 'complete') {
         await request(`/api/v1/wms/inbounds/${selected.id}/complete`, {
           body: JSON.stringify({ expectedVersion: selected.version }),
@@ -849,6 +1160,7 @@ export function InboundWorkbench() {
         onClose={() => {
           setDetail(undefined);
           setReceivingDetail(undefined);
+          setQualityPutaway(undefined);
         }}
         open={Boolean(detail)}
         title={detail ? `入库详情 · ${detail.inboundNo}` : '入库详情'}
@@ -982,6 +1294,73 @@ export function InboundWorkbench() {
               {receivingDetail?.handlingUnitEvents.length ?? 0}；标签任务{' '}
               {receivingDetail?.labelJobs.length ?? 0}。
             </Typography.Paragraph>
+          </Card>
+          <Card title="质检计划、抽样结果与放行状态">
+            <DataGrid
+              columns={[
+                { key: 'planMode', label: '计划方式' },
+                { key: 'sampleSize', label: '抽样数' },
+                { key: 'inventoryLotId', label: '批次' },
+                { key: 'status', label: '质检状态' },
+                { key: 'version', label: '版本' },
+              ]}
+              onPageChange={() => undefined}
+              page={1}
+              pageSize={200}
+              rows={qualityPutaway?.inspections ?? []}
+              total={qualityPutaway?.inspections.length ?? 0}
+            />
+            <Typography.Paragraph>
+              不可变抽样结果 {qualityPutaway?.results.length ?? 0}{' '}
+              条；未放行批次不可进入上架或越库。
+            </Typography.Paragraph>
+          </Card>
+          <Card title="不合格品处置与计费事实">
+            <DataGrid
+              columns={[
+                { key: 'type', label: '处置类型' },
+                { key: 'reason', label: '原因' },
+                { key: 'id', label: '处置引用' },
+              ]}
+              onPageChange={() => undefined}
+              page={1}
+              pageSize={200}
+              rows={qualityPutaway?.dispositions ?? []}
+              total={qualityPutaway?.dispositions.length ?? 0}
+            />
+          </Card>
+          <Card title="规则驱动上架、StrategyTrace 与扫描移动">
+            <DataGrid
+              columns={[
+                { key: 'status', label: '决策状态' },
+                { key: 'selectedLocationId', label: '推荐库位' },
+                { key: 'evaluationTraceId', label: 'StrategyTrace' },
+                { key: 'version', label: '版本' },
+              ]}
+              onPageChange={() => undefined}
+              page={1}
+              pageSize={200}
+              rows={qualityPutaway?.decisions ?? []}
+              total={qualityPutaway?.decisions.length ?? 0}
+            />
+            <Typography.Paragraph>
+              上架任务 {qualityPutaway?.tasks.length ?? 0} 条；不可变移动{' '}
+              {qualityPutaway?.movements.length ?? 0} 条。
+            </Typography.Paragraph>
+          </Card>
+          <Card title="越库匹配与时间窗">
+            <DataGrid
+              columns={[
+                { key: 'demandRef', label: '需求单号' },
+                { key: 'status', label: '状态' },
+                { key: 'version', label: '版本' },
+              ]}
+              onPageChange={() => undefined}
+              page={1}
+              pageSize={200}
+              rows={qualityPutaway?.crossDocks ?? []}
+              total={qualityPutaway?.crossDocks.length ?? 0}
+            />
           </Card>
           <Card title="收货差异、照片证据与处置">
             <DataGrid

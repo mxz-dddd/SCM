@@ -12,6 +12,54 @@ export type PermissionResourceType = (typeof PERMISSION_RESOURCE_TYPES)[number];
 
 export const ADMIN_PERMISSIONS = [
   {
+    code: 'wms.quality.read',
+    name: '查看质检与上架',
+    resourceRef: '/api/v1/wms/inbounds/*/quality-putaway',
+    resourceType: 'PAGE',
+  },
+  {
+    code: 'wms.quality.plan',
+    name: '创建质检计划',
+    resourceRef: '/api/v1/wms/inbounds/*/inspections',
+    resourceType: 'BUTTON',
+  },
+  {
+    code: 'wms.quality.inspect',
+    name: '执行质检与判定',
+    resourceRef: '/api/v1/wms/inspections/*/transition',
+    resourceType: 'BUTTON',
+  },
+  {
+    code: 'wms.quality.dispose',
+    name: '处置不合格品',
+    resourceRef: '/api/v1/wms/inspections/*/dispositions',
+    resourceType: 'BUTTON',
+  },
+  {
+    code: 'wms.putaway.decide',
+    name: '执行上架策略',
+    resourceRef: '/api/v1/wms/inbounds/*/putaway-decisions',
+    resourceType: 'BUTTON',
+  },
+  {
+    code: 'wms.putaway.task.write',
+    name: '创建上架任务',
+    resourceRef: '/api/v1/wms/putaway-decisions/*/tasks',
+    resourceType: 'BUTTON',
+  },
+  {
+    code: 'wms.putaway.task.execute',
+    name: '执行上架扫描确认',
+    resourceRef: '/api/v1/wms/putaway-tasks/*',
+    resourceType: 'BUTTON',
+  },
+  {
+    code: 'wms.cross-dock.write',
+    name: '创建与执行越库分配',
+    resourceRef: '/api/v1/wms/*cross-dock*',
+    resourceType: 'BUTTON',
+  },
+  {
     code: 'wms.receipt.read',
     name: '查看收货明细',
     resourceRef: '/api/v1/wms/inbounds/*/receiving-*',

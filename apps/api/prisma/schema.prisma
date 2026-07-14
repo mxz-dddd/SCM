@@ -1023,11 +1023,25 @@ enum ReceivingDisposition {
 enum InventoryLotStatus {
   RECEIVED
   QUARANTINED
+  QUALITY_HOLD
+  RELEASED
+  RETURNED
+  REWORK
+  DOWNGRADED
+  SCRAPPED
+  REJECTED
   @@schema("wms")
 }
 enum SerialNumberStatus {
   RECEIVED
   QUARANTINED
+  QUALITY_HOLD
+  RELEASED
+  RETURNED
+  REWORK
+  DOWNGRADED
+  SCRAPPED
+  REJECTED
   @@schema("wms")
 }
 enum HandlingUnitStatus {
@@ -1053,6 +1067,49 @@ enum LabelJobStatus {
   REQUESTED
   PRINTED
   FAILED
+  @@schema("wms")
+}
+enum QualityInspectionStatus {
+  PENDING
+  INSPECTING
+  ACCEPTED
+  REJECTED
+  HOLD
+  @@schema("wms")
+}
+enum InspectionPlanMode {
+  EXEMPT
+  FULL
+  SAMPLE
+  @@schema("wms")
+}
+enum QualityDispositionType {
+  RETURN_SUPPLIER
+  REWORK
+  DOWNGRADE
+  SCRAP
+  CONCESSION
+  @@schema("wms")
+}
+enum PutawayDecisionStatus {
+  PROPOSED
+  CONFIRMED
+  OVERRIDDEN
+  @@schema("wms")
+}
+enum PutawayTaskStatus {
+  OPEN
+  ASSIGNED
+  IN_PROGRESS
+  COMPLETED
+  CANCELLED
+  @@schema("wms")
+}
+enum CrossDockStatus {
+  PROPOSED
+  RESERVED
+  COMPLETED
+  CANCELLED
   @@schema("wms")
 }
 
@@ -3328,6 +3385,199 @@ model LabelJob {
   @@unique([tenantId,jobNo],map:"label_job_tenant_no_key")
   @@index([tenantId,handlingUnitId,createdAt],map:"label_job_handling_unit_idx")
   @@map("label_job")
+  @@schema("wms")
+}
+
+model QualityInspection {
+  id String @id @default(uuid()) @db.Uuid
+  tenantId String @map("tenant_id") @db.Uuid
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  createdBy String @map("created_by") @db.Uuid
+  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
+  updatedBy String @map("updated_by") @db.Uuid
+  version Int @default(1)
+  status QualityInspectionStatus @default(PENDING)
+  inspectionNo String @map("inspection_no") @db.VarChar(100)
+  inboundOrderId String @map("inbound_order_id") @db.Uuid
+  receiptLineId String @map("receipt_line_id") @db.Uuid
+  inventoryLotId String? @map("inventory_lot_id") @db.Uuid
+  productId String @map("product_id") @db.Uuid
+  supplierId String? @map("supplier_id") @db.Uuid
+  planMode InspectionPlanMode @map("plan_mode")
+  planSnapshot Json @map("plan_snapshot") @db.JsonB
+  riskScore Decimal @default(0) @map("risk_score") @db.Decimal(10,4)
+  sampleSize Int @map("sample_size")
+  attachmentRefs Json @default("[]") @map("attachment_refs") @db.JsonB
+  startedAt DateTime? @map("started_at") @db.Timestamptz(3)
+  completedAt DateTime? @map("completed_at") @db.Timestamptz(3)
+  resultSummary Json @default("{}") @map("result_summary") @db.JsonB
+  @@unique([tenantId,inspectionNo],map:"quality_inspection_tenant_no_key")
+  @@index([tenantId,inboundOrderId,status,createdAt],map:"quality_inspection_workbench_idx")
+  @@index([tenantId,inventoryLotId,status],map:"quality_inspection_lot_idx")
+  @@map("quality_inspection")
+  @@schema("wms")
+}
+
+model QualityInspectionResult {
+  id String @id @default(uuid()) @db.Uuid
+  tenantId String @map("tenant_id") @db.Uuid
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  createdBy String @map("created_by") @db.Uuid
+  updatedAt DateTime @default(now()) @map("updated_at") @db.Timestamptz(3)
+  updatedBy String @map("updated_by") @db.Uuid
+  version Int @default(1)
+  status WmsRecordStatus @default(ACTIVE)
+  inspectionId String @map("inspection_id") @db.Uuid
+  itemCode String @map("item_code") @db.VarChar(100)
+  sampleRef String @map("sample_ref") @db.VarChar(100)
+  expectedSnapshot Json @map("expected_snapshot") @db.JsonB
+  measuredSnapshot Json @map("measured_snapshot") @db.JsonB
+  passed Boolean
+  attachmentRefs Json @default("[]") @map("attachment_refs") @db.JsonB
+  @@unique([tenantId,inspectionId,itemCode,sampleRef],map:"quality_result_item_sample_key")
+  @@index([tenantId,inspectionId,passed],map:"quality_result_inspection_idx")
+  @@map("quality_inspection_result")
+  @@schema("wms")
+}
+
+model QualityDisposition {
+  id String @id @default(uuid()) @db.Uuid
+  tenantId String @map("tenant_id") @db.Uuid
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  createdBy String @map("created_by") @db.Uuid
+  updatedAt DateTime @default(now()) @map("updated_at") @db.Timestamptz(3)
+  updatedBy String @map("updated_by") @db.Uuid
+  version Int @default(1)
+  status WmsRecordStatus @default(ACTIVE)
+  dispositionNo String @map("disposition_no") @db.VarChar(100)
+  inboundOrderId String @map("inbound_order_id") @db.Uuid
+  inspectionId String @map("inspection_id") @db.Uuid
+  inventoryLotId String? @map("inventory_lot_id") @db.Uuid
+  type QualityDispositionType
+  reason String @db.VarChar(500)
+  approvalReference String? @map("approval_reference") @db.VarChar(200)
+  quantityOriginal Decimal @map("quantity_original") @db.Decimal(24,12)
+  originalUom String @map("original_uom") @db.VarChar(20)
+  quantityBase Decimal @map("quantity_base") @db.Decimal(24,12)
+  baseUom String @map("base_uom") @db.VarChar(20)
+  chargeFactSnapshot Json @default("{}") @map("charge_fact_snapshot") @db.JsonB
+  occurredAt DateTime @default(now()) @map("occurred_at") @db.Timestamptz(3)
+  @@unique([tenantId,dispositionNo],map:"quality_disposition_tenant_no_key")
+  @@index([tenantId,inboundOrderId,inspectionId],map:"quality_disposition_inbound_idx")
+  @@map("quality_disposition")
+  @@schema("wms")
+}
+
+model PutawayDecision {
+  id String @id @default(uuid()) @db.Uuid
+  tenantId String @map("tenant_id") @db.Uuid
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  createdBy String @map("created_by") @db.Uuid
+  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
+  updatedBy String @map("updated_by") @db.Uuid
+  version Int @default(1)
+  status PutawayDecisionStatus @default(PROPOSED)
+  inboundOrderId String @map("inbound_order_id") @db.Uuid
+  handlingUnitId String @map("handling_unit_id") @db.Uuid
+  productId String @map("product_id") @db.Uuid
+  inventoryLotId String? @map("inventory_lot_id") @db.Uuid
+  ruleSetCode String @map("rule_set_code") @db.VarChar(100)
+  evaluationTraceId String @map("evaluation_trace_id") @db.Uuid
+  candidateSnapshot Json @map("candidate_snapshot") @db.JsonB
+  exclusionSnapshot Json @default("[]") @map("exclusion_snapshot") @db.JsonB
+  selectedLocationId String @map("selected_location_id") @db.Uuid
+  selectedLocationSnapshot Json @map("selected_location_snapshot") @db.JsonB
+  overrideReason String? @map("override_reason") @db.VarChar(500)
+  @@index([tenantId,inboundOrderId,status,createdAt],map:"putaway_decision_workbench_idx")
+  @@index([tenantId,handlingUnitId,status],map:"putaway_decision_unit_idx")
+  @@map("putaway_decision")
+  @@schema("wms")
+}
+
+model PutawayTask {
+  id String @id @default(uuid()) @db.Uuid
+  tenantId String @map("tenant_id") @db.Uuid
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  createdBy String @map("created_by") @db.Uuid
+  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
+  updatedBy String @map("updated_by") @db.Uuid
+  version Int @default(1)
+  status PutawayTaskStatus @default(OPEN)
+  taskNo String @map("task_no") @db.VarChar(100)
+  inboundOrderId String @map("inbound_order_id") @db.Uuid
+  putawayDecisionId String @map("putaway_decision_id") @db.Uuid
+  handlingUnitId String @map("handling_unit_id") @db.Uuid
+  sourceLocationId String? @map("source_location_id") @db.Uuid
+  targetLocationId String @map("target_location_id") @db.Uuid
+  assignedTo String? @map("assigned_to") @db.Uuid
+  pathSequence Int @map("path_sequence")
+  quantityOriginal Decimal @map("quantity_original") @db.Decimal(24,12)
+  originalUom String @map("original_uom") @db.VarChar(20)
+  quantityBase Decimal @map("quantity_base") @db.Decimal(24,12)
+  baseUom String @map("base_uom") @db.VarChar(20)
+  startedAt DateTime? @map("started_at") @db.Timestamptz(3)
+  completedAt DateTime? @map("completed_at") @db.Timestamptz(3)
+  @@unique([tenantId,taskNo],map:"putaway_task_tenant_no_key")
+  @@index([tenantId,inboundOrderId,status,pathSequence],map:"putaway_task_path_idx")
+  @@index([tenantId,assignedTo,status],map:"putaway_task_assignee_idx")
+  @@map("putaway_task")
+  @@schema("wms")
+}
+
+model PutawayMovement {
+  id String @id @default(uuid()) @db.Uuid
+  tenantId String @map("tenant_id") @db.Uuid
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  createdBy String @map("created_by") @db.Uuid
+  updatedAt DateTime @default(now()) @map("updated_at") @db.Timestamptz(3)
+  updatedBy String @map("updated_by") @db.Uuid
+  version Int @default(1)
+  status WmsRecordStatus @default(ACTIVE)
+  putawayTaskId String @map("putaway_task_id") @db.Uuid
+  inboundOrderId String @map("inbound_order_id") @db.Uuid
+  handlingUnitId String @map("handling_unit_id") @db.Uuid
+  scannedLpn String @map("scanned_lpn") @db.VarChar(200)
+  sourceLocationId String? @map("source_location_id") @db.Uuid
+  scannedSourceCode String? @map("scanned_source_code") @db.VarChar(100)
+  targetLocationId String @map("target_location_id") @db.Uuid
+  scannedTargetCode String @map("scanned_target_code") @db.VarChar(100)
+  quantityOriginal Decimal @map("quantity_original") @db.Decimal(24,12)
+  originalUom String @map("original_uom") @db.VarChar(20)
+  quantityBase Decimal @map("quantity_base") @db.Decimal(24,12)
+  baseUom String @map("base_uom") @db.VarChar(20)
+  occurredAt DateTime @default(now()) @map("occurred_at") @db.Timestamptz(3)
+  @@unique([tenantId,putawayTaskId],map:"putaway_movement_task_key")
+  @@index([tenantId,inboundOrderId,occurredAt],map:"putaway_movement_inbound_idx")
+  @@map("putaway_movement")
+  @@schema("wms")
+}
+
+model CrossDockAllocation {
+  id String @id @default(uuid()) @db.Uuid
+  tenantId String @map("tenant_id") @db.Uuid
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  createdBy String @map("created_by") @db.Uuid
+  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
+  updatedBy String @map("updated_by") @db.Uuid
+  version Int @default(1)
+  status CrossDockStatus @default(PROPOSED)
+  inboundOrderId String @map("inbound_order_id") @db.Uuid
+  receiptLineId String @map("receipt_line_id") @db.Uuid
+  inventoryLotId String? @map("inventory_lot_id") @db.Uuid
+  productId String @map("product_id") @db.Uuid
+  demandRef String @map("demand_ref") @db.VarChar(200)
+  demandSnapshot Json @map("demand_snapshot") @db.JsonB
+  stagingLocationId String @map("staging_location_id") @db.Uuid
+  stagingLocationSnapshot Json @map("staging_location_snapshot") @db.JsonB
+  quantityOriginal Decimal @map("quantity_original") @db.Decimal(24,12)
+  originalUom String @map("original_uom") @db.VarChar(20)
+  quantityBase Decimal @map("quantity_base") @db.Decimal(24,12)
+  baseUom String @map("base_uom") @db.VarChar(20)
+  windowStart DateTime @map("window_start") @db.Timestamptz(3)
+  windowEnd DateTime @map("window_end") @db.Timestamptz(3)
+  @@unique([tenantId,demandRef,receiptLineId],map:"cross_dock_demand_receipt_key")
+  @@index([tenantId,inboundOrderId,status,windowEnd],map:"cross_dock_workbench_idx")
+  @@map("cross_dock_allocation")
   @@schema("wms")
 }
 
