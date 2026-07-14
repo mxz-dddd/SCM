@@ -34,6 +34,7 @@ import { RoleController } from './role.controller';
 import { RuleEngineController } from './rule-engine.controller';
 import { RuleEngineService } from './rule-engine.service';
 import { RuleEvaluationFacade } from './public/rule-evaluation.facade';
+import { AttachmentReferenceFacade } from './public/attachment-reference.facade';
 import { EventConsumptionFacade } from './public/event-consumption.facade';
 import { PermissionDecisionFacade } from './public/permission-decision.facade';
 import { SearchService } from './search.service';
@@ -70,6 +71,7 @@ import { WorkflowService } from './workflow.service';
   imports: [AuthModule],
   providers: [
     AttachmentService,
+    AttachmentReferenceFacade,
     AuditService,
     CollaborationPrintService,
     ConfigurationService,
@@ -102,6 +104,7 @@ import { WorkflowService } from './workflow.service';
     WorkflowService,
   ],
   exports: [
+    AttachmentReferenceFacade,
     EventConsumptionFacade,
     PermissionDecisionFacade,
     RuleEvaluationFacade,

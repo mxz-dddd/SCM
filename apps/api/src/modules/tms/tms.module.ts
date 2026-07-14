@@ -7,6 +7,8 @@ import { CapacityTenderController } from './capacity-tender.controller';
 import { CapacityTenderService } from './capacity-tender.service';
 import { DispatchController } from './dispatch.controller';
 import { DispatchService } from './dispatch.service';
+import { DeliveryReverseController } from './delivery-reverse.controller';
+import { DeliveryReverseService } from './delivery-reverse.service';
 import { LoadRouteController } from './load-route.controller';
 import { LoadRouteService } from './load-route.service';
 import { InTransitOperationsController } from './in-transit-operations.controller';
@@ -22,6 +24,7 @@ import { TransportOrderService } from './transport-order.service';
   controllers: [
     CapacityTenderController,
     DispatchController,
+    DeliveryReverseController,
     InTransitOperationsController,
     LoadRouteController,
     PlanningController,
@@ -32,6 +35,7 @@ import { TransportOrderService } from './transport-order.service';
   providers: [
     CapacityTenderService,
     DispatchService,
+    DeliveryReverseService,
     InTransitOperationsService,
     LoadRouteService,
     PlanningService,

@@ -470,5 +470,13 @@ describe('App', () => {
     expect(
       screen.getByRole('button', { name: '请求 AMS 预约' }),
     ).toBeDisabled();
+    expect(
+      screen.getByText('到达签收、POD、索赔与逆向运输'),
+    ).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: '记录到达签收' })).toBeDisabled();
+    expect(screen.getByRole('button', { name: '确认 POD' })).toBeDisabled();
+    expect(
+      screen.getByRole('button', { name: '批准并生成扣款事实' }),
+    ).toBeDisabled();
   });
 });

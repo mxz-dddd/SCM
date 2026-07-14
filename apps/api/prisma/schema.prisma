@@ -8244,3 +8244,240 @@ model ShipmentAppointmentLink {
   @@map("shipment_appointment_link")
   @@schema("tms")
 }
+
+enum DeliveryConfirmationStatus {
+  RECORDED
+  @@schema("tms")
+}
+
+enum DeliveryVarianceStatus {
+  PENDING
+  RESOLVED
+  @@schema("tms")
+}
+
+enum ProofOfDeliveryStatus {
+  UPLOADED
+  REVIEWING
+  CONFIRMED
+  RETURNED
+  DISPUTED
+  @@schema("tms")
+}
+
+enum PodReviewStatus {
+  RECORDED
+  @@schema("tms")
+}
+
+enum ClaimCaseStatus {
+  OPEN
+  NEGOTIATING
+  PENDING_APPROVAL
+  APPROVED
+  REJECTED
+  SETTLED
+  CLOSED
+  @@schema("tms")
+}
+
+enum DeductionFactStatus {
+  ACTIVE
+  REVERSED
+  @@schema("tms")
+}
+
+enum ReturnTransportOrderStatus {
+  REQUESTED
+  PLANNED
+  CANCELLED
+  @@schema("tms")
+}
+
+model DeliveryConfirmation {
+  id String @id @default(uuid()) @db.Uuid
+  tenantId String @map("tenant_id") @db.Uuid
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  createdBy String @map("created_by") @db.Uuid
+  updatedAt DateTime @default(now()) @map("updated_at") @db.Timestamptz(3)
+  updatedBy String @map("updated_by") @db.Uuid
+  version Int @default(1)
+  status DeliveryConfirmationStatus @default(RECORDED)
+  confirmationNo String @map("confirmation_no") @db.VarChar(100)
+  shipmentId String @map("shipment_id") @db.Uuid
+  arrivedAt DateTime @map("arrived_at") @db.Timestamptz(3)
+  unloadingStartedAt DateTime @map("unloading_started_at") @db.Timestamptz(3)
+  unloadingCompletedAt DateTime @map("unloading_completed_at") @db.Timestamptz(3)
+  signedAt DateTime @map("signed_at") @db.Timestamptz(3)
+  recipientName String @map("recipient_name") @db.VarChar(200)
+  recipientSnapshot Json @map("recipient_snapshot") @db.JsonB
+  signatureSnapshot Json @map("signature_snapshot") @db.JsonB
+  itemSummary Json @map("item_summary") @db.JsonB
+  deliveryLocationSnapshot Json @map("delivery_location_snapshot") @db.JsonB
+  hasVariance Boolean @map("has_variance")
+  @@unique([tenantId,confirmationNo],map:"delivery_confirmation_tenant_no_key")
+  @@unique([tenantId,shipmentId],map:"delivery_confirmation_tenant_shipment_key")
+  @@index([tenantId,signedAt],map:"delivery_confirmation_signed_idx")
+  @@map("delivery_confirmation")
+  @@schema("tms")
+}
+
+model DeliveryVariance {
+  id String @id @default(uuid()) @db.Uuid
+  tenantId String @map("tenant_id") @db.Uuid
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  createdBy String @map("created_by") @db.Uuid
+  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
+  updatedBy String @map("updated_by") @db.Uuid
+  version Int @default(1)
+  status DeliveryVarianceStatus @default(PENDING)
+  deliveryConfirmationId String @map("delivery_confirmation_id") @db.Uuid
+  shipmentId String @map("shipment_id") @db.Uuid
+  shipmentItemId String @map("shipment_item_id") @db.Uuid
+  type String @db.VarChar(50)
+  expectedQuantityBase Decimal @map("expected_quantity_base") @db.Decimal(24,12)
+  deliveredQuantityBase Decimal @map("delivered_quantity_base") @db.Decimal(24,12)
+  refusedQuantityBase Decimal @map("refused_quantity_base") @db.Decimal(24,12)
+  damagedQuantityBase Decimal @map("damaged_quantity_base") @db.Decimal(24,12)
+  differenceQuantityBase Decimal @map("difference_quantity_base") @db.Decimal(24,12)
+  baseUom String @map("base_uom") @db.VarChar(20)
+  reason String @db.VarChar(1000)
+  evidenceSnapshot Json @map("evidence_snapshot") @db.JsonB
+  resolutionSnapshot Json @default("{}") @map("resolution_snapshot") @db.JsonB
+  resolvedAt DateTime? @map("resolved_at") @db.Timestamptz(3)
+  @@index([tenantId,shipmentId,status,type],map:"delivery_variance_shipment_idx")
+  @@index([tenantId,shipmentItemId,status],map:"delivery_variance_item_idx")
+  @@map("delivery_variance")
+  @@schema("tms")
+}
+
+model ProofOfDelivery {
+  id String @id @default(uuid()) @db.Uuid
+  tenantId String @map("tenant_id") @db.Uuid
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  createdBy String @map("created_by") @db.Uuid
+  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
+  updatedBy String @map("updated_by") @db.Uuid
+  version Int @default(1)
+  status ProofOfDeliveryStatus @default(UPLOADED)
+  podNo String @map("pod_no") @db.VarChar(100)
+  shipmentId String @map("shipment_id") @db.Uuid
+  deliveryConfirmationId String @map("delivery_confirmation_id") @db.Uuid
+  signatureSnapshot Json @map("signature_snapshot") @db.JsonB
+  fileReferences Json @map("file_references") @db.JsonB
+  pageCount Int @map("page_count")
+  notes String? @db.VarChar(2000)
+  submittedBy String @map("submitted_by") @db.Uuid
+  submittedAt DateTime @default(now()) @map("submitted_at") @db.Timestamptz(3)
+  reviewingAt DateTime? @map("reviewing_at") @db.Timestamptz(3)
+  confirmedAt DateTime? @map("confirmed_at") @db.Timestamptz(3)
+  returnedAt DateTime? @map("returned_at") @db.Timestamptz(3)
+  disputedAt DateTime? @map("disputed_at") @db.Timestamptz(3)
+  @@unique([tenantId,podNo],map:"proof_of_delivery_tenant_no_key")
+  @@unique([tenantId,shipmentId],map:"proof_of_delivery_tenant_shipment_key")
+  @@index([tenantId,status,submittedAt],map:"proof_of_delivery_review_idx")
+  @@map("proof_of_delivery")
+  @@schema("tms")
+}
+
+model PodReview {
+  id String @id @default(uuid()) @db.Uuid
+  tenantId String @map("tenant_id") @db.Uuid
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  createdBy String @map("created_by") @db.Uuid
+  updatedAt DateTime @default(now()) @map("updated_at") @db.Timestamptz(3)
+  updatedBy String @map("updated_by") @db.Uuid
+  version Int @default(1)
+  status PodReviewStatus @default(RECORDED)
+  proofOfDeliveryId String @map("proof_of_delivery_id") @db.Uuid
+  decision String @db.VarChar(50)
+  fromStatus ProofOfDeliveryStatus @map("from_status")
+  toStatus ProofOfDeliveryStatus @map("to_status")
+  checkSnapshot Json @map("check_snapshot") @db.JsonB
+  reason String @db.VarChar(1000)
+  reviewedBy String @map("reviewed_by") @db.Uuid
+  reviewedAt DateTime @default(now()) @map("reviewed_at") @db.Timestamptz(3)
+  @@index([tenantId,proofOfDeliveryId,reviewedAt,id],map:"pod_review_timeline_idx")
+  @@map("pod_review")
+  @@schema("tms")
+}
+
+model ClaimCase {
+  id String @id @default(uuid()) @db.Uuid
+  tenantId String @map("tenant_id") @db.Uuid
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  createdBy String @map("created_by") @db.Uuid
+  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
+  updatedBy String @map("updated_by") @db.Uuid
+  version Int @default(1)
+  status ClaimCaseStatus @default(OPEN)
+  claimNo String @map("claim_no") @db.VarChar(100)
+  shipmentId String @map("shipment_id") @db.Uuid
+  deliveryVarianceId String @map("delivery_variance_id") @db.Uuid
+  type String @db.VarChar(50)
+  claimantRef String @map("claimant_ref") @db.VarChar(200)
+  responsiblePartyRef String? @map("responsible_party_ref") @db.VarChar(200)
+  liabilitySnapshot Json @map("liability_snapshot") @db.JsonB
+  evidenceReferences Json @map("evidence_references") @db.JsonB
+  claimedAmount Decimal @map("claimed_amount") @db.Decimal(24,6)
+  approvedAmount Decimal? @map("approved_amount") @db.Decimal(24,6)
+  currency String @db.Char(3)
+  negotiationSnapshot Json @default("{}") @map("negotiation_snapshot") @db.JsonB
+  approvalReference String? @map("approval_reference") @db.VarChar(200)
+  requestedAt DateTime @default(now()) @map("requested_at") @db.Timestamptz(3)
+  approvedAt DateTime? @map("approved_at") @db.Timestamptz(3)
+  settledAt DateTime? @map("settled_at") @db.Timestamptz(3)
+  closedAt DateTime? @map("closed_at") @db.Timestamptz(3)
+  @@unique([tenantId,claimNo],map:"claim_case_tenant_no_key")
+  @@index([tenantId,shipmentId,status],map:"claim_case_shipment_idx")
+  @@index([tenantId,deliveryVarianceId,status],map:"claim_case_variance_idx")
+  @@map("claim_case")
+  @@schema("tms")
+}
+
+model DeductionFact {
+  id String @id @default(uuid()) @db.Uuid
+  tenantId String @map("tenant_id") @db.Uuid
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  createdBy String @map("created_by") @db.Uuid
+  updatedAt DateTime @default(now()) @map("updated_at") @db.Timestamptz(3)
+  updatedBy String @map("updated_by") @db.Uuid
+  version Int @default(1)
+  status DeductionFactStatus @default(ACTIVE)
+  claimCaseId String @map("claim_case_id") @db.Uuid
+  shipmentId String @map("shipment_id") @db.Uuid
+  amount Decimal @db.Decimal(24,6)
+  currency String @db.Char(3)
+  responsiblePartyRef String @map("responsible_party_ref") @db.VarChar(200)
+  basisSnapshot Json @map("basis_snapshot") @db.JsonB
+  issuedAt DateTime @default(now()) @map("issued_at") @db.Timestamptz(3)
+  @@unique([tenantId,claimCaseId],map:"deduction_fact_claim_key")
+  @@index([tenantId,shipmentId,issuedAt],map:"deduction_fact_shipment_idx")
+  @@map("deduction_fact")
+  @@schema("tms")
+}
+
+model ReturnTransportOrder {
+  id String @id @default(uuid()) @db.Uuid
+  tenantId String @map("tenant_id") @db.Uuid
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  createdBy String @map("created_by") @db.Uuid
+  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
+  updatedBy String @map("updated_by") @db.Uuid
+  version Int @default(1)
+  status ReturnTransportOrderStatus @default(REQUESTED)
+  returnNo String @map("return_no") @db.VarChar(100)
+  originalShipmentId String @map("original_shipment_id") @db.Uuid
+  transportOrderId String @map("transport_order_id") @db.Uuid
+  deliveryVarianceId String? @map("delivery_variance_id") @db.Uuid
+  type String @db.VarChar(50)
+  reason String @db.VarChar(1000)
+  itemSnapshot Json @map("item_snapshot") @db.JsonB
+  relationshipSnapshot Json @map("relationship_snapshot") @db.JsonB
+  requestedAt DateTime @default(now()) @map("requested_at") @db.Timestamptz(3)
+  @@unique([tenantId,returnNo],map:"return_transport_order_tenant_no_key")
+  @@unique([tenantId,transportOrderId],map:"return_transport_order_transport_key")
+  @@index([tenantId,originalShipmentId,status],map:"return_transport_order_shipment_idx")
+  @@map("return_transport_order")
+  @@schema("tms")
+}
