@@ -452,5 +452,13 @@ describe('App', () => {
     expect(
       screen.getByRole('button', { name: '确认发运进入跟踪' }),
     ).toBeDisabled();
+    expect(
+      screen.getByText('节点计划、司机移动端与在途 ETA'),
+    ).toBeInTheDocument();
+    expect(screen.getByText('离线队列 0')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: '司机接单' })).toBeDisabled();
+    expect(
+      screen.getByRole('button', { name: '按序同步离线队列' }),
+    ).toBeDisabled();
   });
 });

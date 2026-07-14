@@ -11,6 +11,8 @@ import { LoadRouteController } from './load-route.controller';
 import { LoadRouteService } from './load-route.service';
 import { PlanningController } from './planning.controller';
 import { PlanningService } from './planning.service';
+import { TrackingController } from './tracking.controller';
+import { TrackingService } from './tracking.service';
 import { TransportOrderController } from './transport-order.controller';
 import { TransportOrderService } from './transport-order.service';
 
@@ -20,6 +22,7 @@ import { TransportOrderService } from './transport-order.service';
     DispatchController,
     LoadRouteController,
     PlanningController,
+    TrackingController,
     TransportOrderController,
   ],
   imports: [MdmModule, PlatformModule],
@@ -28,6 +31,7 @@ import { TransportOrderService } from './transport-order.service';
     DispatchService,
     LoadRouteService,
     PlanningService,
+    TrackingService,
     TransportOrderService,
     PermissionGuard,
     PermissionService,

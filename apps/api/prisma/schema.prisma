@@ -7786,3 +7786,284 @@ model ShipmentDispatch {
   @@map("shipment_dispatch")
   @@schema("tms")
 }
+
+enum MilestonePlanStatus {
+  ACTIVE
+  COMPLETED
+  @@schema("tms")
+}
+
+enum ShipmentMilestoneStatus {
+  PLANNED
+  COMPLETED
+  SKIPPED
+  @@schema("tms")
+}
+
+enum DriverTaskStatus {
+  ASSIGNED
+  ACCEPTED
+  IN_PROGRESS
+  COMPLETED
+  CANCELLED
+  @@schema("tms")
+}
+
+enum TrackingEventStatus {
+  ACCEPTED
+  CANDIDATE
+  CONFLICT
+  @@schema("tms")
+}
+
+enum DriverOfflineCommandStatus {
+  PROCESSED
+  REJECTED
+  @@schema("tms")
+}
+
+enum PositionPointStatus {
+  ACCEPTED
+  REJECTED
+  @@schema("tms")
+}
+
+enum GeofenceEventStatus {
+  CANDIDATE
+  CONFIRMED
+  CONFLICT
+  @@schema("tms")
+}
+
+enum EtaPredictionStatus {
+  ACTIVE
+  SUPERSEDED
+  @@schema("tms")
+}
+
+model MilestonePlan {
+  id               String              @id @default(uuid()) @db.Uuid
+  tenantId         String              @map("tenant_id") @db.Uuid
+  createdAt        DateTime            @default(now()) @map("created_at") @db.Timestamptz(3)
+  createdBy        String              @map("created_by") @db.Uuid
+  updatedAt        DateTime            @updatedAt @map("updated_at") @db.Timestamptz(3)
+  updatedBy        String              @map("updated_by") @db.Uuid
+  version          Int                 @default(1)
+  status           MilestonePlanStatus @default(ACTIVE)
+  planNo           String              @map("plan_no") @db.VarChar(100)
+  shipmentId       String              @map("shipment_id") @db.Uuid
+  templateSnapshot Json                @map("template_snapshot") @db.JsonB
+  timeZone         String              @map("time_zone") @db.VarChar(100)
+  generatedAt      DateTime            @default(now()) @map("generated_at") @db.Timestamptz(3)
+  @@unique([tenantId, planNo], map: "milestone_plan_tenant_no_key")
+  @@index([tenantId, shipmentId, status, createdAt], map: "milestone_plan_tenant_shipment_idx")
+  @@map("milestone_plan")
+  @@schema("tms")
+}
+
+model ShipmentMilestone {
+  id                String                  @id @default(uuid()) @db.Uuid
+  tenantId          String                  @map("tenant_id") @db.Uuid
+  createdAt         DateTime                @default(now()) @map("created_at") @db.Timestamptz(3)
+  createdBy         String                  @map("created_by") @db.Uuid
+  updatedAt         DateTime                @updatedAt @map("updated_at") @db.Timestamptz(3)
+  updatedBy         String                  @map("updated_by") @db.Uuid
+  version           Int                     @default(1)
+  status            ShipmentMilestoneStatus @default(PLANNED)
+  milestonePlanId   String                  @map("milestone_plan_id") @db.Uuid
+  shipmentId        String                  @map("shipment_id") @db.Uuid
+  code              String                  @db.VarChar(100)
+  type              String                  @db.VarChar(100)
+  sequence          Int
+  mandatory         Boolean                 @default(true)
+  plannedAt         DateTime                @map("planned_at") @db.Timestamptz(3)
+  actualAt          DateTime?               @map("actual_at") @db.Timestamptz(3)
+  actualSource      String?                 @map("actual_source") @db.VarChar(50)
+  trackingEventId   String?                 @map("tracking_event_id") @db.Uuid
+  locationSnapshot  Json                    @map("location_snapshot") @db.JsonB
+  requirementSnapshot Json                 @map("requirement_snapshot") @db.JsonB
+  @@unique([tenantId, milestonePlanId, sequence], map: "shipment_milestone_tenant_plan_sequence_key")
+  @@unique([tenantId, milestonePlanId, code], map: "shipment_milestone_tenant_plan_code_key")
+  @@index([tenantId, shipmentId, status, sequence], map: "shipment_milestone_tenant_shipment_idx")
+  @@map("shipment_milestone")
+  @@schema("tms")
+}
+
+model DriverTask {
+  id                       String           @id @default(uuid()) @db.Uuid
+  tenantId                 String           @map("tenant_id") @db.Uuid
+  createdAt                DateTime         @default(now()) @map("created_at") @db.Timestamptz(3)
+  createdBy                String           @map("created_by") @db.Uuid
+  updatedAt                DateTime         @updatedAt @map("updated_at") @db.Timestamptz(3)
+  updatedBy                String           @map("updated_by") @db.Uuid
+  version                  Int              @default(1)
+  status                   DriverTaskStatus @default(ASSIGNED)
+  taskNo                   String           @map("task_no") @db.VarChar(100)
+  shipmentId               String           @map("shipment_id") @db.Uuid
+  vehicleAssignmentId      String           @map("vehicle_assignment_id") @db.Uuid
+  milestonePlanId          String           @map("milestone_plan_id") @db.Uuid
+  driverRef                String           @map("driver_ref") @db.Uuid
+  deviceId                 String           @map("device_id") @db.VarChar(200)
+  deviceSnapshot           Json             @map("device_snapshot") @db.JsonB
+  acceptedAt               DateTime?        @map("accepted_at") @db.Timestamptz(3)
+  startedAt                DateTime?        @map("started_at") @db.Timestamptz(3)
+  completedAt              DateTime?        @map("completed_at") @db.Timestamptz(3)
+  lastOfflineSequence      Int              @default(0) @map("last_offline_sequence")
+  currentMilestoneSequence Int              @default(0) @map("current_milestone_sequence")
+  @@unique([tenantId, taskNo], map: "driver_task_tenant_no_key")
+  @@unique([tenantId, vehicleAssignmentId], map: "driver_task_tenant_assignment_key")
+  @@index([tenantId, driverRef, status, createdAt], map: "driver_task_tenant_driver_idx")
+  @@index([tenantId, deviceId, status, createdAt], map: "driver_task_tenant_device_idx")
+  @@map("driver_task")
+  @@schema("tms")
+}
+
+model TrackingEvent {
+  id               String              @id @default(uuid()) @db.Uuid
+  tenantId         String              @map("tenant_id") @db.Uuid
+  createdAt        DateTime            @default(now()) @map("created_at") @db.Timestamptz(3)
+  createdBy        String              @map("created_by") @db.Uuid
+  updatedAt        DateTime            @default(now()) @map("updated_at") @db.Timestamptz(3)
+  updatedBy        String              @map("updated_by") @db.Uuid
+  version          Int                 @default(1)
+  status           TrackingEventStatus @default(ACCEPTED)
+  eventNo          String              @map("event_no") @db.VarChar(100)
+  shipmentId       String              @map("shipment_id") @db.Uuid
+  driverTaskId     String?             @map("driver_task_id") @db.Uuid
+  milestoneId      String?             @map("milestone_id") @db.Uuid
+  eventType        String              @map("event_type") @db.VarChar(100)
+  source           String              @db.VarChar(50)
+  occurredAt       DateTime            @map("occurred_at") @db.Timestamptz(3)
+  locationSnapshot Json                @map("location_snapshot") @db.JsonB
+  evidenceSnapshot Json                @map("evidence_snapshot") @db.JsonB
+  deviceId         String?             @map("device_id") @db.VarChar(200)
+  deviceSequence   Int?                @map("device_sequence")
+  conflictEventId  String?             @map("conflict_event_id") @db.Uuid
+  @@unique([tenantId, eventNo], map: "tracking_event_tenant_no_key")
+  @@index([tenantId, shipmentId, occurredAt, id], map: "tracking_event_tenant_shipment_time_idx")
+  @@index([tenantId, driverTaskId, deviceSequence], map: "tracking_event_tenant_task_sequence_idx")
+  @@map("tracking_event")
+  @@schema("tms")
+}
+
+model DriverOfflineCommand {
+  id              String               @id @default(uuid()) @db.Uuid
+  tenantId        String               @map("tenant_id") @db.Uuid
+  createdAt       DateTime             @default(now()) @map("created_at") @db.Timestamptz(3)
+  createdBy       String               @map("created_by") @db.Uuid
+  updatedAt       DateTime             @default(now()) @map("updated_at") @db.Timestamptz(3)
+  updatedBy       String               @map("updated_by") @db.Uuid
+  version         Int                  @default(1)
+  status          DriverOfflineCommandStatus @default(PROCESSED)
+  driverTaskId    String               @map("driver_task_id") @db.Uuid
+  deviceId        String               @map("device_id") @db.VarChar(200)
+  deviceSequence  Int                  @map("device_sequence")
+  contentHash     String               @map("content_hash") @db.Char(64)
+  commandType     String               @map("command_type") @db.VarChar(100)
+  payload         Json                 @db.JsonB
+  result          Json                 @db.JsonB
+  processedAt     DateTime             @default(now()) @map("processed_at") @db.Timestamptz(3)
+  rejectionReason String?              @map("rejection_reason") @db.VarChar(500)
+  @@unique([tenantId, deviceId, deviceSequence], map: "offline_command_tenant_device_sequence_key")
+  @@index([tenantId, driverTaskId, deviceSequence], map: "offline_command_tenant_task_sequence_idx")
+  @@map("driver_offline_command")
+  @@schema("tms")
+}
+
+model PositionPoint {
+  id               String              @id @default(uuid()) @db.Uuid
+  tenantId         String              @map("tenant_id") @db.Uuid
+  createdAt        DateTime            @default(now()) @map("created_at") @db.Timestamptz(3)
+  createdBy        String              @map("created_by") @db.Uuid
+  updatedAt        DateTime            @default(now()) @map("updated_at") @db.Timestamptz(3)
+  updatedBy        String              @map("updated_by") @db.Uuid
+  version          Int                 @default(1)
+  status           PositionPointStatus
+  shipmentId       String              @map("shipment_id") @db.Uuid
+  vehicleAssignmentId String           @map("vehicle_assignment_id") @db.Uuid
+  source           String              @db.VarChar(50)
+  sourceEventId    String              @map("source_event_id") @db.VarChar(200)
+  recordedAt       DateTime            @map("recorded_at") @db.Timestamptz(3)
+  latitude         Decimal             @db.Decimal(10, 7)
+  longitude        Decimal             @db.Decimal(10, 7)
+  accuracyMeters   Decimal             @map("accuracy_meters") @db.Decimal(12, 3)
+  speedKph         Decimal?            @map("speed_kph") @db.Decimal(12, 3)
+  headingDegrees   Decimal?            @map("heading_degrees") @db.Decimal(8, 3)
+  rawSnapshot      Json                @map("raw_snapshot") @db.JsonB
+  rejectionReason  String?             @map("rejection_reason") @db.VarChar(500)
+  @@unique([tenantId, source, sourceEventId], map: "position_point_tenant_source_event_key")
+  @@index([tenantId, shipmentId, status, recordedAt], map: "position_point_tenant_shipment_idx")
+  @@index([tenantId, vehicleAssignmentId, recordedAt], map: "position_point_tenant_assignment_idx")
+  @@map("position_point")
+  @@schema("tms")
+}
+
+model TrackSegment {
+  id                String          @id @default(uuid()) @db.Uuid
+  tenantId          String          @map("tenant_id") @db.Uuid
+  createdAt         DateTime        @default(now()) @map("created_at") @db.Timestamptz(3)
+  createdBy         String          @map("created_by") @db.Uuid
+  updatedAt         DateTime        @default(now()) @map("updated_at") @db.Timestamptz(3)
+  updatedBy         String          @map("updated_by") @db.Uuid
+  version           Int             @default(1)
+  status            TmsRecordStatus @default(ACTIVE)
+  shipmentId        String          @map("shipment_id") @db.Uuid
+  fromPositionPointId String        @map("from_position_point_id") @db.Uuid
+  toPositionPointId String          @map("to_position_point_id") @db.Uuid
+  startedAt         DateTime        @map("started_at") @db.Timestamptz(3)
+  endedAt           DateTime        @map("ended_at") @db.Timestamptz(3)
+  distanceMeters    Decimal         @map("distance_meters") @db.Decimal(18, 3)
+  durationSeconds   Int             @map("duration_seconds")
+  calculationSnapshot Json          @map("calculation_snapshot") @db.JsonB
+  @@unique([tenantId, fromPositionPointId, toPositionPointId], map: "track_segment_tenant_points_key")
+  @@index([tenantId, shipmentId, startedAt, endedAt], map: "track_segment_tenant_shipment_idx")
+  @@map("track_segment")
+  @@schema("tms")
+}
+
+model GeofenceEvent {
+  id               String              @id @default(uuid()) @db.Uuid
+  tenantId         String              @map("tenant_id") @db.Uuid
+  createdAt        DateTime            @default(now()) @map("created_at") @db.Timestamptz(3)
+  createdBy        String              @map("created_by") @db.Uuid
+  updatedAt        DateTime            @default(now()) @map("updated_at") @db.Timestamptz(3)
+  updatedBy        String              @map("updated_by") @db.Uuid
+  version          Int                 @default(1)
+  status           GeofenceEventStatus @default(CANDIDATE)
+  shipmentId       String              @map("shipment_id") @db.Uuid
+  milestoneId      String              @map("milestone_id") @db.Uuid
+  positionPointId  String              @map("position_point_id") @db.Uuid
+  eventType        String              @map("event_type") @db.VarChar(20)
+  occurredAt       DateTime            @map("occurred_at") @db.Timestamptz(3)
+  geofenceSnapshot Json                @map("geofence_snapshot") @db.JsonB
+  driverEventId    String?             @map("driver_event_id") @db.Uuid
+  conflictReason   String?             @map("conflict_reason") @db.VarChar(500)
+  @@index([tenantId, shipmentId, occurredAt, id], map: "geofence_event_tenant_shipment_idx")
+  @@index([tenantId, milestoneId, status, occurredAt], map: "geofence_event_tenant_milestone_idx")
+  @@map("geofence_event")
+  @@schema("tms")
+}
+
+model EtaPrediction {
+  id                String              @id @default(uuid()) @db.Uuid
+  tenantId          String              @map("tenant_id") @db.Uuid
+  createdAt         DateTime            @default(now()) @map("created_at") @db.Timestamptz(3)
+  createdBy         String              @map("created_by") @db.Uuid
+  updatedAt         DateTime            @default(now()) @map("updated_at") @db.Timestamptz(3)
+  updatedBy         String              @map("updated_by") @db.Uuid
+  version           Int                 @default(1)
+  status            EtaPredictionStatus @default(ACTIVE)
+  shipmentId        String              @map("shipment_id") @db.Uuid
+  milestoneId       String              @map("milestone_id") @db.Uuid
+  predictedAt       DateTime            @map("predicted_at") @db.Timestamptz(3)
+  confidence        Decimal             @db.Decimal(8, 6)
+  changeMinutes     Decimal             @map("change_minutes") @db.Decimal(12, 3)
+  significantChange Boolean             @map("significant_change")
+  inputSnapshot     Json                @map("input_snapshot") @db.JsonB
+  algorithmSnapshot Json                @map("algorithm_snapshot") @db.JsonB
+  calculatedAt      DateTime            @default(now()) @map("calculated_at") @db.Timestamptz(3)
+  @@index([tenantId, shipmentId, status, calculatedAt], map: "eta_prediction_tenant_shipment_idx")
+  @@index([tenantId, milestoneId, calculatedAt], map: "eta_prediction_tenant_milestone_idx")
+  @@map("eta_prediction")
+  @@schema("tms")
+}
