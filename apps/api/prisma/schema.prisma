@@ -397,6 +397,51 @@ enum DriverCertificateStatus {
   @@schema("mdm")
 }
 
+enum ContractStatus {
+  DRAFT
+  PENDING_APPROVAL
+  ACTIVE
+  SUSPENDED
+  EXPIRED
+  INACTIVE
+  REJECTED
+
+  @@schema("mdm")
+}
+
+enum RateVersionStatus {
+  DRAFT
+  PUBLISHED
+  RETIRED
+
+  @@schema("mdm")
+}
+
+enum CalendarStatus {
+  DRAFT
+  ACTIVE
+  INACTIVE
+
+  @@schema("mdm")
+}
+
+enum QualityAssessmentStatus {
+  DRAFT
+  PENDING_APPROVAL
+  APPROVED
+  REJECTED
+
+  @@schema("mdm")
+}
+
+enum QualityIssueStatus {
+  OPEN
+  RESOLVED
+  WAIVED
+
+  @@schema("mdm")
+}
+
 enum ConfigScopeType {
   TENANT
   ORGANIZATION
@@ -1244,6 +1289,213 @@ model DriverCertificate {
   @@unique([tenantId, driverId, certificateType, certificateNo], map: "driver_certificate_tenant_driver_type_no_key")
   @@index([tenantId, driverId, status, validUntil], map: "driver_certificate_tenant_driver_expiry_idx")
   @@map("driver_certificate")
+  @@schema("mdm")
+}
+
+model Contract {
+  id                 String         @id @default(uuid()) @db.Uuid
+  tenantId           String         @map("tenant_id") @db.Uuid
+  createdAt          DateTime       @default(now()) @map("created_at") @db.Timestamptz(3)
+  createdBy          String         @map("created_by") @db.Uuid
+  updatedAt          DateTime       @updatedAt @map("updated_at") @db.Timestamptz(3)
+  updatedBy          String         @map("updated_by") @db.Uuid
+  version            Int            @default(1)
+  status             ContractStatus @default(DRAFT)
+  code               String         @db.VarChar(100)
+  name               String         @db.VarChar(300)
+  partnerId          String         @map("partner_id") @db.Uuid
+  partnerSnapshot    Json           @map("partner_snapshot") @db.JsonB
+  contractType       String         @map("contract_type") @db.VarChar(100)
+  effectiveFrom      DateTime       @map("effective_from") @db.Timestamptz(3)
+  effectiveUntil     DateTime       @map("effective_until") @db.Timestamptz(3)
+  currency           String         @db.Char(3)
+  terms              Json           @default("{}") @db.JsonB
+  approvalInstanceId String?        @map("approval_instance_id") @db.Uuid
+  approvedAt         DateTime?      @map("approved_at") @db.Timestamptz(3)
+  approvedBy         String?        @map("approved_by") @db.Uuid
+
+  @@unique([tenantId, code], map: "contract_tenant_code_key")
+  @@index([tenantId, partnerId, status, effectiveFrom], map: "contract_tenant_partner_status_idx")
+  @@map("contract")
+  @@schema("mdm")
+}
+
+model RateCard {
+  id          String            @id @default(uuid()) @db.Uuid
+  tenantId    String            @map("tenant_id") @db.Uuid
+  createdAt   DateTime          @default(now()) @map("created_at") @db.Timestamptz(3)
+  createdBy   String            @map("created_by") @db.Uuid
+  updatedAt   DateTime          @updatedAt @map("updated_at") @db.Timestamptz(3)
+  updatedBy   String            @map("updated_by") @db.Uuid
+  version     Int               @default(1)
+  status      MdmResourceStatus @default(ACTIVE)
+  contractId  String            @map("contract_id") @db.Uuid
+  code        String            @db.VarChar(100)
+  name        String            @db.VarChar(300)
+  serviceType String            @map("service_type") @db.VarChar(100)
+
+  @@unique([tenantId, contractId, code], map: "rate_card_tenant_contract_code_key")
+  @@index([tenantId, contractId, status], map: "rate_card_tenant_contract_status_idx")
+  @@map("rate_card")
+  @@schema("mdm")
+}
+
+model RateVersion {
+  id            String            @id @default(uuid()) @db.Uuid
+  tenantId      String            @map("tenant_id") @db.Uuid
+  createdAt     DateTime          @default(now()) @map("created_at") @db.Timestamptz(3)
+  createdBy     String            @map("created_by") @db.Uuid
+  updatedAt     DateTime          @updatedAt @map("updated_at") @db.Timestamptz(3)
+  updatedBy     String            @map("updated_by") @db.Uuid
+  version       Int               @default(1)
+  status        RateVersionStatus @default(DRAFT)
+  rateCardId    String            @map("rate_card_id") @db.Uuid
+  versionNumber Int               @map("version_number")
+  dimensionHash String            @map("dimension_hash") @db.Char(64)
+  dimensions    Json              @db.JsonB
+  baseRate      Decimal           @map("base_rate") @db.Decimal(24, 6)
+  currency      String            @db.Char(3)
+  pricing       Json              @default("{}") @db.JsonB
+  effectiveFrom DateTime          @map("effective_from") @db.Timestamptz(3)
+  effectiveUntil DateTime         @map("effective_until") @db.Timestamptz(3)
+  publishedAt   DateTime?         @map("published_at") @db.Timestamptz(3)
+
+  @@unique([tenantId, rateCardId, versionNumber], map: "rate_version_tenant_card_version_key")
+  @@index([tenantId, rateCardId, dimensionHash, status, effectiveFrom], map: "rate_version_tenant_match_idx")
+  @@map("rate_version")
+  @@schema("mdm")
+}
+
+model BusinessCalendar {
+  id            String         @id @default(uuid()) @db.Uuid
+  tenantId      String         @map("tenant_id") @db.Uuid
+  createdAt     DateTime       @default(now()) @map("created_at") @db.Timestamptz(3)
+  createdBy     String         @map("created_by") @db.Uuid
+  updatedAt     DateTime       @updatedAt @map("updated_at") @db.Timestamptz(3)
+  updatedBy     String         @map("updated_by") @db.Uuid
+  version       Int            @default(1)
+  status        CalendarStatus @default(DRAFT)
+  code          String         @db.VarChar(100)
+  name          String         @db.VarChar(300)
+  timeZone      String         @map("time_zone") @db.VarChar(100)
+  versionNumber Int            @map("version_number")
+  workingDays   Json           @map("working_days") @db.JsonB
+  effectiveFrom DateTime       @map("effective_from") @db.Date
+  effectiveUntil DateTime?     @map("effective_until") @db.Date
+  publishedAt   DateTime?      @map("published_at") @db.Timestamptz(3)
+
+  @@unique([tenantId, code, versionNumber], map: "business_calendar_tenant_code_version_key")
+  @@index([tenantId, code, status, effectiveFrom], map: "business_calendar_tenant_lookup_idx")
+  @@map("business_calendar")
+  @@schema("mdm")
+}
+
+model CalendarDate {
+  id          String            @id @default(uuid()) @db.Uuid
+  tenantId    String            @map("tenant_id") @db.Uuid
+  createdAt   DateTime          @default(now()) @map("created_at") @db.Timestamptz(3)
+  createdBy   String            @map("created_by") @db.Uuid
+  updatedAt   DateTime          @updatedAt @map("updated_at") @db.Timestamptz(3)
+  updatedBy   String            @map("updated_by") @db.Uuid
+  version     Int               @default(1)
+  status      MdmResourceStatus @default(ACTIVE)
+  calendarId  String            @map("calendar_id") @db.Uuid
+  date        DateTime          @db.Date
+  working     Boolean
+  reason      String?           @db.VarChar(300)
+
+  @@unique([tenantId, calendarId, date], map: "calendar_date_tenant_calendar_date_key")
+  @@index([tenantId, date, working], map: "calendar_date_tenant_date_idx")
+  @@map("calendar_date")
+  @@schema("mdm")
+}
+
+model Shift {
+  id          String            @id @default(uuid()) @db.Uuid
+  tenantId    String            @map("tenant_id") @db.Uuid
+  createdAt   DateTime          @default(now()) @map("created_at") @db.Timestamptz(3)
+  createdBy   String            @map("created_by") @db.Uuid
+  updatedAt   DateTime          @updatedAt @map("updated_at") @db.Timestamptz(3)
+  updatedBy   String            @map("updated_by") @db.Uuid
+  version     Int               @default(1)
+  status      MdmResourceStatus @default(ACTIVE)
+  calendarId  String            @map("calendar_id") @db.Uuid
+  code        String            @db.VarChar(100)
+  name        String            @db.VarChar(200)
+  startTime   String            @map("start_time") @db.VarChar(5)
+  endTime     String            @map("end_time") @db.VarChar(5)
+  crossesMidnight Boolean       @default(false) @map("crosses_midnight")
+
+  @@unique([tenantId, calendarId, code], map: "shift_tenant_calendar_code_key")
+  @@index([tenantId, calendarId, status], map: "shift_tenant_calendar_status_idx")
+  @@map("shift")
+  @@schema("mdm")
+}
+
+model WorkingWindow {
+  id           String            @id @default(uuid()) @db.Uuid
+  tenantId     String            @map("tenant_id") @db.Uuid
+  createdAt    DateTime          @default(now()) @map("created_at") @db.Timestamptz(3)
+  createdBy    String            @map("created_by") @db.Uuid
+  updatedAt    DateTime          @updatedAt @map("updated_at") @db.Timestamptz(3)
+  updatedBy    String            @map("updated_by") @db.Uuid
+  version      Int               @default(1)
+  status       MdmResourceStatus @default(ACTIVE)
+  calendarId   String            @map("calendar_id") @db.Uuid
+  shiftId      String?           @map("shift_id") @db.Uuid
+  resourceType String            @map("resource_type") @db.VarChar(100)
+  resourceId   String            @map("resource_id") @db.Uuid
+  serviceType  String?           @map("service_type") @db.VarChar(100)
+  cutoffTime   String?           @map("cutoff_time") @db.VarChar(5)
+  leadTimeMinutes Int            @default(0) @map("lead_time_minutes")
+
+  @@unique([tenantId, calendarId, resourceType, resourceId, serviceType], map: "working_window_tenant_resource_service_key")
+  @@index([tenantId, resourceType, resourceId, status], map: "working_window_tenant_resource_idx")
+  @@map("working_window")
+  @@schema("mdm")
+}
+
+model DataQualityAssessment {
+  id                 String                  @id @default(uuid()) @db.Uuid
+  tenantId           String                  @map("tenant_id") @db.Uuid
+  createdAt          DateTime                @default(now()) @map("created_at") @db.Timestamptz(3)
+  createdBy          String                  @map("created_by") @db.Uuid
+  updatedAt          DateTime                @updatedAt @map("updated_at") @db.Timestamptz(3)
+  updatedBy          String                  @map("updated_by") @db.Uuid
+  version            Int                     @default(1)
+  status             QualityAssessmentStatus @default(DRAFT)
+  objectType         String                  @map("object_type") @db.VarChar(100)
+  objectId           String                  @map("object_id") @db.Uuid
+  score              Decimal                 @db.Decimal(5, 2)
+  threshold          Decimal                 @db.Decimal(5, 2)
+  dimensions         Json                    @db.JsonB
+  fulfillmentEligible Boolean                @default(false) @map("fulfillment_eligible")
+  approvalInstanceId String?                 @map("approval_instance_id") @db.Uuid
+  assessedAt         DateTime                @default(now()) @map("assessed_at") @db.Timestamptz(3)
+
+  @@index([tenantId, objectType, objectId, createdAt], map: "quality_assessment_tenant_object_idx")
+  @@map("data_quality_assessment")
+  @@schema("mdm")
+}
+
+model DataQualityIssue {
+  id           String             @id @default(uuid()) @db.Uuid
+  tenantId     String             @map("tenant_id") @db.Uuid
+  createdAt    DateTime           @default(now()) @map("created_at") @db.Timestamptz(3)
+  createdBy    String             @map("created_by") @db.Uuid
+  updatedAt    DateTime           @updatedAt @map("updated_at") @db.Timestamptz(3)
+  updatedBy    String             @map("updated_by") @db.Uuid
+  version      Int                @default(1)
+  status       QualityIssueStatus @default(OPEN)
+  assessmentId String             @map("assessment_id") @db.Uuid
+  dimension    String             @db.VarChar(100)
+  code         String             @db.VarChar(100)
+  message      String             @db.VarChar(1000)
+  severity     String             @db.VarChar(20)
+  resolution   String?            @db.VarChar(1000)
+
+  @@index([tenantId, assessmentId, status], map: "quality_issue_tenant_assessment_idx")
+  @@map("data_quality_issue")
   @@schema("mdm")
 }
 

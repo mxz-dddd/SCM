@@ -101,7 +101,7 @@ export interface SaveServiceZoneInput {
 export interface SaveExternalCodeInput {
   readonly externalCode: string;
   readonly objectId: string;
-  readonly objectType: 'PARTNER';
+  readonly objectType: 'DRIVER' | 'EQUIPMENT_TYPE' | 'PARTNER' | 'PRODUCT' | 'VEHICLE' | 'WAREHOUSE';
   readonly sourceSystem: string;
 }
 
@@ -385,7 +385,7 @@ export class PartnerService {
     const sourceSystem = required(input.sourceSystem, 'sourceSystem', 100).toUpperCase();
     const externalCode = required(input.externalCode, 'externalCode', 200);
     return this.idempotency.execute({ actorId: context.accountId, key: metadata.idempotencyKey, payload: input, responseCode: 201, scope: 'mdm.external-code.save.v1', tenantId: context.tenantId }, async (transaction) => {
-      await this.partnerMutable(transaction, input.objectId, context);
+      await this.assertMdmObject(transaction, input.objectType, input.objectId, context);
       const current = await transaction.externalCodeMap.findFirst({ where: { objectId: input.objectId, objectType: input.objectType, sourceSystem, status: 'ACTIVE', tenantId: context.tenantId } });
       const latest = await transaction.externalCodeMap.findFirst({ orderBy: { versionNumber: 'desc' }, where: { objectId: input.objectId, objectType: input.objectType, sourceSystem, tenantId: context.tenantId } });
       if (current?.externalCode === externalCode) throw new AppError('EXTERNAL_CODE_UNCHANGED', 'External code is already active for this object', 409);
@@ -409,6 +409,17 @@ export class PartnerService {
     if (!partner) throw new AppError('PARTNER_NOT_FOUND', 'Partner was not found', 404);
     if (partner.status === 'INACTIVE') throw new AppError('PARTNER_INACTIVE', 'Inactive partner cannot be changed', 409);
     return partner;
+  }
+
+  private async assertMdmObject(transaction: Prisma.TransactionClient, objectType: SaveExternalCodeInput['objectType'], objectId: string, context: TenantContext) {
+    const where = { id: objectId, tenantId: context.tenantId };
+    const exists = objectType === 'PARTNER' ? await transaction.partner.findFirst({ where })
+      : objectType === 'PRODUCT' ? await transaction.product.findFirst({ where })
+      : objectType === 'WAREHOUSE' ? await transaction.warehouse.findFirst({ where })
+      : objectType === 'VEHICLE' ? await transaction.vehicle.findFirst({ where })
+      : objectType === 'DRIVER' ? await transaction.driver.findFirst({ where })
+      : await transaction.equipmentType.findFirst({ where });
+    if (!exists) throw new AppError('EXTERNAL_CODE_OBJECT_NOT_FOUND', 'Mapped MDM object was not found', 404);
   }
 
   private childCreate<T extends Record<string, unknown>>(aggregateType: string, eventName: string, scope: string, payload: unknown, context: TenantContext, metadata: CommandMetadata, operation: (transaction: Prisma.TransactionClient) => Promise<{ aggregateId: string; result: T; version: number }>, conflictCode?: string, conflictMessage?: string) {

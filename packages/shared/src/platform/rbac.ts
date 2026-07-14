@@ -11,6 +11,15 @@ export type PermissionEffect = 'ALLOW' | 'DENY';
 export type PermissionResourceType = (typeof PERMISSION_RESOURCE_TYPES)[number];
 
 export const ADMIN_PERMISSIONS = [
+  { code: 'mdm.contract.read', name: '查看合同与费率版本', resourceRef: '/api/v1/mdm/contracts/*', resourceType: 'API' },
+  { code: 'mdm.contract.write', name: '维护合同与费率草稿', resourceRef: '/api/v1/mdm/rate-*', resourceType: 'API' },
+  { code: 'mdm.contract.approve', name: '审批合同并发布费率', resourceRef: '/api/v1/mdm/rate-versions/*', resourceType: 'BUTTON' },
+  { code: 'mdm.calendar.read', name: '查看营业日历与工作时段', resourceRef: '/api/v1/mdm/calendars/*', resourceType: 'API' },
+  { code: 'mdm.calendar.write', name: '维护日历班次与截单时间', resourceRef: '/api/v1/mdm/calendars/*', resourceType: 'API' },
+  { code: 'mdm.quality.read', name: '查看主数据质量评估与问题', resourceRef: '/api/v1/mdm/quality-assessments', resourceType: 'API' },
+  { code: 'mdm.quality.write', name: '执行主数据质量评估与问题处置', resourceRef: '/api/v1/mdm/quality-*', resourceType: 'API' },
+  { code: 'mdm.quality.approve', name: '审批主数据质量结果', resourceRef: '/api/v1/mdm/quality-assessments/*/decision', resourceType: 'BUTTON' },
+  { code: 'mdm.governance.page', name: '访问主数据治理工作台', resourceRef: 'mdm-governance', resourceType: 'PAGE' },
   { code: 'mdm.warehouse.read', name: '查看仓库层级与停用投影', resourceRef: '/api/v1/mdm/warehouses/*', resourceType: 'API' },
   { code: 'mdm.warehouse.write', name: '维护仓库、库位、门岗与月台', resourceRef: '/api/v1/mdm/warehouse*', resourceType: 'API' },
   { code: 'mdm.warehouse.project', name: '回写仓库跨域使用投影', resourceRef: '/api/v1/mdm/warehouses/*/usage-projection', resourceType: 'API' },

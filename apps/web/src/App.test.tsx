@@ -201,4 +201,12 @@ describe('App', () => {
     expect(screen.getByText('司机证照到期预警')).toBeInTheDocument();
     expect(screen.getByRole('button', { name: '停用仓库' })).toBeDisabled();
   });
+  it('opens contract, rate, calendar and quality governance', () => {
+    render(<App />); fireEvent.click(screen.getByRole('button', { name: '治理' }));
+    expect(screen.getByRole('heading', { name: '合同、费率与主数据治理' })).toBeInTheDocument();
+    expect(screen.getByText('合同与费率版本')).toBeInTheDocument();
+    expect(screen.getByText('营业日历、班次与截单窗口')).toBeInTheDocument();
+    expect(screen.getByText('质量评估与履约资格')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: '发布费率版本' })).toBeDisabled();
+  });
 });
