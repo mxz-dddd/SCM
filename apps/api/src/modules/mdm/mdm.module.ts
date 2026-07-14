@@ -13,6 +13,7 @@ import { ContractCalendarQualityService } from './contract-calendar-quality.serv
 import { MdmReferenceService } from './public/mdm-reference.service';
 import { CalendarReleaseFacade } from './public/calendar-release.facade';
 import { FleetAssignmentFacade } from './public/fleet-assignment.facade';
+import { RateMatchingFacade } from './public/rate-matching.facade';
 
 @Module({
   controllers: [
@@ -21,13 +22,19 @@ import { FleetAssignmentFacade } from './public/fleet-assignment.facade';
     ProductController,
     WarehouseFleetController,
   ],
-  exports: [CalendarReleaseFacade, FleetAssignmentFacade, MdmReferenceService],
+  exports: [
+    CalendarReleaseFacade,
+    FleetAssignmentFacade,
+    MdmReferenceService,
+    RateMatchingFacade,
+  ],
   providers: [
     CalendarReleaseFacade,
     ContractCalendarQualityService,
     FleetAssignmentFacade,
     IdempotencyService,
     MdmReferenceService,
+    RateMatchingFacade,
     PartnerService,
     PermissionGuard,
     PermissionService,

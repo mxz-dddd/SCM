@@ -478,5 +478,12 @@ describe('App', () => {
     expect(
       screen.getByRole('button', { name: '批准并生成扣款事实' }),
     ).toBeDisabled();
+    expect(screen.getByText('运输计费、预提与双边结算')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: '固化计费事实' })).toBeDisabled();
+    expect(screen.getByRole('button', { name: '计算承运应付' })).toBeDisabled();
+    expect(
+      screen.getByRole('button', { name: '确认承运对账并生成 AP' }),
+    ).toBeDisabled();
+    expect(screen.getByRole('button', { name: '完成双边结算' })).toBeDisabled();
   });
 });

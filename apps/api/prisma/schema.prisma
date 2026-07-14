@@ -8481,3 +8481,282 @@ model ReturnTransportOrder {
   @@map("return_transport_order")
   @@schema("tms")
 }
+
+enum ChargeFactSource {
+  PLANNED
+  CONFIRMED
+  @@schema("tms")
+}
+
+enum ChargeCalculationStatus {
+  CALCULATED
+  EXCEPTION
+  @@schema("tms")
+}
+
+enum ChargeDirection {
+  PAYABLE
+  RECEIVABLE
+  @@schema("tms")
+}
+
+enum AccrualVoucherStatus {
+  DRAFT
+  POSTED
+  REVERSED
+  @@schema("tms")
+}
+
+enum BillingExceptionStatus {
+  OPEN
+  RESOLVED
+  @@schema("tms")
+}
+
+enum StatementStatus {
+  DRAFT
+  CONFIRMED
+  DISPUTED
+  ADJUSTED
+  VOUCHERED
+  @@schema("tms")
+}
+
+enum SettlementLineStatus {
+  ACTIVE
+  @@schema("tms")
+}
+
+enum FinancialVoucherStatus {
+  DRAFT
+  APPROVED
+  INVOICED
+  PAID
+  CLOSED
+  @@schema("tms")
+}
+
+model FreightChargeFact {
+  id String @id @default(uuid()) @db.Uuid
+  tenantId String @map("tenant_id") @db.Uuid
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  createdBy String @map("created_by") @db.Uuid
+  updatedAt DateTime @default(now()) @map("updated_at") @db.Timestamptz(3)
+  updatedBy String @map("updated_by") @db.Uuid
+  version Int @default(1)
+  status TmsRecordStatus @default(ACTIVE)
+  factNo String @map("fact_no") @db.VarChar(100)
+  shipmentId String @map("shipment_id") @db.Uuid
+  source ChargeFactSource
+  factType String @map("fact_type") @db.VarChar(50)
+  value Decimal @db.Decimal(24,12)
+  uom String @db.VarChar(20)
+  occurredAt DateTime @map("occurred_at") @db.Timestamptz(3)
+  sourceReference String @map("source_reference") @db.VarChar(200)
+  factSnapshot Json @map("fact_snapshot") @db.JsonB
+  @@unique([tenantId,factNo],map:"freight_charge_fact_tenant_no_key")
+  @@unique([tenantId,shipmentId,source,factType,sourceReference],map:"freight_charge_fact_source_key")
+  @@index([tenantId,shipmentId,occurredAt],map:"freight_charge_fact_shipment_idx")
+  @@map("freight_charge_fact")
+  @@schema("tms")
+}
+
+model ChargeCalculation {
+  id String @id @default(uuid()) @db.Uuid
+  tenantId String @map("tenant_id") @db.Uuid
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  createdBy String @map("created_by") @db.Uuid
+  updatedAt DateTime @default(now()) @map("updated_at") @db.Timestamptz(3)
+  updatedBy String @map("updated_by") @db.Uuid
+  version Int @default(1)
+  status ChargeCalculationStatus
+  calculationNo String @map("calculation_no") @db.VarChar(100)
+  calculationVersion Int @map("calculation_version")
+  shipmentId String @map("shipment_id") @db.Uuid
+  freightChargeFactId String @map("freight_charge_fact_id") @db.Uuid
+  direction ChargeDirection
+  contractId String @map("contract_id") @db.Uuid
+  rateVersionId String? @map("rate_version_id") @db.Uuid
+  rateVersionNumber Int? @map("rate_version_number")
+  baseAmount Decimal @map("base_amount") @db.Decimal(24,6)
+  surchargeAmount Decimal @map("surcharge_amount") @db.Decimal(24,6)
+  taxAmount Decimal @map("tax_amount") @db.Decimal(24,6)
+  totalAmount Decimal @map("total_amount") @db.Decimal(24,6)
+  currency String @db.Char(3)
+  calculationTrace Json @map("calculation_trace") @db.JsonB
+  exceptionCode String? @map("exception_code") @db.VarChar(100)
+  calculatedAt DateTime @default(now()) @map("calculated_at") @db.Timestamptz(3)
+  @@unique([tenantId,calculationNo],map:"charge_calculation_tenant_no_key")
+  @@unique([tenantId,shipmentId,direction,calculationVersion],map:"charge_calculation_shipment_version_key")
+  @@index([tenantId,status,direction,calculatedAt],map:"charge_calculation_workbench_idx")
+  @@map("charge_calculation")
+  @@schema("tms")
+}
+
+model BillingException {
+  id String @id @default(uuid()) @db.Uuid
+  tenantId String @map("tenant_id") @db.Uuid
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  createdBy String @map("created_by") @db.Uuid
+  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
+  updatedBy String @map("updated_by") @db.Uuid
+  version Int @default(1)
+  status BillingExceptionStatus @default(OPEN)
+  shipmentId String @map("shipment_id") @db.Uuid
+  chargeCalculationId String @map("charge_calculation_id") @db.Uuid
+  code String @db.VarChar(100)
+  reason String @db.VarChar(1000)
+  candidateSnapshot Json @map("candidate_snapshot") @db.JsonB
+  resolvedAt DateTime? @map("resolved_at") @db.Timestamptz(3)
+  @@unique([tenantId,chargeCalculationId],map:"billing_exception_calculation_key")
+  @@index([tenantId,status,createdAt],map:"billing_exception_workbench_idx")
+  @@map("billing_exception")
+  @@schema("tms")
+}
+
+model AccrualVoucher {
+  id String @id @default(uuid()) @db.Uuid
+  tenantId String @map("tenant_id") @db.Uuid
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  createdBy String @map("created_by") @db.Uuid
+  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
+  updatedBy String @map("updated_by") @db.Uuid
+  version Int @default(1)
+  status AccrualVoucherStatus @default(DRAFT)
+  voucherNo String @map("voucher_no") @db.VarChar(100)
+  shipmentId String @map("shipment_id") @db.Uuid
+  chargeCalculationId String @map("charge_calculation_id") @db.Uuid
+  amount Decimal @db.Decimal(24,6)
+  currency String @db.Char(3)
+  accountingDate DateTime @map("accounting_date") @db.Date
+  basisSnapshot Json @map("basis_snapshot") @db.JsonB
+  postedAt DateTime? @map("posted_at") @db.Timestamptz(3)
+  reversalOfId String? @map("reversal_of_id") @db.Uuid
+  @@unique([tenantId,voucherNo],map:"accrual_voucher_tenant_no_key")
+  @@unique([tenantId,chargeCalculationId,reversalOfId],map:"accrual_voucher_calculation_reversal_key")
+  @@index([tenantId,status,accountingDate],map:"accrual_voucher_status_date_idx")
+  @@map("accrual_voucher")
+  @@schema("tms")
+}
+
+model CarrierStatement {
+  id String @id @default(uuid()) @db.Uuid
+  tenantId String @map("tenant_id") @db.Uuid
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  createdBy String @map("created_by") @db.Uuid
+  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
+  updatedBy String @map("updated_by") @db.Uuid
+  version Int @default(1)
+  status StatementStatus @default(DRAFT)
+  statementNo String @map("statement_no") @db.VarChar(100)
+  carrierRef String @map("carrier_ref") @db.VarChar(200)
+  contractId String @map("contract_id") @db.Uuid
+  periodFrom DateTime @map("period_from") @db.Date
+  periodTo DateTime @map("period_to") @db.Date
+  subtotal Decimal @db.Decimal(24,6)
+  taxAmount Decimal @map("tax_amount") @db.Decimal(24,6)
+  totalAmount Decimal @map("total_amount") @db.Decimal(24,6)
+  currency String @db.Char(3)
+  disputeSnapshot Json @default("{}") @map("dispute_snapshot") @db.JsonB
+  confirmedAt DateTime? @map("confirmed_at") @db.Timestamptz(3)
+  @@unique([tenantId,statementNo],map:"carrier_statement_tenant_no_key")
+  @@index([tenantId,carrierRef,status,periodFrom],map:"carrier_statement_partner_idx")
+  @@map("carrier_statement")
+  @@schema("tms")
+}
+
+model CustomerStatement {
+  id String @id @default(uuid()) @db.Uuid
+  tenantId String @map("tenant_id") @db.Uuid
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  createdBy String @map("created_by") @db.Uuid
+  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
+  updatedBy String @map("updated_by") @db.Uuid
+  version Int @default(1)
+  status StatementStatus @default(DRAFT)
+  statementNo String @map("statement_no") @db.VarChar(100)
+  customerRef String @map("customer_ref") @db.VarChar(200)
+  contractId String @map("contract_id") @db.Uuid
+  periodFrom DateTime @map("period_from") @db.Date
+  periodTo DateTime @map("period_to") @db.Date
+  subtotal Decimal @db.Decimal(24,6)
+  taxAmount Decimal @map("tax_amount") @db.Decimal(24,6)
+  totalAmount Decimal @map("total_amount") @db.Decimal(24,6)
+  currency String @db.Char(3)
+  pricingSnapshot Json @map("pricing_snapshot") @db.JsonB
+  disputeSnapshot Json @default("{}") @map("dispute_snapshot") @db.JsonB
+  confirmedAt DateTime? @map("confirmed_at") @db.Timestamptz(3)
+  @@unique([tenantId,statementNo],map:"customer_statement_tenant_no_key")
+  @@index([tenantId,customerRef,status,periodFrom],map:"customer_statement_partner_idx")
+  @@map("customer_statement")
+  @@schema("tms")
+}
+
+model SettlementStatementLine {
+  id String @id @default(uuid()) @db.Uuid
+  tenantId String @map("tenant_id") @db.Uuid
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  createdBy String @map("created_by") @db.Uuid
+  updatedAt DateTime @default(now()) @map("updated_at") @db.Timestamptz(3)
+  updatedBy String @map("updated_by") @db.Uuid
+  version Int @default(1)
+  status SettlementLineStatus @default(ACTIVE)
+  direction ChargeDirection
+  statementId String @map("statement_id") @db.Uuid
+  chargeCalculationId String @map("charge_calculation_id") @db.Uuid
+  shipmentId String @map("shipment_id") @db.Uuid
+  amount Decimal @db.Decimal(24,6)
+  taxAmount Decimal @map("tax_amount") @db.Decimal(24,6)
+  currency String @db.Char(3)
+  lineSnapshot Json @map("line_snapshot") @db.JsonB
+  @@unique([tenantId,direction,chargeCalculationId],map:"settlement_line_calculation_key")
+  @@index([tenantId,direction,statementId],map:"settlement_line_statement_idx")
+  @@map("settlement_statement_line")
+  @@schema("tms")
+}
+
+model APVoucher {
+  id String @id @default(uuid()) @db.Uuid
+  tenantId String @map("tenant_id") @db.Uuid
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  createdBy String @map("created_by") @db.Uuid
+  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
+  updatedBy String @map("updated_by") @db.Uuid
+  version Int @default(1)
+  status FinancialVoucherStatus @default(DRAFT)
+  voucherNo String @map("voucher_no") @db.VarChar(100)
+  carrierStatementId String @map("carrier_statement_id") @db.Uuid
+  amount Decimal @db.Decimal(24,6)
+  taxAmount Decimal @map("tax_amount") @db.Decimal(24,6)
+  currency String @db.Char(3)
+  sourceSnapshot Json @map("source_snapshot") @db.JsonB
+  approvedAt DateTime? @map("approved_at") @db.Timestamptz(3)
+  paidAt DateTime? @map("paid_at") @db.Timestamptz(3)
+  @@unique([tenantId,voucherNo],map:"ap_voucher_tenant_no_key")
+  @@unique([tenantId,carrierStatementId],map:"ap_voucher_statement_key")
+  @@map("ap_voucher")
+  @@schema("tms")
+}
+
+model ARVoucher {
+  id String @id @default(uuid()) @db.Uuid
+  tenantId String @map("tenant_id") @db.Uuid
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  createdBy String @map("created_by") @db.Uuid
+  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
+  updatedBy String @map("updated_by") @db.Uuid
+  version Int @default(1)
+  status FinancialVoucherStatus @default(DRAFT)
+  voucherNo String @map("voucher_no") @db.VarChar(100)
+  customerStatementId String @map("customer_statement_id") @db.Uuid
+  amount Decimal @db.Decimal(24,6)
+  taxAmount Decimal @map("tax_amount") @db.Decimal(24,6)
+  currency String @db.Char(3)
+  sourceSnapshot Json @map("source_snapshot") @db.JsonB
+  approvedAt DateTime? @map("approved_at") @db.Timestamptz(3)
+  paidAt DateTime? @map("paid_at") @db.Timestamptz(3)
+  @@unique([tenantId,voucherNo],map:"ar_voucher_tenant_no_key")
+  @@unique([tenantId,customerStatementId],map:"ar_voucher_statement_key")
+  @@map("ar_voucher")
+  @@schema("tms")
+}
