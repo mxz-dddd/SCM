@@ -169,18 +169,26 @@ describe('App', () => {
   it('opens localization, flags, collaboration and print operations', () => {
     render(<App />);
     fireEvent.click(screen.getByRole('button', { name: '收尾' }));
-    expect(screen.getByRole('heading', { name: '国际化、开关、协同与打印中心' })).toBeInTheDocument();
+    expect(
+      screen.getByRole('heading', { name: '国际化、开关、协同与打印中心' }),
+    ).toBeInTheDocument();
     expect(screen.getByText('LocaleContext 与单位换算')).toBeInTheDocument();
     expect(screen.getByText('FeatureFlag 渐进发布')).toBeInTheDocument();
     expect(screen.getByText('评论、@提及与外部可见性')).toBeInTheDocument();
-    expect(screen.getByText('PrintTemplate、打印机路由与 PrintJob')).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: '新建 10% 开关版本' })).toBeDisabled();
+    expect(
+      screen.getByText('PrintTemplate、打印机路由与 PrintJob'),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole('button', { name: '新建 10% 开关版本' }),
+    ).toBeDisabled();
   });
 
   it('opens versioned product, barcode and packaging master data', () => {
     render(<App />);
     fireEvent.click(screen.getByRole('button', { name: '商品' }));
-    expect(screen.getByRole('heading', { name: '商品、条码与包装主数据' })).toBeInTheDocument();
+    expect(
+      screen.getByRole('heading', { name: '商品、条码与包装主数据' }),
+    ).toBeInTheDocument();
     expect(screen.getByRole('form', { name: '查询条件' })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: '发布新版本' })).toBeDisabled();
     expect(screen.getByText(/ProductVersion 快照/)).toBeInTheDocument();
@@ -189,32 +197,45 @@ describe('App', () => {
   it('opens partner, address and service-zone master data', () => {
     render(<App />);
     fireEvent.click(screen.getByRole('button', { name: '伙伴' }));
-    expect(screen.getByRole('heading', { name: '伙伴、地址与服务区域' })).toBeInTheDocument();
+    expect(
+      screen.getByRole('heading', { name: '伙伴、地址与服务区域' }),
+    ).toBeInTheDocument();
     expect(screen.getByText('统一伙伴档案')).toBeInTheDocument();
     expect(screen.getByText('地理编码人工校正队列')).toBeInTheDocument();
     expect(screen.getByRole('button', { name: '启用' })).toBeDisabled();
   });
   it('opens warehouse hierarchy and fleet eligibility master data', () => {
-    render(<App />); fireEvent.click(screen.getByRole('button', { name: '仓库' }));
-    expect(screen.getByRole('heading', { name: '仓库层级与车辆司机' })).toBeInTheDocument();
+    render(<App />);
+    fireEvent.click(screen.getByRole('button', { name: '仓库' }));
+    expect(
+      screen.getByRole('heading', { name: '仓库层级与车辆司机' }),
+    ).toBeInTheDocument();
     expect(screen.getByText('仓库、库区、门岗与月台')).toBeInTheDocument();
     expect(screen.getByText('司机证照到期预警')).toBeInTheDocument();
     expect(screen.getByRole('button', { name: '停用仓库' })).toBeDisabled();
   });
   it('opens contract, rate, calendar and quality governance', () => {
-    render(<App />); fireEvent.click(screen.getByRole('button', { name: '治理' }));
-    expect(screen.getByRole('heading', { name: '合同、费率与主数据治理' })).toBeInTheDocument();
+    render(<App />);
+    fireEvent.click(screen.getByRole('button', { name: '治理' }));
+    expect(
+      screen.getByRole('heading', { name: '合同、费率与主数据治理' }),
+    ).toBeInTheDocument();
     expect(screen.getByText('合同与费率版本')).toBeInTheDocument();
     expect(screen.getByText('营业日历、班次与截单窗口')).toBeInTheDocument();
     expect(screen.getByText('质量评估与履约资格')).toBeInTheDocument();
     expect(screen.getByRole('button', { name: '发布费率版本' })).toBeDisabled();
   });
   it('opens multi-channel order intake and version validation', () => {
-    render(<App />); fireEvent.click(screen.getByRole('button', { name: '订单' }));
-    expect(screen.getByRole('heading', { name: '多渠道订单接入' })).toBeInTheDocument();
+    render(<App />);
+    fireEvent.click(screen.getByRole('button', { name: '订单' }));
+    expect(
+      screen.getByRole('heading', { name: '多渠道订单接入' }),
+    ).toBeInTheDocument();
     expect(screen.getByText('订单草稿与外部编号')).toBeInTheDocument();
     expect(screen.getByText('字段校验与双单位数量')).toBeInTheDocument();
-    expect(screen.getByText('不可变 OrderVersion 与 ChangeSet')).toBeInTheDocument();
+    expect(
+      screen.getByText('不可变 OrderVersion 与 ChangeSet'),
+    ).toBeInTheDocument();
     expect(screen.getByRole('button', { name: '校验并提交' })).toBeDisabled();
     expect(screen.getByRole('button', { name: '强制通过警告' })).toBeDisabled();
     expect(screen.getByText('审核风险与人工审批')).toBeInTheDocument();
@@ -223,20 +244,28 @@ describe('App', () => {
     expect(screen.getByRole('button', { name: '解除冻结' })).toBeDisabled();
     expect(screen.getByText('ATP 快照与不确定性')).toBeInTheDocument();
     expect(screen.getByText('候选排除与规则版本')).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: '执行 ATP 分配' })).toBeDisabled();
+    expect(
+      screen.getByRole('button', { name: '执行 ATP 分配' }),
+    ).toBeDisabled();
     expect(screen.getByRole('button', { name: '释放预占' })).toBeDisabled();
-    expect(screen.getByRole('textbox', { name: '分配规则集代码' })).toHaveValue('ORDER_ALLOCATION_DEFAULT');
+    expect(screen.getByRole('textbox', { name: '分配规则集代码' })).toHaveValue(
+      'ORDER_ALLOCATION_DEFAULT',
+    );
     expect(screen.getByText('独立履约单状态机')).toBeInTheDocument();
     expect(screen.getByText('直运与多段运输需求')).toBeInTheDocument();
     expect(screen.getByRole('button', { name: '释放履约' })).toBeDisabled();
     expect(screen.getByRole('button', { name: '批量释放' })).toBeDisabled();
     expect(screen.getByRole('button', { name: '日历自动释放' })).toBeDisabled();
-    expect(screen.getByRole('textbox', { name: '释放营业日历代码' })).toHaveValue('DEFAULT_OPERATIONS');
+    expect(
+      screen.getByRole('textbox', { name: '释放营业日历代码' }),
+    ).toHaveValue('DEFAULT_OPERATIONS');
     expect(screen.getByText('伙伴确认与承诺反馈')).toBeInTheDocument();
     expect(screen.getByText('供应商 ASN 箱托预告')).toBeInTheDocument();
     expect(screen.getByText('跨域订单时间线投影')).toBeInTheDocument();
     expect(screen.getByRole('button', { name: '记录伙伴确认' })).toBeDisabled();
-    expect(screen.getByRole('button', { name: '提交供应商 ASN' })).toBeDisabled();
+    expect(
+      screen.getByRole('button', { name: '提交供应商 ASN' }),
+    ).toBeDisabled();
     expect(screen.getByText('变更影响评估与域确认')).toBeInTheDocument();
     expect(screen.getByText('部分履约、欠货与替代品')).toBeInTheDocument();
     expect(screen.getByText('履约数量守恒投影')).toBeInTheDocument();
@@ -245,5 +274,17 @@ describe('App', () => {
     expect(screen.getByRole('button', { name: '取消订单' })).toBeDisabled();
     expect(screen.getByRole('button', { name: '建议替代品' })).toBeDisabled();
     expect(screen.getByRole('button', { name: '申请 RMA' })).toBeDisabled();
+    expect(screen.getByText('订单异常聚合与人工处置')).toBeInTheDocument();
+    expect(screen.getByText('订单 SLA 预警与升级')).toBeInTheDocument();
+    expect(screen.getByText('商业费用与结算请求')).toBeInTheDocument();
+    expect(screen.getByText('客户门户订单自助视图')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: '聚合订单异常' })).toBeDisabled();
+    expect(screen.getByRole('button', { name: '批量指派异常' })).toBeDisabled();
+    expect(screen.getByRole('button', { name: '批量重试异常' })).toBeDisabled();
+    expect(
+      screen.getByRole('button', { name: '执行 SLA 监控' }),
+    ).toBeDisabled();
+    expect(screen.getByRole('button', { name: '批量逐单冻结' })).toBeDisabled();
+    expect(screen.getByRole('button', { name: '客户门户预览' })).toBeDisabled();
   });
 });

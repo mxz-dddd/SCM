@@ -35,6 +35,7 @@ import { RuleEngineController } from './rule-engine.controller';
 import { RuleEngineService } from './rule-engine.service';
 import { RuleEvaluationFacade } from './public/rule-evaluation.facade';
 import { EventConsumptionFacade } from './public/event-consumption.facade';
+import { PermissionDecisionFacade } from './public/permission-decision.facade';
 import { SearchService } from './search.service';
 import { RoleService } from './role.service';
 import { ServiceAccountController } from './service-account.controller';
@@ -92,6 +93,7 @@ import { WorkflowService } from './workflow.service';
     RuleEngineService,
     RuleEvaluationFacade,
     EventConsumptionFacade,
+    PermissionDecisionFacade,
     SearchService,
     ServiceAccountService,
     TenantService,
@@ -99,6 +101,10 @@ import { WorkflowService } from './workflow.service';
     WatermarkService,
     WorkflowService,
   ],
-  exports: [EventConsumptionFacade, RuleEvaluationFacade],
+  exports: [
+    EventConsumptionFacade,
+    PermissionDecisionFacade,
+    RuleEvaluationFacade,
+  ],
 })
 export class PlatformModule {}

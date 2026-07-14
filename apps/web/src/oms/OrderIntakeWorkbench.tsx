@@ -62,6 +62,7 @@ interface OrderDetail extends OrderRow {
   collaborations: CollaborationRow[];
   customerId: string | null;
   duplicateCases: DuplicateCaseRow[];
+  exceptionCases: ExceptionCaseRow[];
   fulfillmentOrders: FulfillmentRow[];
   holds: GovernanceRow[];
   lines: OrderLineRow[];
@@ -72,10 +73,32 @@ interface OrderDetail extends OrderRow {
   reviews: GovernanceRow[];
   rmas: RmaRow[];
   shipmentRequests: ShipmentRequestRow[];
+  slaClocks: SlaClockRow[];
   sourcingDecisions: SourcingDecisionRow[];
   splitRelations: GovernanceRow[];
+  settlementRequests: SettlementRow[];
   substitutions: SubstitutionRow[];
   versions: OrderVersionRow[];
+}
+interface ExceptionCaseRow extends GovernanceRow {
+  assignedTo: string | null;
+  exceptionType: string;
+  responsibleDomain: string;
+  severity: string;
+  version: number;
+}
+interface SlaClockRow extends GovernanceRow {
+  dueAt: string;
+  responsibleDomain: string;
+  stage: string;
+  warningAt: string;
+  version: number;
+}
+interface SettlementRow extends GovernanceRow {
+  currency: string;
+  requestNo: string;
+  requestedAmount: string;
+  version: number;
 }
 interface OrderChangeRow extends GovernanceRow {
   impactAssessment: unknown;
@@ -194,6 +217,96 @@ const actions = createActionRegistry<OrderRow['status'] | 'NONE'>([
     id: 'create-manual',
     label: '新建人工草稿',
     requiredPermissions: ['oms.order.write'],
+  },
+  {
+    allowedStatuses: [
+      'DRAFT',
+      'INVALID',
+      'OPEN',
+      'APPROVED',
+      'REJECTED',
+      'HOLD',
+      'ALLOCATED',
+      'RELEASED',
+      'CANCELLED',
+      'NONE',
+    ],
+    id: 'detect-exceptions',
+    label: '聚合订单异常',
+    requiredPermissions: ['oms.exception.write'],
+  },
+  {
+    allowedStatuses: ['OPEN', 'APPROVED', 'ALLOCATED', 'RELEASED'],
+    id: 'start-sla',
+    label: '启动 SLA 时钟',
+    requiredPermissions: ['oms.sla.write'],
+  },
+  {
+    allowedStatuses: [
+      'DRAFT',
+      'INVALID',
+      'OPEN',
+      'APPROVED',
+      'REJECTED',
+      'HOLD',
+      'ALLOCATED',
+      'RELEASED',
+      'CANCELLED',
+    ],
+    id: 'assign-exceptions',
+    label: '批量指派异常',
+    requiredPermissions: ['oms.exception.assign'],
+  },
+  {
+    allowedStatuses: [
+      'DRAFT',
+      'INVALID',
+      'OPEN',
+      'APPROVED',
+      'REJECTED',
+      'HOLD',
+      'ALLOCATED',
+      'RELEASED',
+      'CANCELLED',
+    ],
+    id: 'retry-exceptions',
+    label: '批量重试异常',
+    requiredPermissions: ['oms.exception.retry'],
+  },
+  {
+    allowedStatuses: [
+      'DRAFT',
+      'INVALID',
+      'OPEN',
+      'APPROVED',
+      'REJECTED',
+      'HOLD',
+      'ALLOCATED',
+      'RELEASED',
+      'CANCELLED',
+      'NONE',
+    ],
+    id: 'monitor-sla',
+    label: '执行 SLA 监控',
+    requiredPermissions: ['oms.sla.monitor'],
+  },
+  {
+    allowedStatuses: ['RELEASED', 'CANCELLED'],
+    id: 'request-settlement',
+    label: '生成结算请求',
+    requiredPermissions: ['oms.settlement.write'],
+  },
+  {
+    allowedStatuses: ['OPEN', 'APPROVED'],
+    id: 'batch-hold',
+    label: '批量逐单冻结',
+    requiredPermissions: ['oms.order.batch'],
+  },
+  {
+    allowedStatuses: ['OPEN', 'APPROVED', 'ALLOCATED', 'RELEASED', 'CANCELLED'],
+    id: 'portal-preview',
+    label: '客户门户预览',
+    requiredPermissions: ['oms.portal.order.read'],
   },
   {
     allowedStatuses: ['OPEN', 'APPROVED', 'ALLOCATED', 'RELEASED'],
@@ -372,6 +485,15 @@ export function OrderIntakeWorkbench() {
               'oms.substitution.decide',
               'oms.rma.write',
               'oms.rma.transition',
+              'oms.exception.read',
+              'oms.exception.write',
+              'oms.exception.assign',
+              'oms.exception.retry',
+              'oms.sla.write',
+              'oms.sla.monitor',
+              'oms.settlement.write',
+              'oms.order.batch',
+              'oms.portal.order.read',
               'oms.availability.read',
               'oms.order.allocate',
               'oms.allocation.release',
@@ -483,6 +605,104 @@ export function OrderIntakeWorkbench() {
           method: 'POST',
         });
         setNotice('人工订单草稿已创建，可通过 API 或后续编辑补充字段');
+      } else if (actionId === 'detect-exceptions') {
+        const result = (await request('/api/v1/oms/order-exceptions/detect', {
+          body: JSON.stringify({ stalledMinutes: 240 }),
+          method: 'POST',
+        })) as unknown as { created: number; detected: number };
+        setNotice(
+          `异常聚合完成：识别 ${result.detected}，新建 ${result.created}`,
+        );
+      } else if (selected && actionId === 'assign-exceptions') {
+        const members = (detail?.exceptionCases ?? [])
+          .filter(({ status }) =>
+            ['OPEN', 'ASSIGNED', 'IN_PROGRESS'].includes(status),
+          )
+          .map(({ id, version }) => ({ caseId: id, expectedVersion: version }));
+        if (!members.length) throw new Error('未找到可指派的订单异常');
+        const result = (await request('/api/v1/oms/order-exceptions/batch', {
+          body: JSON.stringify({
+            action: 'ASSIGN',
+            assignedTo: claims?.subject,
+            members,
+          }),
+          method: 'POST',
+        })) as unknown as { failedCount: number; processedCount: number };
+        setNotice(
+          `批量指派异常：成功 ${result.processedCount}，失败 ${result.failedCount}`,
+        );
+      } else if (selected && actionId === 'retry-exceptions') {
+        const members = (detail?.exceptionCases ?? [])
+          .filter(({ status }) => !['RESOLVED', 'CLOSED'].includes(status))
+          .map(({ id, version }) => ({ caseId: id, expectedVersion: version }));
+        if (!members.length) throw new Error('未找到可重试的订单异常');
+        const result = (await request('/api/v1/oms/order-exceptions/batch', {
+          body: JSON.stringify({
+            action: 'RETRY',
+            members,
+            reason: '工作台批量重试',
+          }),
+          method: 'POST',
+        })) as unknown as { failedCount: number; processedCount: number };
+        setNotice(
+          `批量重试异常：成功 ${result.processedCount}，失败 ${result.failedCount}`,
+        );
+      } else if (selected && actionId === 'start-sla') {
+        await request(`/api/v1/oms/orders/${selected.id}/sla-clocks`, {
+          body: JSON.stringify({
+            calendarCode: releaseCalendarCode,
+            durationMinutes: 1440,
+            responsibleDomain: 'OMS',
+            sourceVersion: selected.version,
+            stage: 'RELEASE',
+            warningLeadMinutes: 120,
+          }),
+          method: 'POST',
+        });
+        setNotice('订单释放 SLA 时钟已启动');
+      } else if (actionId === 'monitor-sla') {
+        const result = (await request('/api/v1/oms/sla-clocks/monitor', {
+          body: '{}',
+          method: 'POST',
+        })) as unknown as { breached: number; warning: number };
+        setNotice(
+          `SLA 监控完成：预警 ${result.warning}，超时 ${result.breached}`,
+        );
+      } else if (selected && actionId === 'request-settlement') {
+        await request(`/api/v1/oms/orders/${selected.id}/settlement-requests`, {
+          body: JSON.stringify({
+            chargeFacts: [],
+            expectedVersion: selected.version,
+          }),
+          method: 'POST',
+        });
+        setNotice('订单商业费用与履约事实已固化并发送计费域');
+      } else if (actionId === 'batch-hold') {
+        const members = response.items
+          .filter(({ id }) => selectedIds.includes(id))
+          .map(({ id, version }) => ({
+            expectedVersion: version,
+            orderId: id,
+          }));
+        const result = (await request('/api/v1/oms/order-batches', {
+          body: JSON.stringify({
+            action: 'HOLD',
+            members,
+            reason: '工作台批量冻结',
+          }),
+          method: 'POST',
+        })) as unknown as { failedCount: number; processedCount: number };
+        setNotice(
+          `逐单鉴权批量冻结：成功 ${result.processedCount}，失败 ${result.failedCount}`,
+        );
+      } else if (selected && actionId === 'portal-preview') {
+        if (!detail?.customerId) throw new Error('订单缺少客户标识');
+        await request(
+          `/api/v1/oms/portal/orders/${selected.id}?partnerId=${detail.customerId}`,
+        );
+        setNotice(
+          '客户门户视图已通过伙伴范围校验，可查看承诺、履约、轨迹与对账状态',
+        );
       } else if (
         selected &&
         ['submit', 'submit-with-warnings'].includes(actionId)
@@ -793,6 +1013,10 @@ export function OrderIntakeWorkbench() {
             { label: '订单号 / 外部单号', name: 'query', quick: true },
             { label: '状态', name: 'status', quick: true },
             { label: '渠道', name: 'channel' },
+            { label: '客户 ID', name: 'customerId' },
+            { label: '订单类型', name: 'type' },
+            { label: '最低金额', name: 'minAmount' },
+            { label: '创建起始', name: 'createdFrom' },
           ]}
           onQuery={(values) => setFilters(values)}
           onReset={() => setFilters({})}
@@ -1194,6 +1418,72 @@ export function OrderIntakeWorkbench() {
               selectedIds={[]}
               total={detail?.rmas.length ?? 0}
             />
+          </Card>
+        </Col>
+        <Col span={12}>
+          <Card title="订单异常聚合与人工处置">
+            <DataGrid
+              columns={[
+                { key: 'exceptionType', label: '异常类型' },
+                { key: 'severity', label: '严重度' },
+                { key: 'responsibleDomain', label: '责任域' },
+                { key: 'assignedTo', label: '负责人' },
+                { key: 'status', label: '状态' },
+              ]}
+              onPageChange={() => undefined}
+              onSelectionChange={() => undefined}
+              page={1}
+              pageSize={300}
+              rows={detail?.exceptionCases ?? []}
+              selectedIds={[]}
+              total={detail?.exceptionCases.length ?? 0}
+            />
+          </Card>
+        </Col>
+        <Col span={12}>
+          <Card title="订单 SLA 预警与升级">
+            <DataGrid
+              columns={[
+                { key: 'stage', label: '阶段' },
+                { key: 'responsibleDomain', label: '责任域' },
+                { key: 'warningAt', label: '预警时间' },
+                { key: 'dueAt', label: '截止时间' },
+                { key: 'status', label: '状态' },
+              ]}
+              onPageChange={() => undefined}
+              onSelectionChange={() => undefined}
+              page={1}
+              pageSize={300}
+              rows={detail?.slaClocks ?? []}
+              selectedIds={[]}
+              total={detail?.slaClocks.length ?? 0}
+            />
+          </Card>
+        </Col>
+        <Col span={12}>
+          <Card title="商业费用与结算请求">
+            <DataGrid
+              columns={[
+                { key: 'requestNo', label: '请求号' },
+                { key: 'requestedAmount', label: '请求金额' },
+                { key: 'currency', label: '币种' },
+                { key: 'status', label: '计费状态' },
+              ]}
+              onPageChange={() => undefined}
+              onSelectionChange={() => undefined}
+              page={1}
+              pageSize={300}
+              rows={detail?.settlementRequests ?? []}
+              selectedIds={[]}
+              total={detail?.settlementRequests.length ?? 0}
+            />
+          </Card>
+        </Col>
+        <Col span={12}>
+          <Card title="客户门户订单自助视图">
+            <Typography.Paragraph>
+              按客户伙伴范围展示订单、承诺库存、履约发运、轨迹签收、附件引用、对账状态和退货；写操作继续执行状态与权限校验。
+            </Typography.Paragraph>
           </Card>
         </Col>
         <Col span={24}>

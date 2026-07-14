@@ -58,10 +58,19 @@ export interface SubmitOrderInput {
 
 export interface ListOrdersInput {
   readonly channel?: OrderChannel;
+  readonly createdFrom?: string;
+  readonly createdUntil?: string;
+  readonly customerId?: string;
+  readonly expedited?: string;
+  readonly maxAmount?: string;
+  readonly minAmount?: string;
   readonly page?: string;
   readonly pageSize?: string;
+  readonly priorityMin?: string;
   readonly query?: string;
   readonly status?: OrderStatus;
+  readonly type?: OrderType;
+  readonly vip?: string;
 }
 
 interface ResolvedLine {
@@ -165,6 +174,38 @@ export class OrderIntakeService {
       Math.max(1, Number.parseInt(input.pageSize ?? '50', 10) || 50),
     );
     const query = input.query?.trim();
+    const createdFrom = input.createdFrom
+      ? new Date(input.createdFrom)
+      : undefined;
+    const createdUntil = input.createdUntil
+      ? new Date(input.createdUntil)
+      : undefined;
+    if (
+      (createdFrom && Number.isNaN(createdFrom.valueOf())) ||
+      (createdUntil && Number.isNaN(createdUntil.valueOf()))
+    )
+      throw new AppError(
+        'ORDER_QUERY_DATE_INVALID',
+        'Order query date is invalid',
+        400,
+      );
+    const minAmount =
+      input.minAmount === undefined
+        ? undefined
+        : optionalMoney(input.minAmount);
+    const maxAmount =
+      input.maxAmount === undefined
+        ? undefined
+        : optionalMoney(input.maxAmount);
+    if (
+      (input.minAmount !== undefined && !minAmount) ||
+      (input.maxAmount !== undefined && !maxAmount)
+    )
+      throw new AppError(
+        'ORDER_QUERY_AMOUNT_INVALID',
+        'Order query amount is invalid',
+        400,
+      );
     const where: Prisma.BusinessOrderWhereInput = {
       ...(input.channel && CHANNELS.includes(input.channel)
         ? { channel: input.channel }
@@ -178,9 +219,38 @@ export class OrderIntakeService {
           }
         : {}),
       ...(input.status ? { status: input.status } : {}),
+      ...(input.type && ORDER_TYPES.includes(input.type)
+        ? { type: input.type }
+        : {}),
+      ...(input.customerId ? { customerId: input.customerId } : {}),
+      ...(input.vip === 'true' || input.vip === 'false'
+        ? { vip: input.vip === 'true' }
+        : {}),
+      ...(input.expedited === 'true' || input.expedited === 'false'
+        ? { expedited: input.expedited === 'true' }
+        : {}),
+      ...(input.priorityMin
+        ? { priority: { gte: Number.parseInt(input.priorityMin, 10) || 0 } }
+        : {}),
+      ...(createdFrom || createdUntil
+        ? {
+            createdAt: {
+              ...(createdFrom ? { gte: createdFrom } : {}),
+              ...(createdUntil ? { lte: createdUntil } : {}),
+            },
+          }
+        : {}),
+      ...(minAmount || maxAmount
+        ? {
+            totalAmount: {
+              ...(minAmount ? { gte: minAmount } : {}),
+              ...(maxAmount ? { lte: maxAmount } : {}),
+            },
+          }
+        : {}),
       tenantId: context.tenantId,
     };
-    const [items, total] = await Promise.all([
+    const [items, total, amounts, statuses] = await Promise.all([
       this.prisma.businessOrder.findMany({
         orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
         skip: (page - 1) * pageSize,
@@ -188,8 +258,28 @@ export class OrderIntakeService {
         where,
       }),
       this.prisma.businessOrder.count({ where }),
+      this.prisma.businessOrder.aggregate({
+        _sum: { totalAmount: true },
+        where,
+      }),
+      this.prisma.businessOrder.groupBy({
+        _count: { _all: true },
+        by: ['status'],
+        where,
+      }),
     ]);
-    return { items, page, pageSize, total };
+    return {
+      aggregation: {
+        statusCounts: Object.fromEntries(
+          statuses.map(({ _count, status }) => [status, _count._all]),
+        ),
+        totalAmount: amounts._sum.totalAmount,
+      },
+      items,
+      page,
+      pageSize,
+      total,
+    };
   }
 
   async get(orderId: string, context: TenantContext) {
@@ -221,6 +311,9 @@ export class OrderIntakeService {
       backorders,
       substitutions,
       rmas,
+      exceptionCases,
+      slaClocks,
+      settlementRequests,
     ] = await Promise.all([
       this.prisma.businessOrderLine.findMany({
         orderBy: { lineNo: 'asc' },
@@ -311,6 +404,18 @@ export class OrderIntakeService {
         orderBy: { createdAt: 'desc' },
         where: { businessOrderId: orderId, tenantId: context.tenantId },
       }),
+      this.prisma.orderExceptionCase.findMany({
+        orderBy: { createdAt: 'desc' },
+        where: { businessOrderId: orderId, tenantId: context.tenantId },
+      }),
+      this.prisma.slaClock.findMany({
+        orderBy: { createdAt: 'desc' },
+        where: { businessOrderId: orderId, tenantId: context.tenantId },
+      }),
+      this.prisma.settlementRequest.findMany({
+        orderBy: { createdAt: 'desc' },
+        where: { businessOrderId: orderId, tenantId: context.tenantId },
+      }),
     ]);
     const changeConfirmations =
       await this.prisma.changeDomainConfirmation.findMany({
@@ -329,6 +434,7 @@ export class OrderIntakeService {
       changeSets,
       collaborations,
       duplicateCases,
+      exceptionCases,
       fulfillmentOrders,
       holds,
       lineProgress,
@@ -340,8 +446,10 @@ export class OrderIntakeService {
       reviews,
       rmas,
       shipmentRequests,
+      slaClocks,
       sourcingDecisions,
       splitRelations,
+      settlementRequests,
       substitutions,
       versions,
     };

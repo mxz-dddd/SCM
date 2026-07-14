@@ -886,6 +886,47 @@ enum RmaResolution {
   REJECT
   @@schema("oms")
 }
+enum OrderExceptionStatus {
+  OPEN
+  ASSIGNED
+  IN_PROGRESS
+  RETRYING
+  COMPENSATING
+  RESOLVED
+  CLOSED
+  @@schema("oms")
+}
+enum OrderExceptionSeverity {
+  LOW
+  MEDIUM
+  HIGH
+  CRITICAL
+  @@schema("oms")
+}
+enum SlaClockStatus {
+  ACTIVE
+  PAUSED
+  WARNING
+  BREACHED
+  COMPLETED
+  CANCELLED
+  @@schema("oms")
+}
+enum SlaStage {
+  CONFIRMATION
+  ALLOCATION
+  RELEASE
+  SHIPMENT
+  DELIVERY
+  @@schema("oms")
+}
+enum SettlementRequestStatus {
+  REQUESTED
+  ACCEPTED
+  REJECTED
+  CANCELLED
+  @@schema("oms")
+}
 
 enum OrderType {
   SALES
@@ -2545,6 +2586,172 @@ model RmaLine {
   @@unique([tenantId,rmaId,lineNo],map:"rma_line_no_key")
   @@index([tenantId,sourceOrderLineId,status],map:"rma_line_source_idx")
   @@map("rma_line")
+  @@schema("oms")
+}
+
+model OrderExceptionCase {
+  id String @id @default(uuid()) @db.Uuid
+  tenantId String @map("tenant_id") @db.Uuid
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  createdBy String @map("created_by") @db.Uuid
+  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
+  updatedBy String @map("updated_by") @db.Uuid
+  version Int @default(1)
+  status OrderExceptionStatus @default(OPEN)
+  businessOrderId String @map("business_order_id") @db.Uuid
+  exceptionType String @map("exception_type") @db.VarChar(100)
+  dedupeKey String @map("dedupe_key") @db.VarChar(300)
+  severity OrderExceptionSeverity @default(MEDIUM)
+  responsibleDomain String @map("responsible_domain") @db.VarChar(50)
+  assignedTo String? @map("assigned_to") @db.Uuid
+  description String @db.VarChar(1000)
+  sourceRef String? @map("source_ref") @db.VarChar(300)
+  retryCommand Json? @map("retry_command") @db.JsonB
+  compensationCommand Json? @map("compensation_command") @db.JsonB
+  lastAttemptAt DateTime? @map("last_attempt_at") @db.Timestamptz(3)
+  attemptCount Int @default(0) @map("attempt_count")
+  resolution String? @db.VarChar(1000)
+  resolvedAt DateTime? @map("resolved_at") @db.Timestamptz(3)
+  @@unique([tenantId,dedupeKey],map:"order_exception_dedupe_key")
+  @@index([tenantId,status,severity,createdAt],map:"order_exception_workbench_idx")
+  @@index([tenantId,businessOrderId,status],map:"order_exception_order_idx")
+  @@map("order_exception_case")
+  @@schema("oms")
+}
+
+model SlaClock {
+  id String @id @default(uuid()) @db.Uuid
+  tenantId String @map("tenant_id") @db.Uuid
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  createdBy String @map("created_by") @db.Uuid
+  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
+  updatedBy String @map("updated_by") @db.Uuid
+  version Int @default(1)
+  status SlaClockStatus @default(ACTIVE)
+  businessOrderId String @map("business_order_id") @db.Uuid
+  stage SlaStage
+  sourceVersion Int @map("source_version")
+  responsibleDomain String @map("responsible_domain") @db.VarChar(50)
+  calendarCode String @map("calendar_code") @db.VarChar(100)
+  calendarSnapshot Json @map("calendar_snapshot") @db.JsonB
+  startedAt DateTime @map("started_at") @db.Timestamptz(3)
+  warningAt DateTime @map("warning_at") @db.Timestamptz(3)
+  dueAt DateTime @map("due_at") @db.Timestamptz(3)
+  pausedAt DateTime? @map("paused_at") @db.Timestamptz(3)
+  pausedSeconds Int @default(0) @map("paused_seconds")
+  pauseReason String? @map("pause_reason") @db.VarChar(500)
+  breachedAt DateTime? @map("breached_at") @db.Timestamptz(3)
+  completedAt DateTime? @map("completed_at") @db.Timestamptz(3)
+  @@unique([tenantId,businessOrderId,stage],map:"sla_clock_order_stage_key")
+  @@index([tenantId,status,warningAt,dueAt],map:"sla_clock_monitor_idx")
+  @@map("sla_clock")
+  @@schema("oms")
+}
+
+model SlaBreachEvent {
+  id String @id @default(uuid()) @db.Uuid
+  tenantId String @map("tenant_id") @db.Uuid
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  createdBy String @map("created_by") @db.Uuid
+  updatedAt DateTime @default(now()) @map("updated_at") @db.Timestamptz(3)
+  updatedBy String @map("updated_by") @db.Uuid
+  version Int @default(1)
+  status OmsRecordStatus @default(ACTIVE)
+  slaClockId String @map("sla_clock_id") @db.Uuid
+  businessOrderId String @map("business_order_id") @db.Uuid
+  stage SlaStage
+  responsibleDomain String @map("responsible_domain") @db.VarChar(50)
+  breachedAt DateTime @map("breached_at") @db.Timestamptz(3)
+  overdueSeconds Int @map("overdue_seconds")
+  escalationLevel Int @map("escalation_level")
+  @@index([tenantId,businessOrderId,breachedAt],map:"sla_breach_order_idx")
+  @@map("sla_breach_event")
+  @@schema("oms")
+}
+
+model SettlementRequest {
+  id String @id @default(uuid()) @db.Uuid
+  tenantId String @map("tenant_id") @db.Uuid
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  createdBy String @map("created_by") @db.Uuid
+  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
+  updatedBy String @map("updated_by") @db.Uuid
+  version Int @default(1)
+  status SettlementRequestStatus @default(REQUESTED)
+  requestNo String @map("request_no") @db.VarChar(100)
+  businessOrderId String @map("business_order_id") @db.Uuid
+  orderVersion Int @map("order_version")
+  sourceVersion Int @default(0) @map("source_version")
+  currency String @db.Char(3)
+  commercialAmount Decimal @map("commercial_amount") @db.Decimal(24,6)
+  discountAmount Decimal @default(0) @map("discount_amount") @db.Decimal(24,6)
+  serviceAmount Decimal @default(0) @map("service_amount") @db.Decimal(24,6)
+  requestedAmount Decimal @map("requested_amount") @db.Decimal(24,6)
+  commercialSnapshot Json @map("commercial_snapshot") @db.JsonB
+  fulfillmentSnapshot Json @map("fulfillment_snapshot") @db.JsonB
+  billingReference String? @map("billing_reference") @db.VarChar(200)
+  rejectionReason String? @map("rejection_reason") @db.VarChar(1000)
+  @@unique([tenantId,requestNo],map:"settlement_request_tenant_no_key")
+  @@unique([tenantId,businessOrderId,orderVersion],map:"settlement_request_order_version_key")
+  @@index([tenantId,status,createdAt],map:"settlement_request_status_idx")
+  @@map("settlement_request")
+  @@schema("oms")
+}
+
+model ChargeFactRef {
+  id String @id @default(uuid()) @db.Uuid
+  tenantId String @map("tenant_id") @db.Uuid
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  createdBy String @map("created_by") @db.Uuid
+  updatedAt DateTime @default(now()) @map("updated_at") @db.Timestamptz(3)
+  updatedBy String @map("updated_by") @db.Uuid
+  version Int @default(1)
+  status OmsRecordStatus @default(ACTIVE)
+  settlementRequestId String @map("settlement_request_id") @db.Uuid
+  sourceDomain String @map("source_domain") @db.VarChar(50)
+  factType String @map("fact_type") @db.VarChar(100)
+  factId String @map("fact_id") @db.VarChar(200)
+  factSnapshot Json @map("fact_snapshot") @db.JsonB
+  @@unique([tenantId,settlementRequestId,sourceDomain,factType,factId],map:"charge_fact_ref_key")
+  @@map("charge_fact_ref")
+  @@schema("oms")
+}
+
+model BatchCommandResult {
+  id String @id @default(uuid()) @db.Uuid
+  tenantId String @map("tenant_id") @db.Uuid
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  createdBy String @map("created_by") @db.Uuid
+  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
+  updatedBy String @map("updated_by") @db.Uuid
+  version Int @default(1)
+  status ReleaseBatchStatus @default(PROCESSING)
+  action String @db.VarChar(50)
+  requestedCount Int @map("requested_count")
+  succeededCount Int @default(0) @map("succeeded_count")
+  failedCount Int @default(0) @map("failed_count")
+  @@index([tenantId,createdBy,createdAt],map:"batch_command_actor_idx")
+  @@map("batch_command_result")
+  @@schema("oms")
+}
+
+model BatchCommandItem {
+  id String @id @default(uuid()) @db.Uuid
+  tenantId String @map("tenant_id") @db.Uuid
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  createdBy String @map("created_by") @db.Uuid
+  updatedAt DateTime @default(now()) @map("updated_at") @db.Timestamptz(3)
+  updatedBy String @map("updated_by") @db.Uuid
+  version Int @default(1)
+  status OmsRecordStatus @default(ACTIVE)
+  batchCommandResultId String @map("batch_command_result_id") @db.Uuid
+  businessOrderId String @map("business_order_id") @db.Uuid
+  succeeded Boolean
+  resultSnapshot Json @map("result_snapshot") @db.JsonB
+  errorCode String? @map("error_code") @db.VarChar(100)
+  errorMessage String? @map("error_message") @db.VarChar(1000)
+  @@unique([tenantId,batchCommandResultId,businessOrderId],map:"batch_command_item_order_key")
+  @@map("batch_command_item")
   @@schema("oms")
 }
 

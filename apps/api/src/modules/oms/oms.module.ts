@@ -15,6 +15,8 @@ import { CollaborationTimelineController } from './collaboration-timeline.contro
 import { CollaborationTimelineService } from './collaboration-timeline.service';
 import { ChangeReverseController } from './change-reverse.controller';
 import { ChangeReverseService } from './change-reverse.service';
+import { OrderOperationsController } from './order-operations.controller';
+import { OrderOperationsService } from './order-operations.service';
 
 @Module({
   controllers: [
@@ -24,6 +26,7 @@ import { ChangeReverseService } from './change-reverse.service';
     FulfillmentReleaseController,
     OrderGovernanceController,
     OrderIntakeController,
+    OrderOperationsController,
   ],
   imports: [MdmModule, PlatformModule],
   providers: [
@@ -33,6 +36,7 @@ import { ChangeReverseService } from './change-reverse.service';
     FulfillmentReleaseService,
     OrderGovernanceService,
     OrderIntakeService,
+    OrderOperationsService,
     PermissionGuard,
     PermissionService,
   ],
