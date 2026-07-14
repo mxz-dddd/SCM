@@ -12,6 +12,30 @@ export type PermissionResourceType = (typeof PERMISSION_RESOURCE_TYPES)[number];
 
 export const ADMIN_PERMISSIONS = [
   {
+    code: 'mdm.partner.read',
+    name: '查看伙伴、地址与服务区域',
+    resourceRef: '/api/v1/mdm/partners/*',
+    resourceType: 'API',
+  },
+  {
+    code: 'mdm.partner.write',
+    name: '维护伙伴、地址与服务区域',
+    resourceRef: '/api/v1/mdm/*',
+    resourceType: 'API',
+  },
+  {
+    code: 'mdm.partner.geocode',
+    name: '回写与人工校正地址地理编码',
+    resourceRef: '/api/v1/mdm/partner-addresses/*',
+    resourceType: 'BUTTON',
+  },
+  {
+    code: 'mdm.partner.page',
+    name: '访问伙伴与地址工作台',
+    resourceRef: 'partners',
+    resourceType: 'PAGE',
+  },
+  {
     code: 'mdm.product.read',
     name: '查看商品、条码与包装版本',
     resourceRef: '/api/v1/mdm/*',

@@ -278,6 +278,84 @@ enum PackageLevel {
   @@schema("mdm")
 }
 
+enum PartnerStatus {
+  DRAFT
+  ACTIVE
+  SUSPENDED
+  INACTIVE
+
+  @@schema("mdm")
+}
+
+enum PartnerRoleStatus {
+  ACTIVE
+  INACTIVE
+
+  @@schema("mdm")
+}
+
+enum PartnerRoleType {
+  CUSTOMER
+  SUPPLIER
+  CARRIER
+
+  @@schema("mdm")
+}
+
+enum PartnerContactStatus {
+  ACTIVE
+  INACTIVE
+
+  @@schema("mdm")
+}
+
+enum PartnerCertificateStatus {
+  ACTIVE
+  INACTIVE
+  EXPIRED
+
+  @@schema("mdm")
+}
+
+enum AddressStatus {
+  ACTIVE
+  INACTIVE
+
+  @@schema("mdm")
+}
+
+enum GeocodeStatus {
+  PENDING
+  VERIFIED
+  FAILED
+  MANUAL_CORRECTION
+
+  @@schema("mdm")
+}
+
+enum ServiceZoneStatus {
+  DRAFT
+  ACTIVE
+  INACTIVE
+
+  @@schema("mdm")
+}
+
+enum ServiceZoneType {
+  POSTAL_PREFIX
+  POLYGON
+  RADIUS
+
+  @@schema("mdm")
+}
+
+enum ExternalCodeStatus {
+  ACTIVE
+  INACTIVE
+
+  @@schema("mdm")
+}
+
 enum ConfigScopeType {
   TENANT
   ORGANIZATION
@@ -728,6 +806,188 @@ model PackageSpec {
   @@index([tenantId, productId, status, level], map: "package_spec_tenant_product_status_level_idx")
   @@index([tenantId, customerId, status], map: "package_spec_tenant_customer_status_idx")
   @@map("package_spec")
+  @@schema("mdm")
+}
+
+model Partner {
+  id                  String        @id @default(uuid()) @db.Uuid
+  tenantId            String        @map("tenant_id") @db.Uuid
+  createdAt           DateTime      @default(now()) @map("created_at") @db.Timestamptz(3)
+  createdBy           String        @map("created_by") @db.Uuid
+  updatedAt           DateTime      @updatedAt @map("updated_at") @db.Timestamptz(3)
+  updatedBy           String        @map("updated_by") @db.Uuid
+  version             Int           @default(1)
+  status              PartnerStatus @default(DRAFT)
+  code                String        @db.VarChar(100)
+  legalName           String        @map("legal_name") @db.VarChar(300)
+  shortName           String?       @map("short_name") @db.VarChar(200)
+  registrationNo      String?       @map("registration_no") @db.VarChar(100)
+  taxId               String?       @map("tax_id") @db.VarChar(100)
+  creditLimit         Decimal?      @map("credit_limit") @db.Decimal(24, 6)
+  creditCurrency      String?       @map("credit_currency") @db.Char(3)
+  paymentTerms        String?       @map("payment_terms") @db.VarChar(200)
+  serviceCapabilities Json          @default("{}") @map("service_capabilities") @db.JsonB
+
+  @@unique([tenantId, code], map: "partner_tenant_code_key")
+  @@index([tenantId, status, legalName], map: "partner_tenant_status_name_idx")
+  @@map("partner")
+  @@schema("mdm")
+}
+
+model PartnerRole {
+  id           String            @id @default(uuid()) @db.Uuid
+  tenantId     String            @map("tenant_id") @db.Uuid
+  createdAt    DateTime          @default(now()) @map("created_at") @db.Timestamptz(3)
+  createdBy    String            @map("created_by") @db.Uuid
+  updatedAt    DateTime          @updatedAt @map("updated_at") @db.Timestamptz(3)
+  updatedBy    String            @map("updated_by") @db.Uuid
+  version      Int               @default(1)
+  status       PartnerRoleStatus @default(ACTIVE)
+  partnerId    String            @map("partner_id") @db.Uuid
+  roleType     PartnerRoleType   @map("role_type")
+  capabilities Json              @default("{}") @db.JsonB
+
+  @@unique([tenantId, partnerId, roleType], map: "partner_role_tenant_partner_type_key")
+  @@index([tenantId, roleType, status], map: "partner_role_tenant_type_status_idx")
+  @@map("partner_role")
+  @@schema("mdm")
+}
+
+model PartnerContact {
+  id        String               @id @default(uuid()) @db.Uuid
+  tenantId  String               @map("tenant_id") @db.Uuid
+  createdAt DateTime             @default(now()) @map("created_at") @db.Timestamptz(3)
+  createdBy String               @map("created_by") @db.Uuid
+  updatedAt DateTime             @updatedAt @map("updated_at") @db.Timestamptz(3)
+  updatedBy String               @map("updated_by") @db.Uuid
+  version   Int                  @default(1)
+  status    PartnerContactStatus @default(ACTIVE)
+  partnerId String               @map("partner_id") @db.Uuid
+  name      String               @db.VarChar(200)
+  title     String?              @db.VarChar(100)
+  email     String?              @db.VarChar(320)
+  phone     String?              @db.VarChar(50)
+  isPrimary Boolean              @default(false) @map("is_primary")
+
+  @@index([tenantId, partnerId, status], map: "partner_contact_tenant_partner_idx")
+  @@map("partner_contact")
+  @@schema("mdm")
+}
+
+model PartnerCertificate {
+  id           String                   @id @default(uuid()) @db.Uuid
+  tenantId     String                   @map("tenant_id") @db.Uuid
+  createdAt    DateTime                 @default(now()) @map("created_at") @db.Timestamptz(3)
+  createdBy    String                   @map("created_by") @db.Uuid
+  updatedAt    DateTime                 @updatedAt @map("updated_at") @db.Timestamptz(3)
+  updatedBy    String                   @map("updated_by") @db.Uuid
+  version      Int                      @default(1)
+  status       PartnerCertificateStatus @default(ACTIVE)
+  partnerId    String                   @map("partner_id") @db.Uuid
+  certificateType String                @map("certificate_type") @db.VarChar(100)
+  certificateNo   String                @map("certificate_no") @db.VarChar(150)
+  issuedBy        String?               @map("issued_by") @db.VarChar(200)
+  validFrom       DateTime?             @map("valid_from") @db.Date
+  validUntil      DateTime?             @map("valid_until") @db.Date
+  attachmentId   String?               @map("attachment_id") @db.Uuid
+
+  @@unique([tenantId, partnerId, certificateType, certificateNo], map: "partner_certificate_tenant_partner_type_no_key")
+  @@index([tenantId, partnerId, status, validUntil], map: "partner_certificate_tenant_partner_expiry_idx")
+  @@map("partner_certificate")
+  @@schema("mdm")
+}
+
+model PartnerAddress {
+  id                   String        @id @default(uuid()) @db.Uuid
+  tenantId             String        @map("tenant_id") @db.Uuid
+  createdAt            DateTime      @default(now()) @map("created_at") @db.Timestamptz(3)
+  createdBy            String        @map("created_by") @db.Uuid
+  updatedAt            DateTime      @updatedAt @map("updated_at") @db.Timestamptz(3)
+  updatedBy            String        @map("updated_by") @db.Uuid
+  version              Int           @default(1)
+  status               AddressStatus @default(ACTIVE)
+  partnerId            String        @map("partner_id") @db.Uuid
+  code                 String        @db.VarChar(100)
+  addressType          String        @map("address_type") @db.VarChar(50)
+  rawText              String        @map("raw_text") @db.VarChar(2000)
+  line1                String?       @db.VarChar(500)
+  line2                String?       @db.VarChar(500)
+  city                 String?       @db.VarChar(100)
+  district             String?       @db.VarChar(100)
+  province             String?       @db.VarChar(100)
+  postalCode           String?       @map("postal_code") @db.VarChar(30)
+  countryCode          String        @map("country_code") @db.Char(2)
+  administrativeCode   String?       @map("administrative_code") @db.VarChar(50)
+  timeWindowFrom       String?       @map("time_window_from") @db.VarChar(5)
+  timeWindowUntil      String?       @map("time_window_until") @db.VarChar(5)
+  accessInstructions   String?       @map("access_instructions") @db.VarChar(2000)
+  geocodeStatus        GeocodeStatus @default(PENDING) @map("geocode_status")
+  longitude            Decimal?      @db.Decimal(12, 8)
+  latitude             Decimal?      @db.Decimal(12, 8)
+  geocodeProvider      String?       @map("geocode_provider") @db.VarChar(100)
+  geocodeReference     String?       @map("geocode_reference") @db.VarChar(200)
+  geocodeFailureReason String?       @map("geocode_failure_reason") @db.VarChar(500)
+  geocodedAt           DateTime?     @map("geocoded_at") @db.Timestamptz(3)
+  correctedAt          DateTime?     @map("corrected_at") @db.Timestamptz(3)
+  correctedBy          String?       @map("corrected_by") @db.Uuid
+  geoFence             Json          @default("{}") @map("geo_fence") @db.JsonB
+
+  @@unique([tenantId, partnerId, code], map: "partner_address_tenant_partner_code_key")
+  @@index([tenantId, partnerId, status], map: "partner_address_tenant_partner_idx")
+  @@index([tenantId, geocodeStatus, updatedAt], map: "partner_address_tenant_geocode_idx")
+  @@map("partner_address")
+  @@schema("mdm")
+}
+
+model ServiceZone {
+  id                  String            @id @default(uuid()) @db.Uuid
+  tenantId            String            @map("tenant_id") @db.Uuid
+  createdAt           DateTime          @default(now()) @map("created_at") @db.Timestamptz(3)
+  createdBy           String            @map("created_by") @db.Uuid
+  updatedAt           DateTime          @updatedAt @map("updated_at") @db.Timestamptz(3)
+  updatedBy           String            @map("updated_by") @db.Uuid
+  version             Int               @default(1)
+  status              ServiceZoneStatus @default(DRAFT)
+  partnerId           String?           @map("partner_id") @db.Uuid
+  code                String            @db.VarChar(100)
+  name                String            @db.VarChar(200)
+  zoneType            ServiceZoneType   @map("zone_type")
+  geometry            Json              @default("{}") @db.JsonB
+  postalPrefixes      Json              @default("[]") @map("postal_prefixes") @db.JsonB
+  centerLongitude     Decimal?          @map("center_longitude") @db.Decimal(12, 8)
+  centerLatitude      Decimal?          @map("center_latitude") @db.Decimal(12, 8)
+  radiusKm            Decimal?          @map("radius_km") @db.Decimal(18, 6)
+  serviceCapabilities Json              @default("{}") @map("service_capabilities") @db.JsonB
+
+  @@unique([tenantId, code], map: "service_zone_tenant_code_key")
+  @@index([tenantId, status, zoneType], map: "service_zone_tenant_status_type_idx")
+  @@index([tenantId, partnerId, status], map: "service_zone_tenant_partner_idx")
+  @@map("service_zone")
+  @@schema("mdm")
+}
+
+model ExternalCodeMap {
+  id              String             @id @default(uuid()) @db.Uuid
+  tenantId        String             @map("tenant_id") @db.Uuid
+  createdAt       DateTime           @default(now()) @map("created_at") @db.Timestamptz(3)
+  createdBy       String             @map("created_by") @db.Uuid
+  updatedAt       DateTime           @updatedAt @map("updated_at") @db.Timestamptz(3)
+  updatedBy       String             @map("updated_by") @db.Uuid
+  version         Int                @default(1)
+  status          ExternalCodeStatus @default(ACTIVE)
+  sourceSystem    String             @map("source_system") @db.VarChar(100)
+  objectType      String             @map("object_type") @db.VarChar(100)
+  objectId        String             @map("object_id") @db.Uuid
+  externalCode    String             @map("external_code") @db.VarChar(200)
+  versionNumber   Int                @map("version_number")
+  mappingSnapshot Json               @default("{}") @map("mapping_snapshot") @db.JsonB
+  effectiveFrom   DateTime           @default(now()) @map("effective_from") @db.Timestamptz(3)
+  effectiveUntil  DateTime?          @map("effective_until") @db.Timestamptz(3)
+
+  @@unique([tenantId, sourceSystem, objectType, externalCode, versionNumber], map: "external_code_tenant_source_type_code_version_key")
+  @@index([tenantId, objectType, objectId, status], map: "external_code_tenant_object_idx")
+  @@index([tenantId, sourceSystem, objectType, externalCode, status], map: "external_code_tenant_lookup_idx")
+  @@map("external_code_map")
   @@schema("mdm")
 }
 

@@ -185,4 +185,13 @@ describe('App', () => {
     expect(screen.getByRole('button', { name: '发布新版本' })).toBeDisabled();
     expect(screen.getByText(/ProductVersion 快照/)).toBeInTheDocument();
   });
+
+  it('opens partner, address and service-zone master data', () => {
+    render(<App />);
+    fireEvent.click(screen.getByRole('button', { name: '伙伴' }));
+    expect(screen.getByRole('heading', { name: '伙伴、地址与服务区域' })).toBeInTheDocument();
+    expect(screen.getByText('统一伙伴档案')).toBeInTheDocument();
+    expect(screen.getByText('地理编码人工校正队列')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: '启用' })).toBeDisabled();
+  });
 });
