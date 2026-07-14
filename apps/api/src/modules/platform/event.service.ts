@@ -4,7 +4,7 @@ import type { TenantContext } from '@scm/shared';
 import { AppError } from '../../common/app-error';
 import { isUuid } from '../../common/validation';
 import { PrismaService } from '../../database/prisma.service';
-import { IdempotencyService } from './idempotency.service';
+import { hashIdempotencyRequest, IdempotencyService } from './idempotency.service';
 import type { CommandMetadata } from './tenant.service';
 
 type JsonObject = Readonly<Record<string, unknown>>;
@@ -293,7 +293,7 @@ export class EventService {
     input: ConsumeEventInput,
     context: TenantContext,
     metadata: CommandMetadata,
-    handler: (event: BusinessEventInput) => Promise<JsonObject> = async () => ({ accepted: true }),
+    handler: (event: BusinessEventInput, transaction: Prisma.TransactionClient) => Promise<JsonObject> = async () => ({ accepted: true }),
   ) {
     validateBusinessEvent(input.event);
     if (!NAME_PATTERN.test(input.consumer) || !metadata.idempotencyKey?.trim()) {
@@ -321,7 +321,7 @@ export class EventService {
             existing.eventType !== input.event.eventType ||
             existing.aggregateId !== input.event.aggregateId ||
             existing.aggregateVersion !== input.event.aggregateVersion ||
-            JSON.stringify(existing.payload) !== JSON.stringify(input.event.payload)
+            hashIdempotencyRequest(existing.payload) !== hashIdempotencyRequest(input.event.payload)
           ) {
             throw new AppError('EVENT_REPLAY_CONFLICT', 'Event ID was replayed with different content', 409);
           }
@@ -375,7 +375,7 @@ export class EventService {
         if (ignored) {
           return { duplicate: false, eventId: input.event.eventId, inboxId: inbox.id, status: 'IGNORED' as const };
         }
-        const result = await handler(input.event);
+        const result = await handler(input.event, transaction);
         await transaction.consumerCheckpoint.upsert({
           create: {
             aggregateId: input.event.aggregateId,

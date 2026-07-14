@@ -11,10 +11,13 @@ import { AtpAllocationController } from './atp-allocation.controller';
 import { AtpAllocationService } from './atp-allocation.service';
 import { FulfillmentReleaseController } from './fulfillment-release.controller';
 import { FulfillmentReleaseService } from './fulfillment-release.service';
+import { CollaborationTimelineController } from './collaboration-timeline.controller';
+import { CollaborationTimelineService } from './collaboration-timeline.service';
 
 @Module({
   controllers: [
     AtpAllocationController,
+    CollaborationTimelineController,
     FulfillmentReleaseController,
     OrderGovernanceController,
     OrderIntakeController,
@@ -22,6 +25,7 @@ import { FulfillmentReleaseService } from './fulfillment-release.service';
   imports: [MdmModule, PlatformModule],
   providers: [
     AtpAllocationService,
+    CollaborationTimelineService,
     FulfillmentReleaseService,
     OrderGovernanceService,
     OrderIntakeService,

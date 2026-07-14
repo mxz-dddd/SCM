@@ -232,5 +232,10 @@ describe('App', () => {
     expect(screen.getByRole('button', { name: '批量释放' })).toBeDisabled();
     expect(screen.getByRole('button', { name: '日历自动释放' })).toBeDisabled();
     expect(screen.getByRole('textbox', { name: '释放营业日历代码' })).toHaveValue('DEFAULT_OPERATIONS');
+    expect(screen.getByText('伙伴确认与承诺反馈')).toBeInTheDocument();
+    expect(screen.getByText('供应商 ASN 箱托预告')).toBeInTheDocument();
+    expect(screen.getByText('跨域订单时间线投影')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: '记录伙伴确认' })).toBeDisabled();
+    expect(screen.getByRole('button', { name: '提交供应商 ASN' })).toBeDisabled();
   });
 });

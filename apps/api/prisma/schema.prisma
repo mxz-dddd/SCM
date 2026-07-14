@@ -808,6 +808,33 @@ enum ReleaseBatchStatus {
   @@schema("oms")
 }
 
+enum CollaborationType {
+  CUSTOMER_CONFIRMATION
+  SUPPLIER_ACCEPTANCE
+  PROMISE_DATE
+  SHORTAGE_FEEDBACK
+  CHANGE_REQUEST
+  CANCEL_REQUEST
+
+  @@schema("oms")
+}
+
+enum AsnStatus {
+  SUBMITTED
+  ACCEPTED
+  REJECTED
+  CANCELLED
+
+  @@schema("oms")
+}
+
+enum AsnPackageType {
+  CARTON
+  PALLET
+
+  @@schema("oms")
+}
+
 enum OrderType {
   SALES
   PURCHASE
@@ -2173,6 +2200,135 @@ model OrderReleaseBatch {
   @@unique([tenantId, batchNo], map: "order_release_batch_tenant_no_key")
   @@index([tenantId, status, createdAt], map: "order_release_batch_status_idx")
   @@map("order_release_batch")
+  @@schema("oms")
+}
+
+model PartnerCollaboration {
+  id                 String            @id @default(uuid()) @db.Uuid
+  tenantId           String            @map("tenant_id") @db.Uuid
+  createdAt          DateTime          @default(now()) @map("created_at") @db.Timestamptz(3)
+  createdBy          String            @map("created_by") @db.Uuid
+  updatedAt          DateTime          @default(now()) @map("updated_at") @db.Timestamptz(3)
+  updatedBy          String            @map("updated_by") @db.Uuid
+  version            Int               @default(1)
+  status             OmsRecordStatus   @default(ACTIVE)
+  businessOrderId    String            @map("business_order_id") @db.Uuid
+  orderLineId        String?           @map("order_line_id") @db.Uuid
+  partnerId          String            @map("partner_id") @db.Uuid
+  type               CollaborationType
+  confirmed          Boolean?
+  promiseDate        DateTime?         @map("promise_date") @db.Timestamptz(3)
+  shortageOriginal   Decimal?          @map("shortage_original") @db.Decimal(24, 12)
+  originalUom        String?           @map("original_uom") @db.VarChar(20)
+  shortageBase       Decimal?          @map("shortage_base") @db.Decimal(24, 12)
+  baseUom            String?           @map("base_uom") @db.VarChar(20)
+  comment             String?          @db.VarChar(2000)
+  payload             Json             @db.JsonB
+
+  @@index([tenantId, businessOrderId, createdAt], map: "partner_collaboration_order_idx")
+  @@index([tenantId, partnerId, type, createdAt], map: "partner_collaboration_partner_idx")
+  @@map("partner_collaboration")
+  @@schema("oms")
+}
+
+model PartnerAsn {
+  id                 String          @id @default(uuid()) @db.Uuid
+  tenantId           String          @map("tenant_id") @db.Uuid
+  createdAt          DateTime        @default(now()) @map("created_at") @db.Timestamptz(3)
+  createdBy          String          @map("created_by") @db.Uuid
+  updatedAt          DateTime        @updatedAt @map("updated_at") @db.Timestamptz(3)
+  updatedBy          String          @map("updated_by") @db.Uuid
+  version            Int             @default(1)
+  status             AsnStatus       @default(SUBMITTED)
+  businessOrderId    String          @map("business_order_id") @db.Uuid
+  partnerId          String          @map("partner_id") @db.Uuid
+  externalAsnNo      String          @map("external_asn_no") @db.VarChar(200)
+  expectedArrival    DateTime        @map("expected_arrival") @db.Timestamptz(3)
+  expiresAt          DateTime        @map("expires_at") @db.Timestamptz(3)
+  warehouseId        String          @map("warehouse_id") @db.Uuid
+  shipmentReference  String?         @map("shipment_reference") @db.VarChar(200)
+
+  @@unique([tenantId, partnerId, externalAsnNo], map: "partner_asn_external_key")
+  @@index([tenantId, businessOrderId, status, createdAt], map: "partner_asn_order_idx")
+  @@map("partner_asn")
+  @@schema("oms")
+}
+
+model PartnerAsnLine {
+  id                String          @id @default(uuid()) @db.Uuid
+  tenantId          String          @map("tenant_id") @db.Uuid
+  createdAt         DateTime        @default(now()) @map("created_at") @db.Timestamptz(3)
+  createdBy         String          @map("created_by") @db.Uuid
+  updatedAt         DateTime        @default(now()) @map("updated_at") @db.Timestamptz(3)
+  updatedBy         String          @map("updated_by") @db.Uuid
+  version           Int             @default(1)
+  status            OmsRecordStatus @default(ACTIVE)
+  asnId             String          @map("asn_id") @db.Uuid
+  sourceOrderLineId String          @map("source_order_line_id") @db.Uuid
+  lineNo            Int             @map("line_no")
+  productId         String          @map("product_id") @db.Uuid
+  packageNo         String?         @map("package_no") @db.VarChar(200)
+  batchNo           String?         @map("batch_no") @db.VarChar(100)
+  quantityOriginal  Decimal         @map("quantity_original") @db.Decimal(24, 12)
+  originalUom       String          @map("original_uom") @db.VarChar(20)
+  quantityBase      Decimal         @map("quantity_base") @db.Decimal(24, 12)
+  baseUom           String          @map("base_uom") @db.VarChar(20)
+
+  @@unique([tenantId, asnId, lineNo], map: "partner_asn_line_no_key")
+  @@index([tenantId, sourceOrderLineId, status], map: "partner_asn_line_source_idx")
+  @@map("partner_asn_line")
+  @@schema("oms")
+}
+
+model PartnerAsnPackage {
+  id              String          @id @default(uuid()) @db.Uuid
+  tenantId        String          @map("tenant_id") @db.Uuid
+  createdAt       DateTime        @default(now()) @map("created_at") @db.Timestamptz(3)
+  createdBy       String          @map("created_by") @db.Uuid
+  updatedAt       DateTime        @default(now()) @map("updated_at") @db.Timestamptz(3)
+  updatedBy       String          @map("updated_by") @db.Uuid
+  version         Int             @default(1)
+  status          OmsRecordStatus @default(ACTIVE)
+  asnId           String          @map("asn_id") @db.Uuid
+  packageNo       String          @map("package_no") @db.VarChar(200)
+  parentPackageNo String?         @map("parent_package_no") @db.VarChar(200)
+  type            AsnPackageType
+  packageSnapshot Json            @map("package_snapshot") @db.JsonB
+
+  @@unique([tenantId, asnId, packageNo], map: "partner_asn_package_no_key")
+  @@index([tenantId, asnId, parentPackageNo], map: "partner_asn_package_parent_idx")
+  @@map("partner_asn_package")
+  @@schema("oms")
+}
+
+model OrderTimelineProjection {
+  id               String          @id @default(uuid()) @db.Uuid
+  tenantId         String          @map("tenant_id") @db.Uuid
+  createdAt        DateTime        @default(now()) @map("created_at") @db.Timestamptz(3)
+  createdBy        String          @map("created_by") @db.Uuid
+  updatedAt        DateTime        @default(now()) @map("updated_at") @db.Timestamptz(3)
+  updatedBy        String          @map("updated_by") @db.Uuid
+  version          Int             @default(1)
+  status           OmsRecordStatus @default(ACTIVE)
+  businessOrderId  String          @map("business_order_id") @db.Uuid
+  eventId          String          @map("event_id") @db.Uuid
+  eventType        String          @map("event_type") @db.VarChar(150)
+  aggregateType    String          @map("aggregate_type") @db.VarChar(150)
+  aggregateId      String          @map("aggregate_id") @db.Uuid
+  aggregateVersion Int             @map("aggregate_version")
+  sourceDomain     String          @map("source_domain") @db.VarChar(50)
+  occurredAt       DateTime        @map("occurred_at") @db.Timestamptz(3)
+  actorId          String?         @map("actor_id") @db.Uuid
+  fromStatus       String?         @map("from_status") @db.VarChar(50)
+  toStatus         String?         @map("to_status") @db.VarChar(50)
+  summary          String          @db.VarChar(500)
+  attachments      Json            @default("[]") @db.JsonB
+  traceId          String          @map("trace_id") @db.VarChar(100)
+  payload          Json            @db.JsonB
+
+  @@unique([tenantId, eventId], map: "order_timeline_event_key")
+  @@index([tenantId, businessOrderId, occurredAt, id], map: "order_timeline_order_time_idx")
+  @@map("order_timeline_projection")
   @@schema("oms")
 }
 

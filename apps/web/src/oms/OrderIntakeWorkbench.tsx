@@ -47,6 +47,8 @@ interface DuplicateCaseRow {
 
 interface OrderDetail extends OrderRow {
   allocations: AllocationRow[];
+  asns: AsnRow[];
+  collaborations: CollaborationRow[];
   customerId: string | null;
   duplicateCases: DuplicateCaseRow[];
   fulfillmentOrders: FulfillmentRow[];
@@ -60,6 +62,9 @@ interface OrderDetail extends OrderRow {
   splitRelations: GovernanceRow[];
   versions: OrderVersionRow[];
 }
+interface CollaborationRow extends GovernanceRow { comment: string | null; partnerId: string; type: string }
+interface AsnRow extends GovernanceRow { expectedArrival: string; externalAsnNo: string; warehouseId: string }
+interface TimelineRow extends GovernanceRow { displayAt: string; eventType: string; fromStatus: string | null; sourceDomain: string; summary: string; toStatus: string | null; traceId: string }
 
 interface FulfillmentRow extends GovernanceRow { fulfillmentNo: string; progressSnapshot: unknown; type: string; warehouseId: string }
 interface ShipmentRequestRow extends GovernanceRow { mode: string; requestNo: string; serviceLevel: string | null }
@@ -105,6 +110,18 @@ const actions = createActionRegistry<OrderRow['status'] | 'NONE'>([
     id: 'create-manual',
     label: '新建人工草稿',
     requiredPermissions: ['oms.order.write'],
+  },
+  {
+    allowedStatuses: ['OPEN', 'APPROVED', 'ALLOCATED', 'RELEASED'],
+    id: 'partner-confirm',
+    label: '记录伙伴确认',
+    requiredPermissions: ['oms.partner.collaborate'],
+  },
+  {
+    allowedStatuses: ['APPROVED', 'ALLOCATED', 'RELEASED'],
+    id: 'submit-asn',
+    label: '提交供应商 ASN',
+    requiredPermissions: ['oms.asn.write'],
   },
   {
     allowedStatuses: ['APPROVED'],
@@ -205,6 +222,7 @@ export function OrderIntakeWorkbench() {
   const [notice, setNotice] = useState<string>();
   const [ruleSetCode, setRuleSetCode] = useState('ORDER_ALLOCATION_DEFAULT');
   const [releaseCalendarCode, setReleaseCalendarCode] = useState('DEFAULT_OPERATIONS');
+  const [timeline, setTimeline] = useState<TimelineRow[]>([]);
   const permissions = useMemo(
     () =>
       new Set(
@@ -226,6 +244,8 @@ export function OrderIntakeWorkbench() {
               'oms.order.release',
               'oms.order.release.batch',
               'oms.order.release.auto',
+              'oms.partner.collaborate',
+              'oms.asn.write',
             ]
           : [],
       ),
@@ -279,7 +299,9 @@ export function OrderIntakeWorkbench() {
 
   async function loadDetail(id: string) {
     try {
-      setDetail(await request(`/api/v1/oms/orders/${id}`) as unknown as OrderDetail);
+      const [nextDetail, nextTimeline] = await Promise.all([request(`/api/v1/oms/orders/${id}`), request(`/api/v1/oms/orders/${id}/timeline?timeZone=Asia%2FShanghai`)]);
+      setDetail(nextDetail as unknown as OrderDetail);
+      setTimeline((nextTimeline as unknown as { items: TimelineRow[] }).items);
     } catch (caught) {
       setError(caught instanceof Error ? caught.message : '订单详情查询失败');
     }
@@ -381,6 +403,16 @@ export function OrderIntakeWorkbench() {
       } else if (actionId === 'release-auto') {
         const result = (await request('/api/v1/oms/order-release-batches/automatic', { body: JSON.stringify({ calendarCode: releaseCalendarCode, limit: 100 }), method: 'POST' })) as unknown as { failedCount: number; processedCount: number };
         setNotice(`日历自动释放完成：成功 ${result.processedCount}，失败 ${result.failedCount}`);
+      } else if (selected && actionId === 'partner-confirm') {
+        if (!detail?.customerId) throw new Error('订单缺少伙伴标识');
+        await request(`/api/v1/oms/orders/${selected.id}/collaborations`, { body: JSON.stringify({ comment: '工作台伙伴确认', confirmed: true, partnerId: detail.customerId, type: 'CUSTOMER_CONFIRMATION' }), method: 'POST' });
+        setNotice('伙伴确认已形成结构化协同事实');
+      } else if (selected && actionId === 'submit-asn') {
+        const line = detail?.lines[0]; const warehouseId = detail?.allocations.find(({ warehouseId }) => warehouseId)?.warehouseId;
+        if (!detail?.customerId || !line?.productId || !line.quantityBase || !line.quantityOriginal || !line.baseUom || !line.originalUom || !warehouseId) throw new Error('ASN 需要伙伴、仓库和完整双单位订单行');
+        const expectedArrival = new Date(Date.now() + 60 * 60 * 1000); const expiresAt = new Date(Date.now() + 24 * 60 * 60 * 1000);
+        await request(`/api/v1/oms/orders/${selected.id}/asns`, { body: JSON.stringify({ expectedArrival: expectedArrival.toISOString(), expiresAt: expiresAt.toISOString(), externalAsnNo: `ASN-${Date.now()}`, lines: [{ baseUom: line.baseUom, originalUom: line.originalUom, productId: line.productId, quantityBase: line.quantityBase, quantityOriginal: line.quantityOriginal, sourceOrderLineId: line.id }], partnerId: detail.customerId, warehouseId }), method: 'POST' });
+        setNotice('ASN 已校验并推送 WMS/AMS');
       }
       await refresh(1);
       if (selected) await loadDetail(selected.id);
@@ -535,6 +567,21 @@ export function OrderIntakeWorkbench() {
         <Col span={12}>
           <Card title="直运与多段运输需求">
             <DataGrid columns={[{ key: 'requestNo', label: '运输需求号' }, { key: 'mode', label: '运输模式' }, { key: 'serviceLevel', label: '服务等级' }, { key: 'status', label: '状态' }, { key: 'createdAt', label: '生成时间' }]} onPageChange={() => undefined} onSelectionChange={() => undefined} page={1} pageSize={300} rows={detail?.shipmentRequests ?? []} selectedIds={[]} total={detail?.shipmentRequests.length ?? 0} />
+          </Card>
+        </Col>
+        <Col span={12}>
+          <Card title="伙伴确认与承诺反馈">
+            <DataGrid columns={[{ key: 'partnerId', label: '伙伴' }, { key: 'type', label: '协同类型' }, { key: 'comment', label: '评论' }, { key: 'createdAt', label: '发生时间' }]} onPageChange={() => undefined} onSelectionChange={() => undefined} page={1} pageSize={300} rows={detail?.collaborations ?? []} selectedIds={[]} total={detail?.collaborations.length ?? 0} />
+          </Card>
+        </Col>
+        <Col span={12}>
+          <Card title="供应商 ASN 箱托预告">
+            <DataGrid columns={[{ key: 'externalAsnNo', label: 'ASN 号' }, { key: 'warehouseId', label: '仓库' }, { key: 'expectedArrival', label: '预计到达' }, { key: 'status', label: '状态' }]} onPageChange={() => undefined} onSelectionChange={() => undefined} page={1} pageSize={300} rows={detail?.asns ?? []} selectedIds={[]} total={detail?.asns.length ?? 0} />
+          </Card>
+        </Col>
+        <Col span={24}>
+          <Card title="跨域订单时间线投影">
+            <DataGrid columns={[{ key: 'displayAt', label: '业务时间' }, { key: 'sourceDomain', label: '来源域' }, { key: 'eventType', label: '事件' }, { key: 'fromStatus', label: '原状态' }, { key: 'toStatus', label: '新状态' }, { key: 'summary', label: '摘要' }, { key: 'traceId', label: 'Trace' }]} onPageChange={() => undefined} onSelectionChange={() => undefined} page={1} pageSize={500} rows={timeline} selectedIds={[]} total={timeline.length} />
           </Card>
         </Col>
       </Row>
