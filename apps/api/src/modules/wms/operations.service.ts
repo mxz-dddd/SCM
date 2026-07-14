@@ -3,6 +3,7 @@ import { Inject, Injectable } from '@nestjs/common';
 import { Prisma, type ValueAddedType } from '@prisma/client';
 import type { TenantContext } from '@scm/shared';
 import { AppError } from '../../common/app-error';
+import { toHttpJson } from '../../common/http-json';
 import { isUuid } from '../../common/validation';
 import { PrismaService } from '../../database/prisma.service';
 import { MdmReferenceService } from '../mdm/public/mdm-reference.service';
@@ -52,7 +53,7 @@ export class OperationsService {
         this.prisma.deviceCommand.findMany({ orderBy: { createdAt: 'desc' }, take: 100, where: { tenantId: context.tenantId } }),
         this.prisma.warehouseChargeFact.findMany({ orderBy: { occurredAt: 'desc' }, take: 100, where: { tenantId: context.tenantId } }),
       ]);
-    return { chargeFacts, deviceCommands, laborAssignments, laborMetrics, laborStandards, offlineCommands, snapshotAt: new Date(), syncConflicts, valueAddedOrders };
+    return toHttpJson({ chargeFacts, deviceCommands, laborAssignments, laborMetrics, laborStandards, offlineCommands, snapshotAt: new Date(), syncConflicts, valueAddedOrders });
   }
 
   async dashboard(context: TenantContext) {

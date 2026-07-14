@@ -3,6 +3,7 @@ import { Inject, Injectable } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 import type { TenantContext } from '@scm/shared';
 import { AppError } from '../../common/app-error';
+import { toHttpJson } from '../../common/http-json';
 import { isUuid } from '../../common/validation';
 import { PrismaService } from '../../database/prisma.service';
 import { MdmReferenceService } from '../mdm/public/mdm-reference.service';
@@ -52,7 +53,7 @@ export class PackShipService {
         this.prisma.outboundDispatch.findMany({ orderBy: { createdAt: 'desc' }, take: 100, where: { tenantId: context.tenantId } }),
         this.prisma.cancellationPlan.findMany({ orderBy: { createdAt: 'desc' }, take: 100, where: { tenantId: context.tenantId } }),
       ]);
-    return { cancellations, dispatches, exceptions, labels, loads, packTasks, packages, snapshotAt: new Date(), staging };
+    return toHttpJson({ cancellations, dispatches, exceptions, labels, loads, packTasks, packages, snapshotAt: new Date(), staging });
   }
 
   async createPackTask(

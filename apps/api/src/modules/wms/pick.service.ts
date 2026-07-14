@@ -3,6 +3,7 @@ import { Inject, Injectable } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 import type { TenantContext } from '@scm/shared';
 import { AppError } from '../../common/app-error';
+import { toHttpJson } from '../../common/http-json';
 import { isUuid } from '../../common/validation';
 import { PrismaService } from '../../database/prisma.service';
 import { MdmReferenceService } from '../mdm/public/mdm-reference.service';
@@ -77,7 +78,7 @@ export class PickService {
           where: { tenantId: context.tenantId },
         }),
       ]);
-    return {
+    return toHttpJson({
       lines,
       routes,
       scans,
@@ -85,7 +86,7 @@ export class PickService {
       snapshotAt: new Date(),
       tasks,
       verifications,
-    };
+    });
   }
 
   assignTask(

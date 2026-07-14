@@ -19,11 +19,13 @@
     "lint": "turbo run lint",
     "postinstall": "pnpm db:generate",
     "test": "turbo run test",
+    "test:e2e": "node scripts/run-p2-e2e.mjs",
     "typecheck": "turbo run typecheck",
     "verify": "pnpm lint && pnpm typecheck && pnpm test"
   },
   "devDependencies": {
     "@eslint/js": "^9.30.0",
+    "@playwright/test": "^1.61.1",
     "@types/node": "^24.0.0",
     "eslint": "^9.30.0",
     "eslint-plugin-react-hooks": "^5.2.0",
