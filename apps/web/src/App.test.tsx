@@ -399,5 +399,24 @@ describe('App', () => {
       screen.getByRole('button', { name: '构建合拆运计划' }),
     ).toBeDisabled();
     expect(screen.getByRole('button', { name: '发布运输计划' })).toBeDisabled();
+    expect(
+      screen.getByText('配载利用率、路线站点与优化方案'),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText('LoadPlan 与实时 UtilizationMetrics'),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText('RoutePlan 与可解释 OptimizationScenario'),
+    ).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: '生成配载方案' })).toBeDisabled();
+    expect(
+      screen.getByRole('button', { name: '手工拖放重校验' }),
+    ).toBeDisabled();
+    expect(
+      screen.getByRole('button', { name: '生成多权重路线' }),
+    ).toBeDisabled();
+    expect(
+      screen.getByRole('button', { name: '锁定节点重优化' }),
+    ).toBeDisabled();
   });
 });

@@ -9,6 +9,7 @@ import {
 import { Alert, Card, Typography } from 'antd';
 import { useSessionStore } from '../platform/session-store';
 import { TransportPlanningPanel } from './TransportPlanningPanel';
+import { LoadRouteOptimizationPanel } from './LoadRouteOptimizationPanel';
 
 type TransportStatus = 'OPEN' | 'PLANNED' | 'FROZEN' | 'RETURNED';
 
@@ -296,6 +297,7 @@ export function TransportOrderWorkbench() {
         />
       </Card>
       <TransportPlanningPanel />
+      <LoadRouteOptimizationPanel />
     </section>
   );
 }

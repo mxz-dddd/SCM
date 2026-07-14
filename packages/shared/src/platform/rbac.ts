@@ -54,6 +54,30 @@ export const ADMIN_PERMISSIONS = [
     resourceType: 'BUTTON',
   },
   {
+    code: 'tms.optimization.read',
+    name: '查看配载路线优化',
+    resourceRef: '/api/v1/tms/optimization/workbench',
+    resourceType: 'PAGE',
+  },
+  {
+    code: 'tms.load.manage',
+    name: '编辑运输配载',
+    resourceRef: '/api/v1/tms/optimization/load-plans*',
+    resourceType: 'BUTTON',
+  },
+  {
+    code: 'tms.load.publish',
+    name: '校验发布配载',
+    resourceRef: '/api/v1/tms/optimization/load-plans/*/transition',
+    resourceType: 'BUTTON',
+  },
+  {
+    code: 'tms.route.optimize',
+    name: '优化选择运输路线',
+    resourceRef: '/api/v1/tms/optimization/*route*',
+    resourceType: 'BUTTON',
+  },
+  {
     code: 'wms.inventory.read',
     name: '查看库存余额',
     resourceRef: '/api/v1/wms/inventory',

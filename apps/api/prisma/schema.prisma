@@ -7183,3 +7183,165 @@ model EquipmentSelection {
   @@map("equipment_selection")
   @@schema("tms")
 }
+
+enum LoadPlanStatus {
+  DRAFT
+  VALIDATED
+  PUBLISHED
+  CANCELLED
+  @@schema("tms")
+}
+
+enum RoutePlanStatus {
+  DRAFT
+  OPTIMIZED
+  SELECTED
+  CANCELLED
+  @@schema("tms")
+}
+
+enum OptimizationScenarioStatus {
+  PROPOSED
+  SELECTED
+  REJECTED
+  @@schema("tms")
+}
+
+model LoadPlan {
+  id                   String         @id @default(uuid()) @db.Uuid
+  tenantId             String         @map("tenant_id") @db.Uuid
+  createdAt            DateTime       @default(now()) @map("created_at") @db.Timestamptz(3)
+  createdBy            String         @map("created_by") @db.Uuid
+  updatedAt            DateTime       @updatedAt @map("updated_at") @db.Timestamptz(3)
+  updatedBy            String         @map("updated_by") @db.Uuid
+  version              Int            @default(1)
+  status               LoadPlanStatus @default(DRAFT)
+  loadPlanNo           String         @map("load_plan_no") @db.VarChar(100)
+  shipmentId           String         @map("shipment_id") @db.Uuid
+  equipmentSelectionId String         @map("equipment_selection_id") @db.Uuid
+  layoutSnapshot       Json           @map("layout_snapshot") @db.JsonB
+  validatedAt          DateTime?      @map("validated_at") @db.Timestamptz(3)
+  publishedAt          DateTime?      @map("published_at") @db.Timestamptz(3)
+  @@unique([tenantId, loadPlanNo], map: "load_plan_tenant_no_key")
+  @@index([tenantId, shipmentId, status, createdAt], map: "load_plan_tenant_shipment_status_created_idx")
+  @@map("load_plan")
+  @@schema("tms")
+}
+
+model LoadAssignment {
+  id             String          @id @default(uuid()) @db.Uuid
+  tenantId       String          @map("tenant_id") @db.Uuid
+  createdAt      DateTime        @default(now()) @map("created_at") @db.Timestamptz(3)
+  createdBy      String          @map("created_by") @db.Uuid
+  updatedAt      DateTime        @default(now()) @map("updated_at") @db.Timestamptz(3)
+  updatedBy      String          @map("updated_by") @db.Uuid
+  version        Int             @default(1)
+  status         TmsRecordStatus @default(ACTIVE)
+  loadPlanId     String          @map("load_plan_id") @db.Uuid
+  shipmentItemId String          @map("shipment_item_id") @db.Uuid
+  assignmentNo   Int             @map("assignment_no")
+  position       Json            @db.JsonB
+  adjustmentType String          @map("adjustment_type") @db.VarChar(50)
+  adjustmentRef  String?         @map("adjustment_ref") @db.VarChar(200)
+  validation     Json            @db.JsonB
+  @@index([tenantId, loadPlanId, shipmentItemId, assignmentNo], map: "load_assignment_tenant_plan_item_no_idx")
+  @@map("load_assignment")
+  @@schema("tms")
+}
+
+model UtilizationMetric {
+  id                String          @id @default(uuid()) @db.Uuid
+  tenantId          String          @map("tenant_id") @db.Uuid
+  createdAt         DateTime        @default(now()) @map("created_at") @db.Timestamptz(3)
+  createdBy         String          @map("created_by") @db.Uuid
+  updatedAt         DateTime        @default(now()) @map("updated_at") @db.Timestamptz(3)
+  updatedBy         String          @map("updated_by") @db.Uuid
+  version           Int             @default(1)
+  status            TmsRecordStatus @default(ACTIVE)
+  loadPlanId        String          @map("load_plan_id") @db.Uuid
+  calculationNo     Int             @map("calculation_no")
+  weightUtilization Decimal         @map("weight_utilization") @db.Decimal(12, 6)
+  volumeUtilization Decimal         @map("volume_utilization") @db.Decimal(12, 6)
+  palletUtilization Decimal         @map("pallet_utilization") @db.Decimal(12, 6)
+  valueUtilization  Decimal         @map("value_utilization") @db.Decimal(12, 6)
+  compatible        Boolean
+  exclusionReasons  Json            @map("exclusion_reasons") @db.JsonB
+  calculationTrace  Json            @map("calculation_trace") @db.JsonB
+  @@unique([tenantId, loadPlanId, calculationNo], map: "utilization_metric_tenant_plan_calculation_key")
+  @@index([tenantId, loadPlanId, createdAt], map: "utilization_metric_tenant_plan_created_idx")
+  @@map("utilization_metric")
+  @@schema("tms")
+}
+
+model RoutePlan {
+  id                  String          @id @default(uuid()) @db.Uuid
+  tenantId            String          @map("tenant_id") @db.Uuid
+  createdAt           DateTime        @default(now()) @map("created_at") @db.Timestamptz(3)
+  createdBy           String          @map("created_by") @db.Uuid
+  updatedAt           DateTime        @updatedAt @map("updated_at") @db.Timestamptz(3)
+  updatedBy           String          @map("updated_by") @db.Uuid
+  version             Int             @default(1)
+  status              RoutePlanStatus @default(DRAFT)
+  routePlanNo         String          @map("route_plan_no") @db.VarChar(100)
+  shipmentId          String          @map("shipment_id") @db.Uuid
+  inputSnapshot       Json            @map("input_snapshot") @db.JsonB
+  constraintSnapshot  Json            @map("constraint_snapshot") @db.JsonB
+  selectedScenarioId  String?         @map("selected_scenario_id") @db.Uuid
+  optimizedAt         DateTime?       @map("optimized_at") @db.Timestamptz(3)
+  selectedAt          DateTime?       @map("selected_at") @db.Timestamptz(3)
+  @@unique([tenantId, routePlanNo], map: "route_plan_tenant_no_key")
+  @@index([tenantId, shipmentId, status, createdAt], map: "route_plan_tenant_shipment_status_created_idx")
+  @@map("route_plan")
+  @@schema("tms")
+}
+
+model RouteStop {
+  id              String          @id @default(uuid()) @db.Uuid
+  tenantId        String          @map("tenant_id") @db.Uuid
+  createdAt       DateTime        @default(now()) @map("created_at") @db.Timestamptz(3)
+  createdBy       String          @map("created_by") @db.Uuid
+  updatedAt       DateTime        @default(now()) @map("updated_at") @db.Timestamptz(3)
+  updatedBy       String          @map("updated_by") @db.Uuid
+  version         Int             @default(1)
+  status          TmsRecordStatus @default(ACTIVE)
+  routePlanId     String          @map("route_plan_id") @db.Uuid
+  stopRef         String          @map("stop_ref") @db.VarChar(200)
+  stopType        String          @map("stop_type") @db.VarChar(50)
+  sequence        Int
+  locationSnapshot Json           @map("location_snapshot") @db.JsonB
+  windowFrom      DateTime        @map("window_from") @db.Timestamptz(3)
+  windowTo        DateTime        @map("window_to") @db.Timestamptz(3)
+  plannedArrival  DateTime        @map("planned_arrival") @db.Timestamptz(3)
+  plannedDeparture DateTime       @map("planned_departure") @db.Timestamptz(3)
+  serviceMinutes  Int             @map("service_minutes")
+  locked          Boolean         @default(false)
+  @@unique([tenantId, routePlanId, stopRef], map: "route_stop_tenant_plan_ref_key")
+  @@index([tenantId, routePlanId, sequence], map: "route_stop_tenant_plan_sequence_idx")
+  @@map("route_stop")
+  @@schema("tms")
+}
+
+model OptimizationScenario {
+  id                String                     @id @default(uuid()) @db.Uuid
+  tenantId          String                     @map("tenant_id") @db.Uuid
+  createdAt         DateTime                   @default(now()) @map("created_at") @db.Timestamptz(3)
+  createdBy         String                     @map("created_by") @db.Uuid
+  updatedAt         DateTime                   @default(now()) @map("updated_at") @db.Timestamptz(3)
+  updatedBy         String                     @map("updated_by") @db.Uuid
+  version           Int                        @default(1)
+  status            OptimizationScenarioStatus @default(PROPOSED)
+  routePlanId       String                     @map("route_plan_id") @db.Uuid
+  parentScenarioId  String?                    @map("parent_scenario_id") @db.Uuid
+  scenarioNo        Int                        @map("scenario_no")
+  objectiveWeights  Json                       @map("objective_weights") @db.JsonB
+  stopSequence      Json                       @map("stop_sequence") @db.JsonB
+  lockedStopRefs    Json                       @map("locked_stop_refs") @db.JsonB
+  score             Decimal                    @db.Decimal(18, 6)
+  scoreBreakdown    Json                       @map("score_breakdown") @db.JsonB
+  explanation       Json                       @db.JsonB
+  constraintResults Json                       @map("constraint_results") @db.JsonB
+  @@unique([tenantId, routePlanId, scenarioNo], map: "optimization_scenario_tenant_plan_no_key")
+  @@index([tenantId, routePlanId, status, score], map: "optimization_scenario_tenant_plan_status_score_idx")
+  @@map("optimization_scenario")
+  @@schema("tms")
+}
