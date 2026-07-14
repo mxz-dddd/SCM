@@ -369,4 +369,419 @@ databaseDescribe('WMS inventory balance and TraceChain persistence', () => {
       }),
     ).toBeGreaterThan(0);
   });
+
+  it('serializes capacity, transfers ownership with double movements, and controls full counts', async () => {
+    const tenantId = randomUUID();
+    const actorId = randomUUID();
+    const ownerId = randomUUID();
+    const targetOwnerId = randomUUID();
+    const productId = randomUUID();
+    const warehouseId = randomUUID();
+    const sourceLocationId = randomUUID();
+    const capacityLocationId = randomUUID();
+    const transferLocationId = randomUUID();
+    const context: TenantContext = {
+      accountId: actorId,
+      accountKind: 'TENANT_ADMIN',
+      deviceId: 'internal-operations-db-test',
+      organizationIds: [],
+      permissionVersion: 1,
+      tenantId,
+      tokenId: randomUUID(),
+    };
+    const command = () => ({
+      correlationId: randomUUID(),
+      idempotencyKey: randomUUID(),
+      ipAddress: '127.0.0.1',
+    });
+    await prisma.product.create({
+      data: {
+        baseUom: 'EA',
+        createdBy: actorId,
+        currentVersionNumber: 1,
+        id: productId,
+        name: '库内作业测试商品',
+        sku: `OPS-${randomUUID().slice(0, 8)}`,
+        status: 'ACTIVE',
+        tenantId,
+        updatedBy: actorId,
+      },
+    });
+    await prisma.productVersion.create({
+      data: {
+        createdBy: actorId,
+        productId,
+        sku: `OPS-V-${randomUUID().slice(0, 8)}`,
+        snapshot: {
+          baseUom: 'EA',
+          volumePerBase: '0.25',
+          weightPerBase: '0.5',
+        },
+        tenantId,
+        updatedBy: actorId,
+        versionNumber: 1,
+      },
+    });
+    await prisma.warehouse.create({
+      data: {
+        code: `OPS-${randomUUID().slice(0, 8)}`,
+        createdBy: actorId,
+        id: warehouseId,
+        name: '库内作业测试仓',
+        status: 'ACTIVE',
+        tenantId,
+        timeZone: 'Asia/Shanghai',
+        updatedBy: actorId,
+      },
+    });
+    await prisma.warehouseLocation.createMany({
+      data: [
+        {
+          code: 'OPS-SOURCE',
+          createdBy: actorId,
+          id: sourceLocationId,
+          name: '移库源位',
+          status: 'ACTIVE',
+          tenantId,
+          type: 'LOCATION',
+          updatedBy: actorId,
+          warehouseId,
+        },
+        {
+          code: 'OPS-CAPACITY',
+          createdBy: actorId,
+          id: capacityLocationId,
+          mixingRules: {
+            allowMixedLots: false,
+            allowMixedOwners: false,
+            allowMixedProducts: false,
+            maxQuantityBase: '10',
+          },
+          name: '单托容量位',
+          palletCapacity: '1',
+          status: 'ACTIVE',
+          tenantId,
+          type: 'LOCATION',
+          updatedBy: actorId,
+          warehouseId,
+        },
+        {
+          code: 'OPS-TARGET',
+          createdBy: actorId,
+          id: transferLocationId,
+          maxVolume: '100',
+          maxWeight: '100',
+          name: '普通目标位',
+          status: 'ACTIVE',
+          tenantId,
+          type: 'LOCATION',
+          updatedBy: actorId,
+          volumeUom: 'M3',
+          warehouseId,
+          weightUom: 'KG',
+        },
+      ],
+    });
+    const service = new InventoryService(
+      prisma as never,
+      new MdmReferenceService(prisma as never),
+    );
+    const sources = await Promise.all(
+      [randomUUID(), randomUUID()].map((handlingUnitId, index) =>
+        service.receive(
+          {
+            baseUom: 'EA',
+            businessRef: `OPS-OPENING-${index + 1}`,
+            businessType: 'OPENING',
+            handlingUnitId,
+            locationId: sourceLocationId,
+            originalUom: 'EA',
+            ownerId,
+            productId,
+            quantityBase: '5',
+            quantityOriginal: '5',
+            status: 'AVAILABLE',
+            warehouseId,
+          },
+          context,
+          command(),
+        ),
+      ),
+    );
+
+    const capacityRace = await Promise.allSettled(
+      sources.map((source) =>
+        service.transfer(
+          source.balanceId,
+          {
+            expectedVersion: 1,
+            quantityBase: '1',
+            quantityOriginal: '1',
+            reason: '并发容量校验',
+            targetLocationId: capacityLocationId,
+          },
+          context,
+          command(),
+        ),
+      ),
+    );
+    expect(
+      capacityRace.filter(({ status }) => status === 'fulfilled'),
+    ).toHaveLength(1);
+    expect(
+      capacityRace.filter(({ status }) => status === 'rejected'),
+    ).toHaveLength(1);
+    const failedCapacity = await prisma.capacityCheck.findFirstOrThrow({
+      where: { allowed: false, locationId: capacityLocationId, tenantId },
+    });
+    expect(failedCapacity.exclusionReasons).toContain(
+      'PALLET_CAPACITY_EXCEEDED',
+    );
+    const successfulIndex = capacityRace.findIndex(
+      ({ status }) => status === 'fulfilled',
+    );
+    const movedSource = await prisma.inventoryBalance.findUniqueOrThrow({
+      where: { id: sources[successfulIndex]!.balanceId },
+    });
+    const transfer = await service.transfer(
+      movedSource.id,
+      {
+        expectedVersion: movedSource.version,
+        quantityBase: '1',
+        quantityOriginal: '1',
+        reason: '部分数量移库',
+        targetLocationId: transferLocationId,
+      },
+      context,
+      command(),
+    );
+    expect(transfer).toMatchObject({ sourceVersion: movedSource.version + 1 });
+    const task = await prisma.inventoryTransferTask.findUniqueOrThrow({
+      where: { id: transfer.transferId },
+    });
+    expect(task).toMatchObject({
+      sourceLocationId,
+      targetLocationId: transferLocationId,
+    });
+    await expect(
+      prisma.inventoryTransferTask.update({
+        data: { reason: '篡改事实' },
+        where: { id: task.id },
+      }),
+    ).rejects.toBeTruthy();
+    await expect(
+      prisma.capacityCheck.update({
+        data: { allowed: true },
+        where: { id: failedCapacity.id },
+      }),
+    ).rejects.toBeTruthy();
+
+    await expect(
+      service.transferOwnership(
+        transfer.targetBalanceId,
+        {
+          approvalReference: '',
+          contractReference: 'CONTRACT-OPS-001',
+          expectedVersion: transfer.targetVersion,
+          quantityBase: '1',
+          quantityOriginal: '1',
+          reason: '缺少审批',
+          targetOwnerId,
+        },
+        context,
+        command(),
+      ),
+    ).rejects.toMatchObject({
+      code: 'OWNERSHIP_TRANSFER_AUTHORIZATION_REQUIRED',
+      statusCode: 403,
+    });
+    const ownership = await service.transferOwnership(
+      transfer.targetBalanceId,
+      {
+        approvalReference: 'APPROVAL-OWN-001',
+        chargeFactSnapshot: { currency: 'CNY', unitPrice: '2.5' },
+        contractReference: 'CONTRACT-OPS-001',
+        expectedVersion: transfer.targetVersion,
+        quantityBase: '1',
+        quantityOriginal: '1',
+        reason: '合同授权货权变更',
+        targetOwnerId,
+      },
+      context,
+      command(),
+    );
+    const ownershipFact = await prisma.ownershipTransfer.findUniqueOrThrow({
+      where: { id: ownership.transferId },
+    });
+    expect(ownershipFact).toMatchObject({
+      fromOwnerId: ownerId,
+      toOwnerId: targetOwnerId,
+    });
+    expect(
+      await prisma.inventoryMovement.findMany({
+        orderBy: { createdAt: 'asc' },
+        select: { type: true },
+        where: {
+          id: {
+            in: [
+              ownershipFact.outboundMovementId,
+              ownershipFact.inboundMovementId,
+            ],
+          },
+        },
+      }),
+    ).toEqual(
+      expect.arrayContaining([
+        { type: 'OWNERSHIP_OUT' },
+        { type: 'OWNERSHIP_IN' },
+      ]),
+    );
+    await expect(
+      prisma.ownershipTransfer.update({
+        data: { approvalReference: 'MUTATED' },
+        where: { id: ownershipFact.id },
+      }),
+    ).rejects.toBeTruthy();
+
+    const planned = await service.createCount(
+      {
+        blind: true,
+        freezeInventory: true,
+        type: 'FULL',
+        warehouseId,
+      },
+      context,
+      command(),
+    );
+    expect(planned).toMatchObject({ frozen: true, status: 'PLANNED' });
+    let count = await service.getCount(planned.countId, context);
+    expect(count.lines).toHaveLength(planned.lineCount);
+    expect(count.freezes.every(({ status }) => status === 'ACTIVE')).toBe(true);
+    await expect(
+      service.transitionCount(
+        planned.countId,
+        { expectedVersion: planned.version, targetStatus: 'REVIEWING' },
+        context,
+        command(),
+      ),
+    ).rejects.toMatchObject({ code: 'INVENTORY_COUNT_TRANSITION_INVALID' });
+    const counting = await service.transitionCount(
+      planned.countId,
+      { expectedVersion: planned.version, targetStatus: 'COUNTING' },
+      context,
+      command(),
+    );
+    const varianceLine = count.lines[0]!;
+    for (const line of count.lines) {
+      const quantity =
+        line.id === varianceLine.id
+          ? line.expectedQuantityBase.sub(1)
+          : line.expectedQuantityBase;
+      await service.countLine(
+        line.id,
+        {
+          expectedVersion: line.version,
+          quantityBase: quantity.toString(),
+          quantityOriginal: quantity.toString(),
+          ...(line.id === varianceLine.id ? { reason: '初盘短少一件' } : {}),
+        },
+        context,
+        command(),
+      );
+    }
+    const recounted = await service.countLine(
+      varianceLine.id,
+      {
+        expectedVersion: varianceLine.version + 1,
+        quantityBase: varianceLine.expectedQuantityBase.sub(1).toString(),
+        quantityOriginal: varianceLine.expectedQuantityOriginal
+          .sub(1)
+          .toString(),
+        reason: '复盘确认短少一件',
+      },
+      context,
+      command(),
+    );
+    const reviewing = await service.transitionCount(
+      planned.countId,
+      { expectedVersion: counting.version, targetStatus: 'REVIEWING' },
+      context,
+      command(),
+    );
+    await expect(
+      service.transitionCount(
+        planned.countId,
+        { expectedVersion: reviewing.version, targetStatus: 'POSTED' },
+        context,
+        command(),
+      ),
+    ).rejects.toMatchObject({ code: 'INVENTORY_COUNT_VARIANCE_UNAPPROVED' });
+    await service.approveCountLine(
+      varianceLine.id,
+      {
+        approvalReference: 'COUNT-APPROVAL-001',
+        expectedVersion: recounted.version,
+        quantityBase: varianceLine.expectedQuantityBase.sub(1).toString(),
+        quantityOriginal: varianceLine.expectedQuantityOriginal
+          .sub(1)
+          .toString(),
+        reason: '主管批准盘亏差异',
+      },
+      context,
+      command(),
+    );
+    const posted = await service.transitionCount(
+      planned.countId,
+      { expectedVersion: reviewing.version, targetStatus: 'POSTED' },
+      context,
+      command(),
+    );
+    await expect(
+      service.transitionCount(
+        planned.countId,
+        { expectedVersion: posted.version, targetStatus: 'CLOSED' },
+        context,
+        command(),
+      ),
+    ).rejects.toMatchObject({ code: 'INVENTORY_COUNT_FREEZE_ACTIVE' });
+    count = await service.getCount(planned.countId, context);
+    for (const locationId of [
+      ...new Set(
+        count.freezes
+          .filter(({ status }) => status === 'ACTIVE')
+          .map(({ locationId }) => locationId),
+      ),
+    ])
+      await service.releaseCountSegment(
+        planned.countId,
+        { locationId, reason: '区域复核完成，分段解冻' },
+        context,
+        command(),
+      );
+    await expect(
+      service.transitionCount(
+        planned.countId,
+        { expectedVersion: posted.version, targetStatus: 'CLOSED' },
+        context,
+        command(),
+      ),
+    ).resolves.toMatchObject({ status: 'CLOSED' });
+
+    const cycleBalance = await prisma.inventoryBalance.findFirstOrThrow({
+      where: { onHandBase: { gt: 0 }, tenantId, warehouseId },
+    });
+    await expect(
+      service.createCount(
+        {
+          balanceIds: [cycleBalance.id],
+          blind: false,
+          freezeInventory: false,
+          type: 'CYCLE',
+          warehouseId,
+        },
+        context,
+        command(),
+      ),
+    ).resolves.toMatchObject({ frozen: false, lineCount: 1 });
+  });
 });

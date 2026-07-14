@@ -60,6 +60,42 @@ export const ADMIN_PERMISSIONS = [
     resourceType: 'BUTTON',
   },
   {
+    code: 'wms.inventory.transfer',
+    name: '执行库存移库',
+    resourceRef: '/api/v1/wms/inventory/*/transfers',
+    resourceType: 'BUTTON',
+  },
+  {
+    code: 'wms.inventory.owner-transfer',
+    name: '执行货主转换',
+    resourceRef: '/api/v1/wms/inventory/*/ownership-transfers',
+    resourceType: 'BUTTON',
+  },
+  {
+    code: 'wms.inventory.count.read',
+    name: '查看库存盘点',
+    resourceRef: '/api/v1/wms/inventory-counts/*',
+    resourceType: 'PAGE',
+  },
+  {
+    code: 'wms.inventory.count.plan',
+    name: '创建库存盘点',
+    resourceRef: '/api/v1/wms/inventory-counts',
+    resourceType: 'BUTTON',
+  },
+  {
+    code: 'wms.inventory.count.execute',
+    name: '执行库存初复盘',
+    resourceRef: '/api/v1/wms/inventory-count*',
+    resourceType: 'BUTTON',
+  },
+  {
+    code: 'wms.inventory.count.approve',
+    name: '审批盘点差异与分段解冻',
+    resourceRef: '/api/v1/wms/inventory-count*',
+    resourceType: 'BUTTON',
+  },
+  {
     code: 'wms.quality.read',
     name: '查看质检与上架',
     resourceRef: '/api/v1/wms/inbounds/*/quality-putaway',

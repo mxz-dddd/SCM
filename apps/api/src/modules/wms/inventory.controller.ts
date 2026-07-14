@@ -16,10 +16,14 @@ import { RequirePermission } from '../platform/auth/permission.decorator';
 import { PermissionGuard } from '../platform/auth/permission.guard';
 import { Idempotent } from '../platform/idempotent.decorator';
 import {
+  type CreateCountInput,
   type CreateHoldInput,
   type CreateReservationInput,
   InventoryService,
+  type InventoryQuantityInput,
+  type OwnershipTransferInput,
   type PostInventoryInput,
+  type TransferInventoryInput,
   type TransitionInventoryInput,
 } from './inventory.service';
 
@@ -176,6 +180,144 @@ export class InventoryController {
     @Req() request: TenantRequest,
   ) {
     return this.service.releaseReservation(
+      id,
+      input,
+      request.tenantContext,
+      metadata(request, correlationId, key),
+    );
+  }
+
+  @Post('inventory/:id/transfers')
+  @Idempotent('wms.inventory.transfer.v1')
+  @RequirePermission('wms.inventory.transfer')
+  transfer(
+    @Param('id') id: string,
+    @Body() input: TransferInventoryInput,
+    @Headers('idempotency-key') key: string | undefined,
+    @Headers('x-correlation-id') correlationId: string,
+    @Req() request: TenantRequest,
+  ) {
+    return this.service.transfer(
+      id,
+      input,
+      request.tenantContext,
+      metadata(request, correlationId, key),
+    );
+  }
+
+  @Post('inventory/:id/ownership-transfers')
+  @Idempotent('wms.inventory.ownership-transfer.v1')
+  @RequirePermission('wms.inventory.owner-transfer')
+  transferOwnership(
+    @Param('id') id: string,
+    @Body() input: OwnershipTransferInput,
+    @Headers('idempotency-key') key: string | undefined,
+    @Headers('x-correlation-id') correlationId: string,
+    @Req() request: TenantRequest,
+  ) {
+    return this.service.transferOwnership(
+      id,
+      input,
+      request.tenantContext,
+      metadata(request, correlationId, key),
+    );
+  }
+
+  @Post('inventory-counts')
+  @Idempotent('wms.inventory.count-plan.v1')
+  @RequirePermission('wms.inventory.count.plan')
+  createCount(
+    @Body() input: CreateCountInput,
+    @Headers('idempotency-key') key: string | undefined,
+    @Headers('x-correlation-id') correlationId: string,
+    @Req() request: TenantRequest,
+  ) {
+    return this.service.createCount(
+      input,
+      request.tenantContext,
+      metadata(request, correlationId, key),
+    );
+  }
+
+  @Get('inventory-counts/:id')
+  @RequirePermission('wms.inventory.count.read')
+  getCount(@Param('id') id: string, @Req() request: TenantRequest) {
+    return this.service.getCount(id, request.tenantContext);
+  }
+
+  @Post('inventory-count-lines/:id/count')
+  @Idempotent('wms.inventory.count-line.v1')
+  @RequirePermission('wms.inventory.count.execute')
+  countLine(
+    @Param('id') id: string,
+    @Body() input: InventoryQuantityInput & { reason?: string },
+    @Headers('idempotency-key') key: string | undefined,
+    @Headers('x-correlation-id') correlationId: string,
+    @Req() request: TenantRequest,
+  ) {
+    return this.service.countLine(
+      id,
+      input,
+      request.tenantContext,
+      metadata(request, correlationId, key),
+    );
+  }
+
+  @Post('inventory-count-lines/:id/approve')
+  @Idempotent('wms.inventory.count-approve.v1')
+  @RequirePermission('wms.inventory.count.approve')
+  approveCountLine(
+    @Param('id') id: string,
+    @Body()
+    input: InventoryQuantityInput & {
+      approvalReference: string;
+      reason: string;
+    },
+    @Headers('idempotency-key') key: string | undefined,
+    @Headers('x-correlation-id') correlationId: string,
+    @Req() request: TenantRequest,
+  ) {
+    return this.service.approveCountLine(
+      id,
+      input,
+      request.tenantContext,
+      metadata(request, correlationId, key),
+    );
+  }
+
+  @Post('inventory-counts/:id/transition')
+  @Idempotent('wms.inventory.count-transition.v1')
+  @RequirePermission('wms.inventory.count.execute')
+  transitionCount(
+    @Param('id') id: string,
+    @Body()
+    input: {
+      expectedVersion: number;
+      targetStatus: 'COUNTING' | 'REVIEWING' | 'POSTED' | 'CLOSED';
+    },
+    @Headers('idempotency-key') key: string | undefined,
+    @Headers('x-correlation-id') correlationId: string,
+    @Req() request: TenantRequest,
+  ) {
+    return this.service.transitionCount(
+      id,
+      input,
+      request.tenantContext,
+      metadata(request, correlationId, key),
+    );
+  }
+
+  @Post('inventory-counts/:id/release-segment')
+  @Idempotent('wms.inventory.count-release-segment.v1')
+  @RequirePermission('wms.inventory.count.approve')
+  releaseCountSegment(
+    @Param('id') id: string,
+    @Body() input: { locationId: string; reason: string },
+    @Headers('idempotency-key') key: string | undefined,
+    @Headers('x-correlation-id') correlationId: string,
+    @Req() request: TenantRequest,
+  ) {
+    return this.service.releaseCountSegment(
       id,
       input,
       request.tenantContext,

@@ -1133,6 +1133,8 @@ enum InventoryMovementType {
   RELEASE_HOLD
   RESERVE
   RELEASE_RESERVATION
+  OWNERSHIP_OUT
+  OWNERSHIP_IN
   @@schema("wms")
 }
 enum InventoryHoldStatus {
@@ -1146,6 +1148,33 @@ enum InventoryReservationStatus {
   RELEASED
   CONSUMED
   EXPIRED
+  @@schema("wms")
+}
+enum InventoryCountType {
+  CYCLE
+  FULL
+  @@schema("wms")
+}
+enum InventoryCountStatus {
+  PLANNED
+  COUNTING
+  REVIEWING
+  POSTED
+  CLOSED
+  CANCELLED
+  @@schema("wms")
+}
+enum InventoryCountLineStatus {
+  OPEN
+  COUNTED
+  RECOUNTED
+  APPROVED
+  POSTED
+  @@schema("wms")
+}
+enum CountFreezeStatus {
+  ACTIVE
+  RELEASED
   @@schema("wms")
 }
 
@@ -3778,6 +3807,157 @@ model AllocationDetail {
   businessSnapshot Json @default("{}") @map("business_snapshot") @db.JsonB
   @@index([tenantId,reservationId,createdAt],map:"allocation_detail_reservation_idx")
   @@map("allocation_detail")
+  @@schema("wms")
+}
+
+model InventoryTransferTask {
+  id String @id @default(uuid()) @db.Uuid
+  tenantId String @map("tenant_id") @db.Uuid
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  createdBy String @map("created_by") @db.Uuid
+  updatedAt DateTime @default(now()) @map("updated_at") @db.Timestamptz(3)
+  updatedBy String @map("updated_by") @db.Uuid
+  version Int @default(1)
+  status WmsRecordStatus @default(ACTIVE)
+  taskNo String @map("task_no") @db.VarChar(100)
+  sourceBalanceId String @map("source_balance_id") @db.Uuid
+  targetBalanceId String @map("target_balance_id") @db.Uuid
+  sourceLocationId String @map("source_location_id") @db.Uuid
+  targetLocationId String @map("target_location_id") @db.Uuid
+  quantityOriginal Decimal @map("quantity_original") @db.Decimal(24,12)
+  quantityBase Decimal @map("quantity_base") @db.Decimal(24,12)
+  reason String @db.VarChar(500)
+  movementId String @map("movement_id") @db.Uuid
+  completedAt DateTime @default(now()) @map("completed_at") @db.Timestamptz(3)
+  @@unique([tenantId,taskNo],map:"inventory_transfer_task_tenant_no_key")
+  @@index([tenantId,sourceBalanceId,createdAt],map:"inventory_transfer_task_source_idx")
+  @@map("inventory_transfer_task")
+  @@schema("wms")
+}
+
+model OwnershipTransfer {
+  id String @id @default(uuid()) @db.Uuid
+  tenantId String @map("tenant_id") @db.Uuid
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  createdBy String @map("created_by") @db.Uuid
+  updatedAt DateTime @default(now()) @map("updated_at") @db.Timestamptz(3)
+  updatedBy String @map("updated_by") @db.Uuid
+  version Int @default(1)
+  status WmsRecordStatus @default(ACTIVE)
+  transferNo String @map("transfer_no") @db.VarChar(100)
+  sourceBalanceId String @map("source_balance_id") @db.Uuid
+  targetBalanceId String @map("target_balance_id") @db.Uuid
+  fromOwnerId String @map("from_owner_id") @db.Uuid
+  toOwnerId String @map("to_owner_id") @db.Uuid
+  quantityOriginal Decimal @map("quantity_original") @db.Decimal(24,12)
+  quantityBase Decimal @map("quantity_base") @db.Decimal(24,12)
+  contractReference String @map("contract_reference") @db.VarChar(200)
+  approvalReference String @map("approval_reference") @db.VarChar(200)
+  reason String @db.VarChar(500)
+  outboundMovementId String @map("outbound_movement_id") @db.Uuid
+  inboundMovementId String @map("inbound_movement_id") @db.Uuid
+  chargeFactSnapshot Json @default("{}") @map("charge_fact_snapshot") @db.JsonB
+  @@unique([tenantId,transferNo],map:"ownership_transfer_tenant_no_key")
+  @@index([tenantId,sourceBalanceId,createdAt],map:"ownership_transfer_source_idx")
+  @@map("ownership_transfer")
+  @@schema("wms")
+}
+
+model CapacityCheck {
+  id String @id @default(uuid()) @db.Uuid
+  tenantId String @map("tenant_id") @db.Uuid
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  createdBy String @map("created_by") @db.Uuid
+  updatedAt DateTime @default(now()) @map("updated_at") @db.Timestamptz(3)
+  updatedBy String @map("updated_by") @db.Uuid
+  version Int @default(1)
+  status WmsRecordStatus @default(ACTIVE)
+  locationId String @map("location_id") @db.Uuid
+  businessType String @map("business_type") @db.VarChar(100)
+  businessRef String @map("business_ref") @db.VarChar(200)
+  allowed Boolean
+  constraintSnapshot Json @map("constraint_snapshot") @db.JsonB
+  exclusionReasons Json @default("[]") @map("exclusion_reasons") @db.JsonB
+  @@index([tenantId,locationId,createdAt],map:"capacity_check_location_idx")
+  @@map("capacity_check")
+  @@schema("wms")
+}
+
+model InventoryCountOrder {
+  id String @id @default(uuid()) @db.Uuid
+  tenantId String @map("tenant_id") @db.Uuid
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  createdBy String @map("created_by") @db.Uuid
+  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
+  updatedBy String @map("updated_by") @db.Uuid
+  version Int @default(1)
+  status InventoryCountStatus @default(PLANNED)
+  countNo String @map("count_no") @db.VarChar(100)
+  type InventoryCountType
+  warehouseId String @map("warehouse_id") @db.Uuid
+  ownerId String? @map("owner_id") @db.Uuid
+  blind Boolean @default(true)
+  freezeInventory Boolean @default(false) @map("freeze_inventory")
+  criteriaSnapshot Json @default("{}") @map("criteria_snapshot") @db.JsonB
+  startedAt DateTime? @map("started_at") @db.Timestamptz(3)
+  reviewedAt DateTime? @map("reviewed_at") @db.Timestamptz(3)
+  postedAt DateTime? @map("posted_at") @db.Timestamptz(3)
+  closedAt DateTime? @map("closed_at") @db.Timestamptz(3)
+  @@unique([tenantId,countNo],map:"inventory_count_order_tenant_no_key")
+  @@index([tenantId,warehouseId,status,createdAt],map:"inventory_count_order_workbench_idx")
+  @@map("inventory_count_order")
+  @@schema("wms")
+}
+
+model InventoryCountLine {
+  id String @id @default(uuid()) @db.Uuid
+  tenantId String @map("tenant_id") @db.Uuid
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  createdBy String @map("created_by") @db.Uuid
+  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
+  updatedBy String @map("updated_by") @db.Uuid
+  version Int @default(1)
+  status InventoryCountLineStatus @default(OPEN)
+  countOrderId String @map("count_order_id") @db.Uuid
+  balanceId String @map("balance_id") @db.Uuid
+  locationId String @map("location_id") @db.Uuid
+  dimensionSnapshot Json @map("dimension_snapshot") @db.JsonB
+  expectedQuantityOriginal Decimal @map("expected_quantity_original") @db.Decimal(24,12)
+  expectedQuantityBase Decimal @map("expected_quantity_base") @db.Decimal(24,12)
+  firstCountOriginal Decimal? @map("first_count_original") @db.Decimal(24,12)
+  firstCountBase Decimal? @map("first_count_base") @db.Decimal(24,12)
+  recountOriginal Decimal? @map("recount_original") @db.Decimal(24,12)
+  recountBase Decimal? @map("recount_base") @db.Decimal(24,12)
+  approvedQuantityOriginal Decimal? @map("approved_quantity_original") @db.Decimal(24,12)
+  approvedQuantityBase Decimal? @map("approved_quantity_base") @db.Decimal(24,12)
+  varianceReason String? @map("variance_reason") @db.VarChar(500)
+  approvalReference String? @map("approval_reference") @db.VarChar(200)
+  @@unique([tenantId,countOrderId,balanceId],map:"inventory_count_line_balance_key")
+  @@index([tenantId,countOrderId,status,locationId],map:"inventory_count_line_order_idx")
+  @@map("inventory_count_line")
+  @@schema("wms")
+}
+
+model InventoryCountFreeze {
+  id String @id @default(uuid()) @db.Uuid
+  tenantId String @map("tenant_id") @db.Uuid
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  createdBy String @map("created_by") @db.Uuid
+  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
+  updatedBy String @map("updated_by") @db.Uuid
+  version Int @default(1)
+  status CountFreezeStatus @default(ACTIVE)
+  countOrderId String @map("count_order_id") @db.Uuid
+  countLineId String @map("count_line_id") @db.Uuid
+  balanceId String @map("balance_id") @db.Uuid
+  locationId String @map("location_id") @db.Uuid
+  holdId String @map("hold_id") @db.Uuid
+  frozenOriginal Decimal @map("frozen_original") @db.Decimal(24,12)
+  frozenBase Decimal @map("frozen_base") @db.Decimal(24,12)
+  releasedAt DateTime? @map("released_at") @db.Timestamptz(3)
+  @@unique([tenantId,countOrderId,balanceId],map:"inventory_count_freeze_balance_key")
+  @@index([tenantId,countOrderId,status,locationId],map:"inventory_count_freeze_order_idx")
+  @@map("inventory_count_freeze")
   @@schema("wms")
 }
 

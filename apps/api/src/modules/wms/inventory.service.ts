@@ -53,6 +53,26 @@ export interface CreateReservationInput extends InventoryQuantityInput {
   readonly sourceRef: string;
   readonly sourceType: 'ORDER' | 'WAVE';
 }
+export interface TransferInventoryInput extends InventoryQuantityInput {
+  readonly reason: string;
+  readonly targetLocationId: string;
+}
+export interface OwnershipTransferInput extends InventoryQuantityInput {
+  readonly approvalReference: string;
+  readonly chargeFactSnapshot?: Readonly<Record<string, unknown>>;
+  readonly contractReference: string;
+  readonly reason: string;
+  readonly targetOwnerId: string;
+}
+export interface CreateCountInput {
+  readonly balanceIds?: readonly string[];
+  readonly blind?: boolean;
+  readonly criteriaSnapshot?: Readonly<Record<string, unknown>>;
+  readonly freezeInventory?: boolean;
+  readonly ownerId?: string;
+  readonly type: 'CYCLE' | 'FULL';
+  readonly warehouseId: string;
+}
 
 const json = (value: unknown) =>
   JSON.parse(JSON.stringify(value ?? {})) as Prisma.InputJsonValue;
@@ -771,6 +791,1059 @@ export class InventoryService {
     });
   }
 
+  async transfer(
+    id: string,
+    input: TransferInventoryInput,
+    context: TenantContext,
+    metadata: CommandMetadata,
+  ) {
+    this.uuid(id, 'balanceId');
+    this.uuid(input.targetLocationId, 'targetLocationId');
+    if (!input.reason?.trim())
+      throw new AppError(
+        'INVENTORY_TRANSFER_REASON_REQUIRED',
+        'Transfer reason is required',
+        400,
+      );
+    const quantity = this.quantity(input);
+    const transferId = randomUUID();
+    const result = await this.prisma.$transaction(async (tx) => {
+      await this.lockKey(
+        tx,
+        `capacity:${context.tenantId}:${input.targetLocationId}`,
+      );
+      await this.lockBalance(tx, id, context.tenantId);
+      const source = await tx.inventoryBalance.findFirst({
+        where: { id, tenantId: context.tenantId },
+      });
+      if (
+        !source ||
+        source.status !== 'AVAILABLE' ||
+        source.version !== input.expectedVersion ||
+        source.locationId === input.targetLocationId ||
+        quantity.base.greaterThan(source.availableBase) ||
+        quantity.original.greaterThan(source.availableOriginal) ||
+        !this.sameRatio(
+          quantity.original,
+          quantity.base,
+          source.onHandOriginal,
+          source.onHandBase,
+        )
+      )
+        throw this.conflict('INVENTORY_TRANSFER_CONFLICT');
+      const capacity = await this.capacityCheck(
+        tx,
+        source,
+        input.targetLocationId,
+        quantity.base,
+        'INVENTORY_TRANSFER',
+        transferId,
+        context,
+      );
+      if (!capacity.allowed) {
+        await tx.capacityCheck.create({
+          data: {
+            allowed: false,
+            businessRef: transferId,
+            businessType: 'INVENTORY_TRANSFER',
+            constraintSnapshot: json(capacity.snapshot),
+            createdBy: context.accountId,
+            exclusionReasons: capacity.exclusions,
+            locationId: input.targetLocationId,
+            tenantId: context.tenantId,
+            updatedBy: context.accountId,
+          },
+        });
+        return { exclusions: capacity.exclusions, rejected: true as const };
+      }
+      const changed = await tx.inventoryBalance.updateMany({
+        data: {
+          availableBase: { decrement: quantity.base },
+          availableOriginal: { decrement: quantity.original },
+          onHandBase: { decrement: quantity.base },
+          onHandOriginal: { decrement: quantity.original },
+          updatedBy: context.accountId,
+          version: { increment: 1 },
+        },
+        where: {
+          availableBase: { gte: quantity.base },
+          availableOriginal: { gte: quantity.original },
+          id,
+          status: 'AVAILABLE',
+          tenantId: context.tenantId,
+          version: input.expectedVersion,
+        },
+      });
+      if (changed.count !== 1)
+        throw this.conflict('INVENTORY_TRANSFER_CONFLICT');
+      const target = await this.postToBalance(
+        tx,
+        {
+          baseUom: source.baseUom,
+          businessRef: transferId,
+          businessType: 'INVENTORY_TRANSFER',
+          ...(source.handlingUnitId
+            ? { handlingUnitId: source.handlingUnitId }
+            : {}),
+          ...(source.inventoryLotId
+            ? { inventoryLotId: source.inventoryLotId }
+            : {}),
+          locationId: input.targetLocationId,
+          originalUom: source.originalUom,
+          ownerId: source.ownerId,
+          productId: source.productId,
+          quantityBase: quantity.base.toString(),
+          quantityOriginal: quantity.original.toString(),
+          ...(source.serialNumberId
+            ? { serialNumberId: source.serialNumberId }
+            : {}),
+          status: source.status,
+          warehouseId: source.warehouseId,
+        },
+        quantity,
+        'TRANSFER',
+        context,
+        metadata,
+        dimensionSnapshot(source),
+      );
+      await tx.capacityCheck.create({
+        data: {
+          allowed: true,
+          businessRef: transferId,
+          businessType: 'INVENTORY_TRANSFER',
+          constraintSnapshot: json(capacity.snapshot),
+          createdBy: context.accountId,
+          exclusionReasons: [],
+          locationId: input.targetLocationId,
+          tenantId: context.tenantId,
+          updatedBy: context.accountId,
+        },
+      });
+      const task = await tx.inventoryTransferTask.create({
+        data: {
+          createdBy: context.accountId,
+          id: transferId,
+          movementId: target.movementId,
+          quantityBase: quantity.base,
+          quantityOriginal: quantity.original,
+          reason: input.reason.trim(),
+          sourceBalanceId: source.id,
+          sourceLocationId: source.locationId,
+          targetBalanceId: target.balanceId,
+          targetLocationId: input.targetLocationId,
+          taskNo: `TRF-${Date.now()}-${transferId.slice(0, 6)}`,
+          tenantId: context.tenantId,
+          updatedBy: context.accountId,
+        },
+      });
+      await this.record(
+        tx,
+        transferId,
+        'InventoryTransferTask',
+        task.version,
+        'inventory.transferred.v1',
+        context,
+        metadata,
+        {
+          movementId: target.movementId,
+          quantityBase: quantity.base.toString(),
+          sourceBalanceId: source.id,
+          targetBalanceId: target.balanceId,
+          transferId,
+        },
+      );
+      return {
+        rejected: false as const,
+        sourceVersion: source.version + 1,
+        targetBalanceId: target.balanceId,
+        targetVersion: target.version,
+        transferId,
+      };
+    });
+    if (result.rejected)
+      throw new AppError(
+        'INVENTORY_LOCATION_CONSTRAINT_FAILED',
+        result.exclusions.join(', '),
+        409,
+      );
+    return result;
+  }
+
+  async transferOwnership(
+    id: string,
+    input: OwnershipTransferInput,
+    context: TenantContext,
+    metadata: CommandMetadata,
+  ) {
+    this.uuid(id, 'balanceId');
+    this.uuid(input.targetOwnerId, 'targetOwnerId');
+    if (
+      !input.reason?.trim() ||
+      !input.contractReference?.trim() ||
+      !input.approvalReference?.trim()
+    )
+      throw new AppError(
+        'OWNERSHIP_TRANSFER_AUTHORIZATION_REQUIRED',
+        'Contract, approval and reason are required',
+        403,
+      );
+    const quantity = this.quantity(input);
+    return this.prisma.$transaction(async (tx) => {
+      await this.lockBalance(tx, id, context.tenantId);
+      const source = await tx.inventoryBalance.findFirst({
+        where: { id, tenantId: context.tenantId },
+      });
+      if (
+        !source ||
+        source.status !== 'AVAILABLE' ||
+        source.version !== input.expectedVersion ||
+        source.ownerId === input.targetOwnerId ||
+        source.allocatedBase.greaterThan(0) ||
+        source.holdBase.greaterThan(0) ||
+        quantity.base.greaterThan(source.availableBase) ||
+        quantity.original.greaterThan(source.availableOriginal) ||
+        !this.sameRatio(
+          quantity.original,
+          quantity.base,
+          source.onHandOriginal,
+          source.onHandBase,
+        )
+      )
+        throw this.conflict('OWNERSHIP_TRANSFER_CONFLICT');
+      const changed = await tx.inventoryBalance.updateMany({
+        data: {
+          availableBase: { decrement: quantity.base },
+          availableOriginal: { decrement: quantity.original },
+          onHandBase: { decrement: quantity.base },
+          onHandOriginal: { decrement: quantity.original },
+          updatedBy: context.accountId,
+          version: { increment: 1 },
+        },
+        where: {
+          id,
+          tenantId: context.tenantId,
+          version: input.expectedVersion,
+        },
+      });
+      if (changed.count !== 1)
+        throw this.conflict('OWNERSHIP_TRANSFER_CONFLICT');
+      const transferId = randomUUID();
+      const outbound = await this.appendMovement(
+        tx,
+        source.id,
+        'OWNERSHIP_OUT',
+        quantity,
+        source.originalUom,
+        source.baseUom,
+        'OWNERSHIP_TRANSFER',
+        transferId,
+        context,
+        metadata,
+        dimensionSnapshot(source),
+        {},
+      );
+      const target = await this.postToBalance(
+        tx,
+        {
+          baseUom: source.baseUom,
+          businessRef: transferId,
+          businessType: 'OWNERSHIP_TRANSFER',
+          ...(source.handlingUnitId
+            ? { handlingUnitId: source.handlingUnitId }
+            : {}),
+          ...(source.inventoryLotId
+            ? { inventoryLotId: source.inventoryLotId }
+            : {}),
+          locationId: source.locationId,
+          originalUom: source.originalUom,
+          ownerId: input.targetOwnerId,
+          productId: source.productId,
+          quantityBase: quantity.base.toString(),
+          quantityOriginal: quantity.original.toString(),
+          ...(source.serialNumberId
+            ? { serialNumberId: source.serialNumberId }
+            : {}),
+          status: source.status,
+          warehouseId: source.warehouseId,
+        },
+        quantity,
+        'OWNERSHIP_IN',
+        context,
+        metadata,
+        dimensionSnapshot(source),
+      );
+      const row = await tx.ownershipTransfer.create({
+        data: {
+          approvalReference: input.approvalReference.trim(),
+          chargeFactSnapshot: json({
+            chargeType: 'OWNERSHIP_TRANSFER',
+            quantityBase: quantity.base.toString(),
+            ...(input.chargeFactSnapshot ?? {}),
+          }),
+          contractReference: input.contractReference.trim(),
+          createdBy: context.accountId,
+          fromOwnerId: source.ownerId,
+          id: transferId,
+          inboundMovementId: target.movementId,
+          outboundMovementId: outbound.id,
+          quantityBase: quantity.base,
+          quantityOriginal: quantity.original,
+          reason: input.reason.trim(),
+          sourceBalanceId: source.id,
+          targetBalanceId: target.balanceId,
+          tenantId: context.tenantId,
+          toOwnerId: input.targetOwnerId,
+          transferNo: `OWN-${Date.now()}-${transferId.slice(0, 6)}`,
+          updatedBy: context.accountId,
+        },
+      });
+      await this.record(
+        tx,
+        transferId,
+        'OwnershipTransfer',
+        row.version,
+        'inventory.ownership-transferred.v1',
+        context,
+        metadata,
+        {
+          fromOwnerId: source.ownerId,
+          inboundMovementId: target.movementId,
+          outboundMovementId: outbound.id,
+          quantityBase: quantity.base.toString(),
+          toOwnerId: input.targetOwnerId,
+          transferId,
+        },
+      );
+      return {
+        sourceVersion: source.version + 1,
+        targetBalanceId: target.balanceId,
+        targetVersion: target.version,
+        transferId,
+      };
+    });
+  }
+
+  async createCount(
+    input: CreateCountInput,
+    context: TenantContext,
+    metadata: CommandMetadata,
+  ) {
+    this.uuid(input.warehouseId, 'warehouseId');
+    if (input.ownerId) this.uuid(input.ownerId, 'ownerId');
+    for (const id of input.balanceIds ?? []) this.uuid(id, 'balanceId');
+    if (input.type === 'CYCLE' && !input.balanceIds?.length)
+      throw new AppError(
+        'INVENTORY_COUNT_CRITERIA_REQUIRED',
+        'Cycle count requires selected balances',
+        400,
+      );
+    return this.prisma.$transaction(async (tx) => {
+      const balances = await tx.inventoryBalance.findMany({
+        orderBy: [{ locationId: 'asc' }, { id: 'asc' }],
+        where: {
+          ...(input.balanceIds?.length
+            ? { id: { in: [...input.balanceIds] } }
+            : {}),
+          onHandBase: { gt: 0 },
+          ...(input.ownerId ? { ownerId: input.ownerId } : {}),
+          tenantId: context.tenantId,
+          warehouseId: input.warehouseId,
+        },
+      });
+      if (!balances.length)
+        throw new AppError(
+          'INVENTORY_COUNT_SCOPE_EMPTY',
+          'Count scope contains no inventory',
+          409,
+        );
+      const countId = randomUUID();
+      const order = await tx.inventoryCountOrder.create({
+        data: {
+          blind: input.blind ?? true,
+          countNo: `CNT-${Date.now()}-${countId.slice(0, 6)}`,
+          createdBy: context.accountId,
+          criteriaSnapshot: json({
+            balanceIds: input.balanceIds ?? [],
+            ...(input.criteriaSnapshot ?? {}),
+          }),
+          freezeInventory: input.freezeInventory ?? input.type === 'FULL',
+          id: countId,
+          ownerId: input.ownerId ?? null,
+          tenantId: context.tenantId,
+          type: input.type,
+          updatedBy: context.accountId,
+          warehouseId: input.warehouseId,
+        },
+      });
+      for (const balance of balances) {
+        await this.lockBalance(tx, balance.id, context.tenantId);
+        const line = await tx.inventoryCountLine.create({
+          data: {
+            balanceId: balance.id,
+            countOrderId: countId,
+            createdBy: context.accountId,
+            dimensionSnapshot: json(dimensionSnapshot(balance)),
+            expectedQuantityBase: balance.onHandBase,
+            expectedQuantityOriginal: balance.onHandOriginal,
+            locationId: balance.locationId,
+            tenantId: context.tenantId,
+            updatedBy: context.accountId,
+          },
+        });
+        if (order.freezeInventory && balance.availableBase.greaterThan(0)) {
+          const current = await tx.inventoryBalance.findUniqueOrThrow({
+            where: { id: balance.id },
+          });
+          const changed = await tx.inventoryBalance.updateMany({
+            data: {
+              availableBase: 0,
+              availableOriginal: 0,
+              holdBase: { increment: current.availableBase },
+              holdOriginal: { increment: current.availableOriginal },
+              updatedBy: context.accountId,
+              version: { increment: 1 },
+            },
+            where: { id: balance.id, version: current.version },
+          });
+          if (changed.count !== 1)
+            throw this.conflict('INVENTORY_COUNT_FREEZE_CONFLICT');
+          const holdId = randomUUID();
+          await tx.inventoryHold.create({
+            data: {
+              balanceId: balance.id,
+              createdBy: context.accountId,
+              holdNo: `CNT-HLD-${Date.now()}-${holdId.slice(0, 6)}`,
+              id: holdId,
+              quantityBase: current.availableBase,
+              quantityOriginal: current.availableOriginal,
+              reason: `Count ${order.countNo}`,
+              requiresApproval: false,
+              scopeRef: order.countNo,
+              scopeSnapshot: json({ countOrderId: countId }),
+              scopeType: 'LOCATION',
+              tenantId: context.tenantId,
+              updatedBy: context.accountId,
+            },
+          });
+          await tx.inventoryCountFreeze.create({
+            data: {
+              balanceId: balance.id,
+              countLineId: line.id,
+              countOrderId: countId,
+              createdBy: context.accountId,
+              frozenBase: current.availableBase,
+              frozenOriginal: current.availableOriginal,
+              holdId,
+              locationId: balance.locationId,
+              tenantId: context.tenantId,
+              updatedBy: context.accountId,
+            },
+          });
+        }
+      }
+      await this.record(
+        tx,
+        countId,
+        'InventoryCountOrder',
+        order.version,
+        'inventory.count-planned.v1',
+        context,
+        metadata,
+        { countId, lineCount: balances.length, type: order.type },
+      );
+      return {
+        countId,
+        frozen: order.freezeInventory,
+        lineCount: balances.length,
+        status: order.status,
+        version: order.version,
+      };
+    });
+  }
+
+  async getCount(id: string, context: TenantContext) {
+    this.uuid(id, 'countId');
+    const order = await this.prisma.inventoryCountOrder.findFirst({
+      where: { id, tenantId: context.tenantId },
+    });
+    if (!order)
+      throw new AppError(
+        'INVENTORY_COUNT_NOT_FOUND',
+        'Count was not found',
+        404,
+      );
+    const [lines, freezes] = await Promise.all([
+      this.prisma.inventoryCountLine.findMany({
+        orderBy: [{ locationId: 'asc' }, { createdAt: 'asc' }],
+        where: { countOrderId: id, tenantId: context.tenantId },
+      }),
+      this.prisma.inventoryCountFreeze.findMany({
+        orderBy: { createdAt: 'asc' },
+        where: { countOrderId: id, tenantId: context.tenantId },
+      }),
+    ]);
+    return { freezes, lines, order };
+  }
+
+  async countLine(
+    id: string,
+    input: InventoryQuantityInput & { reason?: string },
+    context: TenantContext,
+    metadata: CommandMetadata,
+  ) {
+    this.uuid(id, 'countLineId');
+    const quantity = this.nonNegativeQuantity(input);
+    return this.prisma.$transaction(async (tx) => {
+      const line = await tx.inventoryCountLine.findFirst({
+        where: { id, tenantId: context.tenantId },
+      });
+      if (!line || line.version !== input.expectedVersion)
+        throw this.conflict('INVENTORY_COUNT_LINE_CONFLICT');
+      if (
+        !this.sameRatio(
+          quantity.original,
+          quantity.base,
+          line.expectedQuantityOriginal,
+          line.expectedQuantityBase,
+        )
+      )
+        throw new AppError(
+          'INVENTORY_COUNT_UOM_RATIO_INVALID',
+          'Count quantity must preserve the balance unit ratio',
+          400,
+        );
+      const order = await tx.inventoryCountOrder.findFirstOrThrow({
+        where: { id: line.countOrderId, tenantId: context.tenantId },
+      });
+      if (order.status !== 'COUNTING')
+        throw new AppError(
+          'INVENTORY_COUNT_STATE_INVALID',
+          'Count order must be counting',
+          409,
+        );
+      const first = line.status === 'OPEN';
+      const recount = ['COUNTED', 'RECOUNTED'].includes(line.status);
+      if (!first && !recount)
+        throw this.conflict('INVENTORY_COUNT_LINE_CONFLICT');
+      const changed = await tx.inventoryCountLine.update({
+        data: first
+          ? {
+              firstCountBase: quantity.base,
+              firstCountOriginal: quantity.original,
+              status: 'COUNTED',
+              updatedBy: context.accountId,
+              varianceReason: input.reason?.trim() ?? null,
+              version: { increment: 1 },
+            }
+          : {
+              recountBase: quantity.base,
+              recountOriginal: quantity.original,
+              status: 'RECOUNTED',
+              updatedBy: context.accountId,
+              varianceReason: input.reason?.trim() ?? line.varianceReason,
+              version: { increment: 1 },
+            },
+        where: { id },
+      });
+      await this.record(
+        tx,
+        id,
+        'InventoryCountLine',
+        changed.version,
+        first ? 'inventory.counted.v1' : 'inventory.recounted.v1',
+        context,
+        metadata,
+        {
+          countId: order.id,
+          countLineId: id,
+          quantityBase: quantity.base.toString(),
+        },
+      );
+      return { status: changed.status, version: changed.version };
+    });
+  }
+
+  async approveCountLine(
+    id: string,
+    input: InventoryQuantityInput & {
+      approvalReference: string;
+      reason: string;
+    },
+    context: TenantContext,
+    metadata: CommandMetadata,
+  ) {
+    this.uuid(id, 'countLineId');
+    if (!input.approvalReference?.trim() || !input.reason?.trim())
+      throw new AppError(
+        'INVENTORY_COUNT_APPROVAL_REQUIRED',
+        'Approval and variance reason are required',
+        403,
+      );
+    const quantity = this.nonNegativeQuantity(input);
+    return this.prisma.$transaction(async (tx) => {
+      const line = await tx.inventoryCountLine.findFirst({
+        where: { id, tenantId: context.tenantId },
+      });
+      const order = line
+        ? await tx.inventoryCountOrder.findFirst({
+            where: { id: line.countOrderId, tenantId: context.tenantId },
+          })
+        : null;
+      if (
+        !line ||
+        !order ||
+        order.status !== 'REVIEWING' ||
+        !['COUNTED', 'RECOUNTED'].includes(line.status) ||
+        line.version !== input.expectedVersion
+      )
+        throw this.conflict('INVENTORY_COUNT_LINE_CONFLICT');
+      if (
+        !this.sameRatio(
+          quantity.original,
+          quantity.base,
+          line.expectedQuantityOriginal,
+          line.expectedQuantityBase,
+        )
+      )
+        throw new AppError(
+          'INVENTORY_COUNT_UOM_RATIO_INVALID',
+          'Approved quantity must preserve the balance unit ratio',
+          400,
+        );
+      const changed = await tx.inventoryCountLine.update({
+        data: {
+          approvalReference: input.approvalReference.trim(),
+          approvedQuantityBase: quantity.base,
+          approvedQuantityOriginal: quantity.original,
+          status: 'APPROVED',
+          updatedBy: context.accountId,
+          varianceReason: input.reason.trim(),
+          version: { increment: 1 },
+        },
+        where: { id },
+      });
+      await this.record(
+        tx,
+        id,
+        'InventoryCountLine',
+        changed.version,
+        'inventory.count-variance-approved.v1',
+        context,
+        metadata,
+        { countId: order.id, countLineId: id },
+      );
+      return { status: changed.status, version: changed.version };
+    });
+  }
+
+  async transitionCount(
+    id: string,
+    input: {
+      expectedVersion: number;
+      targetStatus: 'COUNTING' | 'REVIEWING' | 'POSTED' | 'CLOSED';
+    },
+    context: TenantContext,
+    metadata: CommandMetadata,
+  ) {
+    this.uuid(id, 'countId');
+    return this.prisma.$transaction(async (tx) => {
+      const order = await tx.inventoryCountOrder.findFirst({
+        where: { id, tenantId: context.tenantId },
+      });
+      if (!order || order.version !== input.expectedVersion)
+        throw this.conflict('INVENTORY_COUNT_CONFLICT');
+      const allowed =
+        (order.status === 'PLANNED' && input.targetStatus === 'COUNTING') ||
+        (order.status === 'COUNTING' && input.targetStatus === 'REVIEWING') ||
+        (order.status === 'REVIEWING' && input.targetStatus === 'POSTED') ||
+        (order.status === 'POSTED' && input.targetStatus === 'CLOSED');
+      if (!allowed)
+        throw new AppError(
+          'INVENTORY_COUNT_TRANSITION_INVALID',
+          `Count transition ${order.status} -> ${input.targetStatus} is not allowed`,
+          409,
+        );
+      const lines = await tx.inventoryCountLine.findMany({
+        where: { countOrderId: id, tenantId: context.tenantId },
+      });
+      if (
+        input.targetStatus === 'REVIEWING' &&
+        lines.some(({ status }) => status === 'OPEN')
+      )
+        throw new AppError(
+          'INVENTORY_COUNT_LINES_INCOMPLETE',
+          'Every line requires a first count',
+          409,
+        );
+      if (
+        input.targetStatus === 'POSTED' &&
+        lines.some((line) => {
+          const counted = line.recountBase ?? line.firstCountBase;
+          return (
+            counted === null ||
+            (!counted.equals(line.expectedQuantityBase) &&
+              line.status !== 'APPROVED')
+          );
+        })
+      )
+        throw new AppError(
+          'INVENTORY_COUNT_VARIANCE_UNAPPROVED',
+          'Every variance requires recount or approval',
+          409,
+        );
+      if (input.targetStatus === 'CLOSED') {
+        const activeFreezes = await tx.inventoryCountFreeze.count({
+          where: {
+            countOrderId: id,
+            status: 'ACTIVE',
+            tenantId: context.tenantId,
+          },
+        });
+        if (activeFreezes)
+          throw new AppError(
+            'INVENTORY_COUNT_FREEZE_ACTIVE',
+            'Every count segment must be released before close',
+            409,
+          );
+      }
+      const changed = await tx.inventoryCountOrder.update({
+        data: {
+          closedAt:
+            input.targetStatus === 'CLOSED' ? new Date() : order.closedAt,
+          postedAt:
+            input.targetStatus === 'POSTED' ? new Date() : order.postedAt,
+          reviewedAt:
+            input.targetStatus === 'REVIEWING' ? new Date() : order.reviewedAt,
+          startedAt:
+            input.targetStatus === 'COUNTING' ? new Date() : order.startedAt,
+          status: input.targetStatus,
+          updatedBy: context.accountId,
+          version: { increment: 1 },
+        },
+        where: { id },
+      });
+      if (input.targetStatus === 'POSTED')
+        await tx.inventoryCountLine.updateMany({
+          data: {
+            status: 'POSTED',
+            updatedBy: context.accountId,
+            version: { increment: 1 },
+          },
+          where: { countOrderId: id, tenantId: context.tenantId },
+        });
+      await this.record(
+        tx,
+        id,
+        'InventoryCountOrder',
+        changed.version,
+        'inventory.count-transitioned.v1',
+        context,
+        metadata,
+        { countId: id, from: order.status, to: input.targetStatus },
+      );
+      return { status: changed.status, version: changed.version };
+    });
+  }
+
+  async releaseCountSegment(
+    id: string,
+    input: { locationId: string; reason: string },
+    context: TenantContext,
+    metadata: CommandMetadata,
+  ) {
+    this.uuid(id, 'countId');
+    this.uuid(input.locationId, 'locationId');
+    if (!input.reason?.trim())
+      throw new AppError(
+        'INVENTORY_COUNT_RELEASE_REASON_REQUIRED',
+        'Segment release reason is required',
+        400,
+      );
+    return this.prisma.$transaction(async (tx) => {
+      const order = await tx.inventoryCountOrder.findFirst({
+        where: { id, status: 'POSTED', tenantId: context.tenantId },
+      });
+      if (!order)
+        throw new AppError(
+          'INVENTORY_COUNT_STATE_INVALID',
+          'Only posted count can release segments',
+          409,
+        );
+      const freezes = await tx.inventoryCountFreeze.findMany({
+        orderBy: { balanceId: 'asc' },
+        where: {
+          countOrderId: id,
+          locationId: input.locationId,
+          status: 'ACTIVE',
+          tenantId: context.tenantId,
+        },
+      });
+      if (!freezes.length)
+        throw new AppError(
+          'INVENTORY_COUNT_SEGMENT_NOT_FROZEN',
+          'No active freeze exists for this segment',
+          404,
+        );
+      for (const freeze of freezes) {
+        await this.lockBalance(tx, freeze.balanceId, context.tenantId);
+        const balance = await tx.inventoryBalance.findUniqueOrThrow({
+          where: { id: freeze.balanceId },
+        });
+        const changed = await tx.inventoryBalance.updateMany({
+          data: {
+            availableBase: { increment: freeze.frozenBase },
+            availableOriginal: { increment: freeze.frozenOriginal },
+            holdBase: { decrement: freeze.frozenBase },
+            holdOriginal: { decrement: freeze.frozenOriginal },
+            updatedBy: context.accountId,
+            version: { increment: 1 },
+          },
+          where: {
+            holdBase: { gte: freeze.frozenBase },
+            holdOriginal: { gte: freeze.frozenOriginal },
+            id: balance.id,
+            version: balance.version,
+          },
+        });
+        if (changed.count !== 1)
+          throw this.conflict('INVENTORY_COUNT_FREEZE_CONFLICT');
+        await tx.inventoryHold.update({
+          data: {
+            releasedAt: new Date(),
+            releaseReason: input.reason.trim(),
+            status: 'RELEASED',
+            updatedBy: context.accountId,
+            version: { increment: 1 },
+          },
+          where: { id: freeze.holdId },
+        });
+        await tx.inventoryCountFreeze.update({
+          data: {
+            releasedAt: new Date(),
+            status: 'RELEASED',
+            updatedBy: context.accountId,
+            version: { increment: 1 },
+          },
+          where: { id: freeze.id },
+        });
+      }
+      await this.record(
+        tx,
+        id,
+        'InventoryCountOrder',
+        order.version,
+        'inventory.count-segment-released.v1',
+        context,
+        metadata,
+        { countId: id, locationId: input.locationId },
+      );
+      return { locationId: input.locationId, releasedCount: freezes.length };
+    });
+  }
+
+  private async capacityCheck(
+    tx: Prisma.TransactionClient,
+    source: {
+      handlingUnitId: string | null;
+      inventoryLotId: string | null;
+      ownerId: string;
+      productId: string;
+      warehouseId: string;
+    },
+    targetLocationId: string,
+    incomingQuantityBase: Prisma.Decimal,
+    businessType: string,
+    businessRef: string,
+    context: TenantContext,
+  ) {
+    const [locations, targetBalances] = await Promise.all([
+      this.mdm.listWarehouseLocations(source.warehouseId, context),
+      tx.inventoryBalance.findMany({
+        where: {
+          locationId: targetLocationId,
+          onHandBase: { gt: 0 },
+          tenantId: context.tenantId,
+        },
+      }),
+    ]);
+    const references = await this.mdm.resolveOrderReferences(
+      {
+        lines: [
+          ...new Set([
+            source.productId,
+            ...targetBalances.map(({ productId }) => productId),
+          ]),
+        ].map((productId) => ({ productId })),
+      },
+      context,
+    );
+    const target = locations.find(({ id }) => id === targetLocationId);
+    const product = references.products[0];
+    const exclusions: string[] = [];
+    if (!target || target.type !== 'LOCATION')
+      exclusions.push('TARGET_NOT_STORAGE');
+    if (!product) exclusions.push('PRODUCT_NOT_ACTIVE');
+    if (
+      target &&
+      product?.temperatureZone &&
+      target.temperatureZone &&
+      product.temperatureZone !== target.temperatureZone
+    )
+      exclusions.push('TEMPERATURE_INCOMPATIBLE');
+    if (target && product?.hazardous && !target.hazardousAllowed)
+      exclusions.push('HAZARDOUS_NOT_ALLOWED');
+    const mixing = (target?.mixingRules ?? {}) as Record<string, unknown>;
+    if (
+      mixing.allowMixedOwners === false &&
+      targetBalances.some(({ ownerId }) => ownerId !== source.ownerId)
+    )
+      exclusions.push('MIXED_OWNER_NOT_ALLOWED');
+    if (
+      mixing.allowMixedProducts === false &&
+      targetBalances.some(({ productId }) => productId !== source.productId)
+    )
+      exclusions.push('MIXED_PRODUCT_NOT_ALLOWED');
+    if (
+      mixing.allowMixedLots === false &&
+      targetBalances.some(
+        ({ inventoryLotId }) => inventoryLotId !== source.inventoryLotId,
+      )
+    )
+      exclusions.push('MIXED_LOT_NOT_ALLOWED');
+    const currentQuantity = targetBalances.reduce(
+      (total, balance) => total.add(balance.onHandBase),
+      new Prisma.Decimal(0),
+    );
+    const decimalRule = (value: unknown) => {
+      try {
+        return value === undefined || value === null
+          ? null
+          : new Prisma.Decimal(String(value));
+      } catch {
+        return null;
+      }
+    };
+    const maxQuantity = decimalRule(mixing.maxQuantityBase);
+    if (
+      maxQuantity &&
+      currentQuantity.add(incomingQuantityBase).greaterThan(maxQuantity)
+    )
+      exclusions.push('QUANTITY_CAPACITY_EXCEEDED');
+    const metric = (
+      reference: (typeof references.products)[number] | undefined,
+      names: readonly string[],
+    ) => {
+      const snapshot = (reference?.versionSnapshot ?? {}) as Record<
+        string,
+        unknown
+      >;
+      for (const name of names) {
+        const value = decimalRule(snapshot[name]);
+        if (value) return value;
+      }
+      return null;
+    };
+    const capacityUsage = (names: readonly string[]) =>
+      targetBalances.reduce((total, balance) => {
+        const reference = references.products.find(
+          ({ id }) => id === balance.productId,
+        );
+        const perBase = metric(reference, names);
+        return perBase ? total.add(perBase.mul(balance.onHandBase)) : total;
+      }, new Prisma.Decimal(0));
+    const sourceReference = references.products.find(
+      ({ id }) => id === source.productId,
+    );
+    const sourceWeight = metric(sourceReference, [
+      'weightPerBase',
+      'unitWeight',
+      'grossWeight',
+    ]);
+    const sourceVolume = metric(sourceReference, [
+      'volumePerBase',
+      'unitVolume',
+      'volume',
+    ]);
+    const projectedWeight = capacityUsage([
+      'weightPerBase',
+      'unitWeight',
+      'grossWeight',
+    ]).add(sourceWeight?.mul(incomingQuantityBase) ?? 0);
+    const projectedVolume = capacityUsage([
+      'volumePerBase',
+      'unitVolume',
+      'volume',
+    ]).add(sourceVolume?.mul(incomingQuantityBase) ?? 0);
+    if (
+      target?.maxWeight !== null &&
+      target?.maxWeight !== undefined &&
+      projectedWeight.greaterThan(target.maxWeight)
+    )
+      exclusions.push('WEIGHT_CAPACITY_EXCEEDED');
+    if (
+      target?.maxVolume !== null &&
+      target?.maxVolume !== undefined &&
+      projectedVolume.greaterThan(target.maxVolume)
+    )
+      exclusions.push('VOLUME_CAPACITY_EXCEEDED');
+    const currentUnits = new Set(
+      targetBalances.flatMap(({ handlingUnitId }) =>
+        handlingUnitId ? [handlingUnitId] : [],
+      ),
+    );
+    if (
+      target?.palletCapacity !== null &&
+      target?.palletCapacity !== undefined &&
+      source.handlingUnitId &&
+      !currentUnits.has(source.handlingUnitId) &&
+      new Prisma.Decimal(currentUnits.size + 1).greaterThan(
+        target.palletCapacity,
+      )
+    )
+      exclusions.push('PALLET_CAPACITY_EXCEEDED');
+    return {
+      allowed: exclusions.length === 0,
+      exclusions,
+      snapshot: {
+        businessRef,
+        businessType,
+        currentHandlingUnitCount: currentUnits.size,
+        currentQuantityBase: currentQuantity.toString(),
+        incomingQuantityBase: incomingQuantityBase.toString(),
+        mixingRules: target?.mixingRules ?? {},
+        palletCapacity: target?.palletCapacity ?? null,
+        product,
+        projectedVolume: projectedVolume.toString(),
+        projectedWeight: projectedWeight.toString(),
+        target,
+      },
+    };
+  }
+
+  private nonNegativeQuantity(input: {
+    quantityBase: string;
+    quantityOriginal: string;
+  }) {
+    try {
+      const base = new Prisma.Decimal(input.quantityBase);
+      const original = new Prisma.Decimal(input.quantityOriginal);
+      if (
+        !base.isFinite() ||
+        !original.isFinite() ||
+        base.isNegative() ||
+        original.isNegative()
+      )
+        throw new Error();
+      return { base, original };
+    } catch {
+      throw new AppError(
+        'INVENTORY_QUANTITY_INVALID',
+        'Count quantity must be non-negative decimal values',
+        400,
+      );
+    }
+  }
+
   private async postToBalance(
     tx: Prisma.TransactionClient,
     input: PostInventoryInput,
@@ -1052,6 +2125,13 @@ export class InventoryService {
       SELECT id FROM wms.inventory_balance
       WHERE id = ${id}::uuid AND tenant_id = ${tenantId}::uuid
       FOR UPDATE
+    `;
+  }
+
+  private async lockKey(tx: Prisma.TransactionClient, key: string) {
+    await tx.$queryRaw`
+      SELECT 1::int AS locked
+      FROM (SELECT pg_advisory_xact_lock(hashtextextended(${key}, 0))) AS lock
     `;
   }
 
