@@ -104,9 +104,13 @@ export class MdmReferenceService {
       })),
       products: products.map((product) => ({
         baseUom: product.baseUom,
+        batchControl: product.batchControl,
         hazardous: product.hazardous,
         id: product.id,
+        minimumRemainingDays: product.minimumRemainingDays,
         name: product.name,
+        serialControl: product.serialControl,
+        shelfLifeDays: product.shelfLifeDays,
         sku: product.sku,
         versionNumber: product.currentVersionNumber,
         versionSnapshot:

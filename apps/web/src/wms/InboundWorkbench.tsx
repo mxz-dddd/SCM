@@ -74,6 +74,54 @@ interface ScanEvent {
   resolvedObjectType: string | null;
   status: string;
 }
+interface ReceiptLineRow {
+  acceptedQuantityBase: string;
+  id: string;
+  mode: string;
+  pendingQuantityBase: string;
+  productId: string;
+  receivedQuantityBase: string;
+  rejectedQuantityBase: string;
+}
+interface ReceivingVarianceRow {
+  id: string;
+  reason: string;
+  status: string;
+  type: string;
+  version: number;
+}
+interface HandlingUnitRow {
+  id: string;
+  labelNumber: string;
+  lpn: string;
+  parentHandlingUnitId: string | null;
+  status: string;
+  type: string;
+  version: number;
+}
+interface HandlingUnitContentRow {
+  handlingUnitId: string;
+  id: string;
+  quantityBase: string;
+  quantityOriginal: string;
+  receiptLineId: string;
+  status: string;
+}
+interface ReceivingDetail {
+  handlingUnitContents: HandlingUnitContentRow[];
+  handlingUnitEvents: Array<{ id: string; occurredAt: string; type: string }>;
+  handlingUnits: HandlingUnitRow[];
+  labelJobs: Array<{
+    id: string;
+    jobNo: string;
+    labelNumber: string;
+    status: string;
+  }>;
+  lots: Array<{ id: string; status: string }>;
+  receiptLines: ReceiptLineRow[];
+  serials: Array<{ id: string; serialNumber: string; status: string }>;
+  variances: ReceivingVarianceRow[];
+}
 interface InboundDetail extends InboundRow {
   appointments: AppointmentLink[];
   arrivals: ArrivalEvent[];
@@ -158,6 +206,67 @@ const actions = createActionRegistry<InboundStatus>([
   },
   {
     allowedStatuses: ['RECEIVING'],
+    id: 'receive-blind',
+    label: '盲收确认',
+    requiredPermissions: ['wms.receipt.receive'],
+  },
+  {
+    allowedStatuses: ['RECEIVING'],
+    id: 'receive-ordered',
+    label: '按单收货',
+    requiredPermissions: ['wms.receipt.receive'],
+  },
+  {
+    allowedStatuses: ['RECEIVING'],
+    confirmMessage: '超收、短收或替代包装将记录主管授权与差异通知。',
+    id: 'receive-authorized',
+    label: '授权超短收',
+    requiredPermissions: ['wms.receipt.variance.authorize'],
+  },
+  {
+    allowedStatuses: ['RECEIVING'],
+    id: 'create-handling-unit',
+    label: '生成 LPN',
+    requiredPermissions: ['wms.handling-unit.write'],
+  },
+  {
+    allowedStatuses: ['RECEIVING'],
+    id: 'build-pallet',
+    label: '建托',
+    requiredPermissions: ['wms.handling-unit.build'],
+  },
+  {
+    allowedStatuses: ['RECEIVING'],
+    id: 'split-pallet',
+    label: '拆托',
+    requiredPermissions: ['wms.handling-unit.split'],
+  },
+  {
+    allowedStatuses: ['RECEIVING'],
+    id: 'merge-pallet',
+    label: '合托',
+    requiredPermissions: ['wms.handling-unit.merge'],
+  },
+  {
+    allowedStatuses: ['RECEIVING'],
+    id: 'reprint-label',
+    label: '补打标签',
+    requiredPermissions: ['wms.label.print'],
+  },
+  {
+    allowedStatuses: ['RECEIVING'],
+    id: 'open-variance',
+    label: '记录差异',
+    requiredPermissions: ['wms.receiving.variance.write'],
+  },
+  {
+    allowedStatuses: ['RECEIVING'],
+    id: 'dispose-variance',
+    label: '处置差异',
+    requiredPermissions: ['wms.receiving.variance.dispose'],
+  },
+  {
+    allowedStatuses: ['RECEIVING'],
     confirmMessage: '仅当全部收货任务终态时才可完成入库。',
     id: 'complete',
     label: '完成入库',
@@ -188,6 +297,7 @@ export function InboundWorkbench() {
   const [filters, setFilters] = useState<Record<string, string>>({});
   const [selectedIds, setSelectedIds] = useState<readonly string[]>([]);
   const [detail, setDetail] = useState<InboundDetail>();
+  const [receivingDetail, setReceivingDetail] = useState<ReceivingDetail>();
   const [error, setError] = useState<string>();
   const [notice, setNotice] = useState<string>();
   const permissions = useMemo(
@@ -250,11 +360,12 @@ export function InboundWorkbench() {
 
   async function loadDetail(id: string) {
     try {
-      setDetail(
-        (await request(
-          `/api/v1/wms/inbounds/${id}`,
-        )) as unknown as InboundDetail,
-      );
+      const [nextDetail, nextReceivingDetail] = await Promise.all([
+        request(`/api/v1/wms/inbounds/${id}`),
+        request(`/api/v1/wms/inbounds/${id}/receiving-detail`),
+      ]);
+      setDetail(nextDetail as unknown as InboundDetail);
+      setReceivingDetail(nextReceivingDetail as unknown as ReceivingDetail);
     } catch (caught) {
       setError(caught instanceof Error ? caught.message : '入库详情查询失败');
     }
@@ -445,6 +556,209 @@ export function InboundWorkbench() {
           method: 'POST',
         });
         setNotice(`任务已推进至 ${targetStatus}`);
+      } else if (
+        selected &&
+        ['receive-blind', 'receive-ordered', 'receive-authorized'].includes(
+          actionId,
+        )
+      ) {
+        const task = detail?.tasks.find(
+          ({ status }) => status === 'IN_PROGRESS',
+        );
+        const line = detail?.lines[0];
+        const received = window.prompt(
+          '本次收货数量',
+          line?.quantityBase ?? '1',
+        );
+        if (!task || !line || !received)
+          throw new Error('需要执行中任务、入库行和收货数量');
+        const batch = window.prompt('供应商批次（无批次控制可空）');
+        const serials = (window.prompt('序列号，逗号分隔（可空）') ?? '')
+          .split(',')
+          .map((value) => value.trim())
+          .filter(Boolean);
+        const authorized = actionId === 'receive-authorized';
+        await request(
+          `/api/v1/wms/inbounds/${selected.id}/${authorized ? 'receive-authorized' : 'receive'}`,
+          {
+            body: JSON.stringify({
+              expectedTaskVersion: task.version,
+              lines: [
+                {
+                  accepted: {
+                    quantityBase: received,
+                    quantityOriginal: received,
+                  },
+                  ...(authorized
+                    ? {
+                        authorizationReference: `WEB-${Date.now()}`,
+                        varianceReason: '工作台主管授权',
+                      }
+                    : {}),
+                  inboundLineId: line.id,
+                  ...(batch
+                    ? {
+                        lots: [
+                          {
+                            clientRef: 'web-lot',
+                            expiryDate: window.prompt('失效日期 YYYY-MM-DD'),
+                            productionDate:
+                              window.prompt('生产日期 YYYY-MM-DD'),
+                            quantityBase: received,
+                            quantityOriginal: received,
+                            supplierBatchNo: batch,
+                          },
+                        ],
+                      }
+                    : {}),
+                  pending: { quantityBase: '0', quantityOriginal: '0' },
+                  received: {
+                    quantityBase: received,
+                    quantityOriginal: received,
+                  },
+                  rejected: { quantityBase: '0', quantityOriginal: '0' },
+                  ...(serials.length
+                    ? {
+                        serials: serials.map((serialNumber) => ({
+                          ...(batch ? { lotClientRef: 'web-lot' } : {}),
+                          serialNumber,
+                        })),
+                      }
+                    : {}),
+                },
+              ],
+              mode: actionId === 'receive-blind' ? 'BLIND' : 'ORDERED',
+              receivedAt: new Date().toISOString(),
+              taskId: task.id,
+            }),
+            method: 'POST',
+          },
+        );
+        setNotice(authorized ? '授权超短收已确认并生成差异' : '收货事实已确认');
+      } else if (selected && actionId === 'create-handling-unit') {
+        const receipt = receivingDetail?.receiptLines[0];
+        const lpn = window.prompt('新 LPN');
+        const type = window.prompt('类型 CARTON / PALLET', 'CARTON');
+        if (!lpn || !type) throw new Error('需要 LPN 与类型');
+        if (type === 'CARTON' && !receipt)
+          throw new Error('箱 LPN 需要已确认收货行');
+        await request(`/api/v1/wms/inbounds/${selected.id}/handling-units`, {
+          body: JSON.stringify({
+            contents:
+              type === 'PALLET'
+                ? []
+                : [
+                    {
+                      quantityBase: receipt!.acceptedQuantityBase,
+                      quantityOriginal: receipt!.acceptedQuantityBase,
+                      receiptLineId: receipt!.id,
+                    },
+                  ],
+            lpn,
+            type,
+          }),
+          method: 'POST',
+        });
+        setNotice('LPN 与初始标签任务已生成');
+      } else if (selected && actionId === 'build-pallet') {
+        const child = receivingDetail?.handlingUnits.find(
+          ({ status, type }) => status === 'ACTIVE' && type === 'CARTON',
+        );
+        const parent = receivingDetail?.handlingUnits.find(
+          ({ status, type }) => status === 'ACTIVE' && type === 'PALLET',
+        );
+        if (!child || !parent) throw new Error('需要活动箱 LPN 与托盘 LPN');
+        await request(`/api/v1/wms/handling-units/${parent.id}/build`, {
+          body: JSON.stringify({
+            childExpectedVersion: child.version,
+            childId: child.id,
+            parentExpectedVersion: parent.version,
+          }),
+          method: 'POST',
+        });
+        setNotice('建托完成并追加处理单元事件');
+      } else if (selected && actionId === 'split-pallet') {
+        const unit = receivingDetail?.handlingUnits.find(
+          ({ status }) => status === 'ACTIVE',
+        );
+        const content = receivingDetail?.handlingUnitContents.find(
+          (item) =>
+            item.handlingUnitId === unit?.id && item.status === 'ACTIVE',
+        );
+        const quantity = window.prompt('拆出数量', '1');
+        if (!unit || !content || !quantity) throw new Error('没有可拆处理单元');
+        await request(`/api/v1/wms/handling-units/${unit.id}/split`, {
+          body: JSON.stringify({
+            contents: [
+              {
+                quantityBase: quantity,
+                quantityOriginal: quantity,
+                receiptLineId: content.receiptLineId,
+              },
+            ],
+            expectedVersion: unit.version,
+          }),
+          method: 'POST',
+        });
+        setNotice('拆托完成并生成新 LPN/标签');
+      } else if (selected && actionId === 'merge-pallet') {
+        const units = (receivingDetail?.handlingUnits ?? []).filter(
+          ({ status }) => status === 'ACTIVE',
+        );
+        if (units.length < 2) throw new Error('至少需要两个活动处理单元');
+        await request(`/api/v1/wms/handling-units/${units[0]!.id}/merge`, {
+          body: JSON.stringify({
+            sourceExpectedVersion: units[1]!.version,
+            sourceId: units[1]!.id,
+            targetExpectedVersion: units[0]!.version,
+          }),
+          method: 'POST',
+        });
+        setNotice('合托完成，来源 LPN 保留追溯');
+      } else if (selected && actionId === 'reprint-label') {
+        const unit = receivingDetail?.handlingUnits[0];
+        const reason = window.prompt('补打原因');
+        if (!unit || !reason) throw new Error('需要处理单元与补打原因');
+        await request(`/api/v1/wms/handling-units/${unit.id}/labels/reprint`, {
+          body: JSON.stringify({ copies: 1, reason }),
+          method: 'POST',
+        });
+        setNotice('已创建同标签号的新补打任务');
+      } else if (selected && actionId === 'open-variance') {
+        const type = window.prompt('差异类型', 'DAMAGE');
+        const reason = window.prompt('差异原因');
+        const attachmentId = window.prompt('照片附件 UUID（可空）');
+        if (!type || !reason) throw new Error('差异类型与原因必填');
+        await request('/api/v1/wms/receiving-variances', {
+          body: JSON.stringify({
+            inboundOrderId: selected.id,
+            ...(attachmentId ? { photoRefs: [{ attachmentId }] } : {}),
+            reason,
+            type,
+          }),
+          method: 'POST',
+        });
+        setNotice('差异已记录并通过 Outbox 通知采购/供应商');
+      } else if (selected && actionId === 'dispose-variance') {
+        const variance = receivingDetail?.variances.find(
+          ({ status }) => status === 'PENDING',
+        );
+        const targetStatus = window.prompt('处置状态', 'QUALITY_REVIEW');
+        const reason = window.prompt('处置原因');
+        if (!variance || !targetStatus || !reason)
+          throw new Error('没有待处置差异或处置信息不完整');
+        await request(
+          `/api/v1/wms/receiving-variances/${variance.id}/disposition`,
+          {
+            body: JSON.stringify({
+              expectedVersion: variance.version,
+              reason,
+              targetStatus,
+            }),
+            method: 'POST',
+          },
+        );
+        setNotice(`差异已处置为 ${targetStatus}`);
       } else if (selected && actionId === 'complete') {
         await request(`/api/v1/wms/inbounds/${selected.id}/complete`, {
           body: JSON.stringify({ expectedVersion: selected.version }),
@@ -532,7 +846,10 @@ export function InboundWorkbench() {
         total={response.total}
       />
       <Drawer
-        onClose={() => setDetail(undefined)}
+        onClose={() => {
+          setDetail(undefined);
+          setReceivingDetail(undefined);
+        }}
         open={Boolean(detail)}
         title={detail ? `入库详情 · ${detail.inboundNo}` : '入库详情'}
         width="76vw"
@@ -615,6 +932,70 @@ export function InboundWorkbench() {
               pageSize={200}
               rows={detail?.scans ?? []}
               total={detail?.scans.length ?? 0}
+            />
+          </Card>
+          <Card title="盲收 / 按单收货与数量分解">
+            <DataGrid
+              columns={[
+                { key: 'mode', label: '模式' },
+                { key: 'productId', label: '商品' },
+                { key: 'receivedQuantityBase', label: '已收' },
+                { key: 'acceptedQuantityBase', label: '接受' },
+                { key: 'rejectedQuantityBase', label: '拒收' },
+                { key: 'pendingQuantityBase', label: '待定' },
+              ]}
+              onPageChange={() => undefined}
+              page={1}
+              pageSize={200}
+              rows={receivingDetail?.receiptLines ?? []}
+              total={receivingDetail?.receiptLines.length ?? 0}
+            />
+          </Card>
+          <Card title="批次、序列与效期隔离">
+            <Typography.Paragraph>
+              批次 {receivingDetail?.lots.length ?? 0}；序列号{' '}
+              {receivingDetail?.serials.length ?? 0}；隔离批次{' '}
+              {receivingDetail?.lots.filter(
+                ({ status }) => status === 'QUARANTINED',
+              ).length ?? 0}
+              。
+            </Typography.Paragraph>
+          </Card>
+          <Card title="LPN 建托、拆托、合托与标签">
+            <DataGrid
+              columns={[
+                { key: 'lpn', label: 'LPN' },
+                { key: 'type', label: '类型' },
+                { key: 'parentHandlingUnitId', label: '父 LPN' },
+                { key: 'labelNumber', label: '标签号' },
+                { key: 'status', label: '状态' },
+                { key: 'version', label: '版本' },
+              ]}
+              onPageChange={() => undefined}
+              page={1}
+              pageSize={200}
+              rows={receivingDetail?.handlingUnits ?? []}
+              total={receivingDetail?.handlingUnits.length ?? 0}
+            />
+            <Typography.Paragraph>
+              不可变处理单元事件{' '}
+              {receivingDetail?.handlingUnitEvents.length ?? 0}；标签任务{' '}
+              {receivingDetail?.labelJobs.length ?? 0}。
+            </Typography.Paragraph>
+          </Card>
+          <Card title="收货差异、照片证据与处置">
+            <DataGrid
+              columns={[
+                { key: 'type', label: '类型' },
+                { key: 'reason', label: '原因' },
+                { key: 'status', label: '处置' },
+                { key: 'version', label: '版本' },
+              ]}
+              onPageChange={() => undefined}
+              page={1}
+              pageSize={200}
+              rows={receivingDetail?.variances ?? []}
+              total={receivingDetail?.variances.length ?? 0}
             />
           </Card>
         </Space>

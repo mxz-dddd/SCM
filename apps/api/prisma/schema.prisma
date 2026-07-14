@@ -995,6 +995,66 @@ enum BarcodeObjectType {
   LOCATION
   @@schema("wms")
 }
+enum ReceiptMode {
+  BLIND
+  ORDERED
+  @@schema("wms")
+}
+enum ReceiptLineStatus {
+  CONFIRMED
+  VOIDED
+  @@schema("wms")
+}
+enum ReceivingVarianceType {
+  QUANTITY
+  PACKAGING
+  DAMAGE
+  TEMPERATURE
+  DOCUMENT
+  @@schema("wms")
+}
+enum ReceivingDisposition {
+  PENDING
+  SUPPLEMENTED
+  REJECTED
+  QUALITY_REVIEW
+  @@schema("wms")
+}
+enum InventoryLotStatus {
+  RECEIVED
+  QUARANTINED
+  @@schema("wms")
+}
+enum SerialNumberStatus {
+  RECEIVED
+  QUARANTINED
+  @@schema("wms")
+}
+enum HandlingUnitStatus {
+  ACTIVE
+  SPLIT
+  MERGED
+  CLOSED
+  @@schema("wms")
+}
+enum HandlingUnitType {
+  CARTON
+  PALLET
+  @@schema("wms")
+}
+enum HandlingUnitEventType {
+  CREATED
+  BUILT
+  SPLIT
+  MERGED
+  @@schema("wms")
+}
+enum LabelJobStatus {
+  REQUESTED
+  PRINTED
+  FAILED
+  @@schema("wms")
+}
 
 enum OrderType {
   SALES
@@ -3062,6 +3122,212 @@ model BarcodeResolution {
   @@unique([tenantId,scanEventId],map:"barcode_resolution_scan_key")
   @@index([tenantId,objectType,objectId],map:"barcode_resolution_object_idx")
   @@map("barcode_resolution")
+  @@schema("wms")
+}
+
+model ReceiptLine {
+  id String @id @default(uuid()) @db.Uuid
+  tenantId String @map("tenant_id") @db.Uuid
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  createdBy String @map("created_by") @db.Uuid
+  updatedAt DateTime @default(now()) @map("updated_at") @db.Timestamptz(3)
+  updatedBy String @map("updated_by") @db.Uuid
+  version Int @default(1)
+  status ReceiptLineStatus @default(CONFIRMED)
+  inboundOrderId String @map("inbound_order_id") @db.Uuid
+  inboundLineId String @map("inbound_line_id") @db.Uuid
+  receiptTaskId String @map("receipt_task_id") @db.Uuid
+  mode ReceiptMode
+  productId String @map("product_id") @db.Uuid
+  productSnapshot Json @map("product_snapshot") @db.JsonB
+  packageSpecId String? @map("package_spec_id") @db.Uuid
+  packageSpecVersion Int? @map("package_spec_version")
+  packageSpecSnapshot Json @default("{}") @map("package_spec_snapshot") @db.JsonB
+  expectedQuantityOriginal Decimal @map("expected_quantity_original") @db.Decimal(24,12)
+  expectedOriginalUom String @map("expected_original_uom") @db.VarChar(20)
+  expectedQuantityBase Decimal @map("expected_quantity_base") @db.Decimal(24,12)
+  expectedBaseUom String @map("expected_base_uom") @db.VarChar(20)
+  receivedQuantityOriginal Decimal @map("received_quantity_original") @db.Decimal(24,12)
+  receivedOriginalUom String @map("received_original_uom") @db.VarChar(20)
+  receivedQuantityBase Decimal @map("received_quantity_base") @db.Decimal(24,12)
+  receivedBaseUom String @map("received_base_uom") @db.VarChar(20)
+  acceptedQuantityOriginal Decimal @map("accepted_quantity_original") @db.Decimal(24,12)
+  acceptedQuantityBase Decimal @map("accepted_quantity_base") @db.Decimal(24,12)
+  rejectedQuantityOriginal Decimal @map("rejected_quantity_original") @db.Decimal(24,12)
+  rejectedQuantityBase Decimal @map("rejected_quantity_base") @db.Decimal(24,12)
+  pendingQuantityOriginal Decimal @map("pending_quantity_original") @db.Decimal(24,12)
+  pendingQuantityBase Decimal @map("pending_quantity_base") @db.Decimal(24,12)
+  varianceReason String? @map("variance_reason") @db.VarChar(500)
+  authorizationReference String? @map("authorization_reference") @db.VarChar(200)
+  receivedAt DateTime @map("received_at") @db.Timestamptz(3)
+  @@index([tenantId,inboundOrderId,inboundLineId,status],map:"receipt_line_inbound_idx")
+  @@index([tenantId,receiptTaskId,receivedAt],map:"receipt_line_task_idx")
+  @@map("receipt_line")
+  @@schema("wms")
+}
+
+model ReceivingVariance {
+  id String @id @default(uuid()) @db.Uuid
+  tenantId String @map("tenant_id") @db.Uuid
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  createdBy String @map("created_by") @db.Uuid
+  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
+  updatedBy String @map("updated_by") @db.Uuid
+  version Int @default(1)
+  status ReceivingDisposition @default(PENDING)
+  varianceNo String @map("variance_no") @db.VarChar(100)
+  inboundOrderId String @map("inbound_order_id") @db.Uuid
+  receiptLineId String? @map("receipt_line_id") @db.Uuid
+  type ReceivingVarianceType
+  reason String @db.VarChar(500)
+  quantityDeltaOriginal Decimal? @map("quantity_delta_original") @db.Decimal(24,12)
+  originalUom String? @map("original_uom") @db.VarChar(20)
+  quantityDeltaBase Decimal? @map("quantity_delta_base") @db.Decimal(24,12)
+  baseUom String? @map("base_uom") @db.VarChar(20)
+  temperature Decimal? @db.Decimal(10,3)
+  temperatureUom String? @map("temperature_uom") @db.VarChar(10)
+  photoRefs Json @default("[]") @map("photo_refs") @db.JsonB
+  dispositionReason String? @map("disposition_reason") @db.VarChar(500)
+  resolvedAt DateTime? @map("resolved_at") @db.Timestamptz(3)
+  supplierNotificationRef String? @map("supplier_notification_ref") @db.Uuid
+  purchaseNotificationRef String? @map("purchase_notification_ref") @db.Uuid
+  @@unique([tenantId,varianceNo],map:"receiving_variance_tenant_no_key")
+  @@index([tenantId,inboundOrderId,status,type],map:"receiving_variance_workbench_idx")
+  @@map("receiving_variance")
+  @@schema("wms")
+}
+
+model InventoryLot {
+  id String @id @default(uuid()) @db.Uuid
+  tenantId String @map("tenant_id") @db.Uuid
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  createdBy String @map("created_by") @db.Uuid
+  updatedAt DateTime @default(now()) @map("updated_at") @db.Timestamptz(3)
+  updatedBy String @map("updated_by") @db.Uuid
+  version Int @default(1)
+  status InventoryLotStatus
+  inboundOrderId String @map("inbound_order_id") @db.Uuid
+  receiptLineId String @map("receipt_line_id") @db.Uuid
+  productId String @map("product_id") @db.Uuid
+  ownerId String @map("owner_id") @db.Uuid
+  supplierBatchNo String @map("supplier_batch_no") @db.VarChar(200)
+  productionDate DateTime? @map("production_date") @db.Date
+  expiryDate DateTime? @map("expiry_date") @db.Date
+  quantityOriginal Decimal @map("quantity_original") @db.Decimal(24,12)
+  originalUom String @map("original_uom") @db.VarChar(20)
+  quantityBase Decimal @map("quantity_base") @db.Decimal(24,12)
+  baseUom String @map("base_uom") @db.VarChar(20)
+  quarantineReason String? @map("quarantine_reason") @db.VarChar(500)
+  @@index([tenantId,productId,supplierBatchNo,status],map:"inventory_lot_trace_idx")
+  @@index([tenantId,inboundOrderId,receiptLineId],map:"inventory_lot_receipt_idx")
+  @@map("inventory_lot")
+  @@schema("wms")
+}
+
+model SerialNumber {
+  id String @id @default(uuid()) @db.Uuid
+  tenantId String @map("tenant_id") @db.Uuid
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  createdBy String @map("created_by") @db.Uuid
+  updatedAt DateTime @default(now()) @map("updated_at") @db.Timestamptz(3)
+  updatedBy String @map("updated_by") @db.Uuid
+  version Int @default(1)
+  status SerialNumberStatus
+  serialNumber String @map("serial_number") @db.VarChar(300)
+  inboundOrderId String @map("inbound_order_id") @db.Uuid
+  receiptLineId String @map("receipt_line_id") @db.Uuid
+  inventoryLotId String? @map("inventory_lot_id") @db.Uuid
+  productId String @map("product_id") @db.Uuid
+  @@unique([tenantId,serialNumber],map:"serial_number_tenant_serial_key")
+  @@index([tenantId,productId,status],map:"serial_number_product_idx")
+  @@map("serial_number")
+  @@schema("wms")
+}
+
+model HandlingUnit {
+  id String @id @default(uuid()) @db.Uuid
+  tenantId String @map("tenant_id") @db.Uuid
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  createdBy String @map("created_by") @db.Uuid
+  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
+  updatedBy String @map("updated_by") @db.Uuid
+  version Int @default(1)
+  status HandlingUnitStatus @default(ACTIVE)
+  inboundOrderId String @map("inbound_order_id") @db.Uuid
+  parentHandlingUnitId String? @map("parent_handling_unit_id") @db.Uuid
+  type HandlingUnitType
+  lpn String @db.VarChar(200)
+  labelNumber String @map("label_number") @db.VarChar(200)
+  mixedAllowed Boolean @default(false) @map("mixed_allowed")
+  @@unique([tenantId,lpn],map:"handling_unit_tenant_lpn_key")
+  @@unique([tenantId,labelNumber],map:"handling_unit_tenant_label_key")
+  @@index([tenantId,inboundOrderId,parentHandlingUnitId,status],map:"handling_unit_tree_idx")
+  @@map("handling_unit")
+  @@schema("wms")
+}
+
+model HandlingUnitContent {
+  id String @id @default(uuid()) @db.Uuid
+  tenantId String @map("tenant_id") @db.Uuid
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  createdBy String @map("created_by") @db.Uuid
+  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
+  updatedBy String @map("updated_by") @db.Uuid
+  version Int @default(1)
+  status WmsRecordStatus @default(ACTIVE)
+  handlingUnitId String @map("handling_unit_id") @db.Uuid
+  receiptLineId String @map("receipt_line_id") @db.Uuid
+  productId String @map("product_id") @db.Uuid
+  quantityOriginal Decimal @map("quantity_original") @db.Decimal(24,12)
+  originalUom String @map("original_uom") @db.VarChar(20)
+  quantityBase Decimal @map("quantity_base") @db.Decimal(24,12)
+  baseUom String @map("base_uom") @db.VarChar(20)
+  @@unique([tenantId,handlingUnitId,receiptLineId],map:"handling_unit_content_key")
+  @@index([tenantId,receiptLineId,status],map:"handling_unit_content_receipt_idx")
+  @@map("handling_unit_content")
+  @@schema("wms")
+}
+
+model HandlingUnitEvent {
+  id String @id @default(uuid()) @db.Uuid
+  tenantId String @map("tenant_id") @db.Uuid
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  createdBy String @map("created_by") @db.Uuid
+  updatedAt DateTime @default(now()) @map("updated_at") @db.Timestamptz(3)
+  updatedBy String @map("updated_by") @db.Uuid
+  version Int @default(1)
+  status WmsRecordStatus @default(ACTIVE)
+  handlingUnitId String @map("handling_unit_id") @db.Uuid
+  type HandlingUnitEventType
+  sourceHandlingUnitId String? @map("source_handling_unit_id") @db.Uuid
+  targetHandlingUnitId String? @map("target_handling_unit_id") @db.Uuid
+  fromParentId String? @map("from_parent_id") @db.Uuid
+  toParentId String? @map("to_parent_id") @db.Uuid
+  payload Json @default("{}") @db.JsonB
+  occurredAt DateTime @default(now()) @map("occurred_at") @db.Timestamptz(3)
+  @@index([tenantId,handlingUnitId,occurredAt],map:"handling_unit_event_idx")
+  @@map("handling_unit_event")
+  @@schema("wms")
+}
+
+model LabelJob {
+  id String @id @default(uuid()) @db.Uuid
+  tenantId String @map("tenant_id") @db.Uuid
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  createdBy String @map("created_by") @db.Uuid
+  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
+  updatedBy String @map("updated_by") @db.Uuid
+  version Int @default(1)
+  status LabelJobStatus @default(REQUESTED)
+  handlingUnitId String @map("handling_unit_id") @db.Uuid
+  jobNo String @map("job_no") @db.VarChar(100)
+  labelNumber String @map("label_number") @db.VarChar(200)
+  reprintOfJobId String? @map("reprint_of_job_id") @db.Uuid
+  reason String @db.VarChar(500)
+  copies Int @default(1)
+  @@unique([tenantId,jobNo],map:"label_job_tenant_no_key")
+  @@index([tenantId,handlingUnitId,createdAt],map:"label_job_handling_unit_idx")
+  @@map("label_job")
   @@schema("wms")
 }
 

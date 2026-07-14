@@ -4,9 +4,16 @@ import { PermissionGuard } from '../platform/auth/permission.guard';
 import { PermissionService } from '../platform/auth/permission.service';
 import { InboundController } from './inbound.controller';
 import { InboundService } from './inbound.service';
+import { ReceivingDetailController } from './receiving-detail.controller';
+import { ReceivingDetailService } from './receiving-detail.service';
 @Module({
-  controllers: [InboundController],
+  controllers: [InboundController, ReceivingDetailController],
   imports: [MdmModule],
-  providers: [InboundService, PermissionGuard, PermissionService],
+  providers: [
+    InboundService,
+    ReceivingDetailService,
+    PermissionGuard,
+    PermissionService,
+  ],
 })
 export class WmsModule {}

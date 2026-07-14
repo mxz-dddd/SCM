@@ -12,6 +12,66 @@ export type PermissionResourceType = (typeof PERMISSION_RESOURCE_TYPES)[number];
 
 export const ADMIN_PERMISSIONS = [
   {
+    code: 'wms.receipt.read',
+    name: '查看收货明细',
+    resourceRef: '/api/v1/wms/inbounds/*/receiving-*',
+    resourceType: 'PAGE',
+  },
+  {
+    code: 'wms.receipt.receive',
+    name: '确认普通收货',
+    resourceRef: '/api/v1/wms/inbounds/*/receive',
+    resourceType: 'BUTTON',
+  },
+  {
+    code: 'wms.receipt.variance.authorize',
+    name: '授权超短收与替代包装',
+    resourceRef: '/api/v1/wms/inbounds/*/receive-authorized',
+    resourceType: 'BUTTON',
+  },
+  {
+    code: 'wms.handling-unit.write',
+    name: '创建处理单元与标签',
+    resourceRef: '/api/v1/wms/inbounds/*/handling-units',
+    resourceType: 'BUTTON',
+  },
+  {
+    code: 'wms.handling-unit.build',
+    name: 'LPN 建托',
+    resourceRef: '/api/v1/wms/handling-units/*/build',
+    resourceType: 'BUTTON',
+  },
+  {
+    code: 'wms.handling-unit.split',
+    name: 'LPN 拆托',
+    resourceRef: '/api/v1/wms/handling-units/*/split',
+    resourceType: 'BUTTON',
+  },
+  {
+    code: 'wms.handling-unit.merge',
+    name: 'LPN 合托',
+    resourceRef: '/api/v1/wms/handling-units/*/merge',
+    resourceType: 'BUTTON',
+  },
+  {
+    code: 'wms.label.print',
+    name: '补打 LPN 标签',
+    resourceRef: '/api/v1/wms/handling-units/*/labels/reprint',
+    resourceType: 'BUTTON',
+  },
+  {
+    code: 'wms.receiving.variance.write',
+    name: '记录收货差异',
+    resourceRef: '/api/v1/wms/receiving-variances',
+    resourceType: 'BUTTON',
+  },
+  {
+    code: 'wms.receiving.variance.dispose',
+    name: '处置收货差异',
+    resourceRef: '/api/v1/wms/receiving-variances/*/disposition',
+    resourceType: 'BUTTON',
+  },
+  {
     code: 'wms.inbound.read',
     name: '查看入库与收货任务',
     resourceRef: '/api/v1/wms/inbounds*',

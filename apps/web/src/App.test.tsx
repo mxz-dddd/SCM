@@ -206,6 +206,10 @@ describe('App', () => {
     expect(screen.getByRole('button', { name: '车辆到场签到' })).toBeDisabled();
     expect(screen.getByRole('button', { name: '抢单' })).toBeDisabled();
     expect(screen.getByRole('button', { name: '条码扫描识别' })).toBeDisabled();
+    expect(screen.getByRole('button', { name: '盲收确认' })).toBeDisabled();
+    expect(screen.getByRole('button', { name: '授权超短收' })).toBeDisabled();
+    expect(screen.getByRole('button', { name: '拆托' })).toBeDisabled();
+    expect(screen.getByRole('button', { name: '处置差异' })).toBeDisabled();
   });
 
   it('opens partner, address and service-zone master data', () => {
