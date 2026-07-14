@@ -738,6 +738,47 @@ enum JobLogLevel {
   @@schema("platform")
 }
 
+enum OrderStatus {
+  DRAFT
+  INVALID
+  OPEN
+
+  @@schema("oms")
+}
+
+enum OrderType {
+  SALES
+  PURCHASE
+  TRANSFER
+  RETURN
+
+  @@schema("oms")
+}
+
+enum OrderChannel {
+  API
+  EDI
+  FILE
+  PORTAL
+  MANUAL
+
+  @@schema("oms")
+}
+
+enum OmsRecordStatus {
+  ACTIVE
+  INACTIVE
+
+  @@schema("oms")
+}
+
+enum DuplicateCaseStatus {
+  OPEN
+  RESOLVED
+
+  @@schema("oms")
+}
+
 /// Executable reference model for the mandatory persistence conventions.
 /// Domain cards replace this fixture with their owned aggregates while retaining
 /// these fields, tenant-first indexes and value-object storage rules.
@@ -1497,6 +1538,164 @@ model DataQualityIssue {
   @@index([tenantId, assessmentId, status], map: "quality_issue_tenant_assessment_idx")
   @@map("data_quality_issue")
   @@schema("mdm")
+}
+
+model BusinessOrder {
+  id                      String       @id @default(uuid()) @db.Uuid
+  tenantId                String       @map("tenant_id") @db.Uuid
+  createdAt               DateTime     @default(now()) @map("created_at") @db.Timestamptz(3)
+  createdBy               String       @map("created_by") @db.Uuid
+  updatedAt               DateTime     @updatedAt @map("updated_at") @db.Timestamptz(3)
+  updatedBy               String       @map("updated_by") @db.Uuid
+  version                 Int          @default(1)
+  status                  OrderStatus  @default(DRAFT)
+  orderNo                 String       @map("order_no") @db.VarChar(100)
+  type                    OrderType
+  channel                 OrderChannel
+  externalOrderNo         String?      @map("external_order_no") @db.VarChar(200)
+  externalVersion         String       @default("1") @map("external_version") @db.VarChar(100)
+  mappingVersion          String       @map("mapping_version") @db.VarChar(100)
+  rawMessageRefId         String       @map("raw_message_ref_id") @db.Uuid
+  sourcePayloadHash       String       @map("source_payload_hash") @db.Char(64)
+  customerId              String?      @map("customer_id") @db.Uuid
+  customerSnapshot        Json         @default("{}") @map("customer_snapshot") @db.JsonB
+  deliveryAddressId       String?      @map("delivery_address_id") @db.Uuid
+  deliveryAddressSnapshot Json         @default("{}") @map("delivery_address_snapshot") @db.JsonB
+  requestedFrom           DateTime?    @map("requested_from") @db.Timestamptz(3)
+  requestedUntil          DateTime?    @map("requested_until") @db.Timestamptz(3)
+  extensions              Json         @default("{}") @db.JsonB
+  requiredExtensionFields Json         @default("[]") @map("required_extension_fields") @db.JsonB
+  validationErrors        Json         @default("[]") @map("validation_errors") @db.JsonB
+  warningOverrides        Json         @default("[]") @map("warning_overrides") @db.JsonB
+
+  @@unique([tenantId, type, orderNo], map: "business_order_tenant_type_no_key")
+  @@unique([tenantId, channel, externalOrderNo, externalVersion], map: "business_order_tenant_external_key")
+  @@index([tenantId, status, createdAt, id], map: "business_order_tenant_status_created_idx")
+  @@index([tenantId, customerId, createdAt], map: "business_order_tenant_customer_idx")
+  @@map("business_order")
+  @@schema("oms")
+}
+
+model BusinessOrderLine {
+  id                       String          @id @default(uuid()) @db.Uuid
+  tenantId                 String          @map("tenant_id") @db.Uuid
+  createdAt                DateTime        @default(now()) @map("created_at") @db.Timestamptz(3)
+  createdBy                String          @map("created_by") @db.Uuid
+  updatedAt                DateTime        @updatedAt @map("updated_at") @db.Timestamptz(3)
+  updatedBy                String          @map("updated_by") @db.Uuid
+  version                  Int             @default(1)
+  status                   OmsRecordStatus @default(ACTIVE)
+  orderId                  String          @map("order_id") @db.Uuid
+  lineNo                   Int             @map("line_no")
+  lineVersion              Int             @map("line_version")
+  productId                String?         @map("product_id") @db.Uuid
+  productSnapshot          Json            @default("{}") @map("product_snapshot") @db.JsonB
+  quantityOriginal         Decimal?        @map("quantity_original") @db.Decimal(24, 12)
+  originalUom              String?         @map("original_uom") @db.VarChar(20)
+  quantityBase             Decimal?        @map("quantity_base") @db.Decimal(24, 12)
+  baseUom                  String?         @map("base_uom") @db.VarChar(20)
+  packageSpecId            String?         @map("package_spec_id") @db.Uuid
+  packageSpecVersion       Int?            @map("package_spec_version")
+  packageSpecSnapshot      Json             @default("{}") @map("package_spec_snapshot") @db.JsonB
+  requestedFrom            DateTime?        @map("requested_from") @db.Timestamptz(3)
+  requestedUntil           DateTime?        @map("requested_until") @db.Timestamptz(3)
+  rawData                  Json             @default("{}") @map("raw_data") @db.JsonB
+
+  @@unique([tenantId, orderId, lineNo, lineVersion], map: "business_order_line_tenant_order_line_version_key")
+  @@index([tenantId, orderId, status, lineNo], map: "business_order_line_tenant_order_idx")
+  @@index([tenantId, productId, status], map: "business_order_line_tenant_product_idx")
+  @@map("business_order_line")
+  @@schema("oms")
+}
+
+model RawMessageRef {
+  id             String          @id @default(uuid()) @db.Uuid
+  tenantId       String          @map("tenant_id") @db.Uuid
+  createdAt      DateTime        @default(now()) @map("created_at") @db.Timestamptz(3)
+  createdBy      String          @map("created_by") @db.Uuid
+  updatedAt      DateTime        @default(now()) @map("updated_at") @db.Timestamptz(3)
+  updatedBy      String          @map("updated_by") @db.Uuid
+  version        Int             @default(1)
+  status         OmsRecordStatus @default(ACTIVE)
+  channel        OrderChannel
+  externalOrderNo String?        @map("external_order_no") @db.VarChar(200)
+  externalVersion String         @map("external_version") @db.VarChar(100)
+  mappingVersion String          @map("mapping_version") @db.VarChar(100)
+  contentHash    String          @map("content_hash") @db.Char(64)
+  rawPayload     Json            @map("raw_payload") @db.JsonB
+  fileObjectId   String?         @map("file_object_id") @db.Uuid
+
+  @@index([tenantId, channel, externalOrderNo, createdAt], map: "raw_message_tenant_external_idx")
+  @@index([tenantId, contentHash], map: "raw_message_tenant_hash_idx")
+  @@map("raw_message_ref")
+  @@schema("oms")
+}
+
+model DuplicateCase {
+  id                  String              @id @default(uuid()) @db.Uuid
+  tenantId            String              @map("tenant_id") @db.Uuid
+  createdAt           DateTime            @default(now()) @map("created_at") @db.Timestamptz(3)
+  createdBy           String              @map("created_by") @db.Uuid
+  updatedAt           DateTime            @updatedAt @map("updated_at") @db.Timestamptz(3)
+  updatedBy           String              @map("updated_by") @db.Uuid
+  version             Int                 @default(1)
+  status              DuplicateCaseStatus @default(OPEN)
+  businessOrderId     String              @map("business_order_id") @db.Uuid
+  channel             OrderChannel
+  externalOrderNo     String              @map("external_order_no") @db.VarChar(200)
+  externalVersion     String              @map("external_version") @db.VarChar(100)
+  existingContentHash String              @map("existing_content_hash") @db.Char(64)
+  incomingContentHash String              @map("incoming_content_hash") @db.Char(64)
+  incomingPayload     Json                @map("incoming_payload") @db.JsonB
+  detectedAt          DateTime            @default(now()) @map("detected_at") @db.Timestamptz(3)
+  resolution          String?             @db.VarChar(1000)
+
+  @@index([tenantId, status, createdAt], map: "duplicate_case_tenant_status_created_idx")
+  @@index([tenantId, businessOrderId, createdAt], map: "duplicate_case_tenant_order_idx")
+  @@map("duplicate_case")
+  @@schema("oms")
+}
+
+model OrderVersion {
+  id              String          @id @default(uuid()) @db.Uuid
+  tenantId        String          @map("tenant_id") @db.Uuid
+  createdAt       DateTime        @default(now()) @map("created_at") @db.Timestamptz(3)
+  createdBy       String          @map("created_by") @db.Uuid
+  updatedAt       DateTime        @default(now()) @map("updated_at") @db.Timestamptz(3)
+  updatedBy       String          @map("updated_by") @db.Uuid
+  version         Int             @default(1)
+  status          OmsRecordStatus @default(ACTIVE)
+  businessOrderId String          @map("business_order_id") @db.Uuid
+  versionNumber   Int             @map("version_number")
+  snapshot        Json            @db.JsonB
+  changeReason    String          @map("change_reason") @db.VarChar(300)
+
+  @@unique([tenantId, businessOrderId, versionNumber], map: "order_version_tenant_order_version_key")
+  @@index([tenantId, businessOrderId, createdAt], map: "order_version_tenant_order_idx")
+  @@map("order_version")
+  @@schema("oms")
+}
+
+model ChangeSet {
+  id              String          @id @default(uuid()) @db.Uuid
+  tenantId        String          @map("tenant_id") @db.Uuid
+  createdAt       DateTime        @default(now()) @map("created_at") @db.Timestamptz(3)
+  createdBy       String          @map("created_by") @db.Uuid
+  updatedAt       DateTime        @default(now()) @map("updated_at") @db.Timestamptz(3)
+  updatedBy       String          @map("updated_by") @db.Uuid
+  version         Int             @default(1)
+  status          OmsRecordStatus @default(ACTIVE)
+  businessOrderId String          @map("business_order_id") @db.Uuid
+  fromVersion     Int             @map("from_version")
+  toVersion       Int             @map("to_version")
+  source          OrderChannel
+  changes         Json            @db.JsonB
+  appliedAt       DateTime        @default(now()) @map("applied_at") @db.Timestamptz(3)
+
+  @@unique([tenantId, businessOrderId, toVersion], map: "change_set_tenant_order_version_key")
+  @@index([tenantId, businessOrderId, appliedAt], map: "change_set_tenant_order_idx")
+  @@map("change_set")
+  @@schema("oms")
 }
 
 model Tenant {

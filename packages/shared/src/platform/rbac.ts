@@ -11,6 +11,11 @@ export type PermissionEffect = 'ALLOW' | 'DENY';
 export type PermissionResourceType = (typeof PERMISSION_RESOURCE_TYPES)[number];
 
 export const ADMIN_PERMISSIONS = [
+  { code: 'oms.order.read', name: '查看订单与接入异常', resourceRef: '/api/v1/oms/orders/*', resourceType: 'API' },
+  { code: 'oms.order.write', name: '创建和修改订单草稿', resourceRef: '/api/v1/oms/orders/*', resourceType: 'API' },
+  { code: 'oms.order.submit', name: '校验并提交订单', resourceRef: '/api/v1/oms/orders/*/submit', resourceType: 'BUTTON' },
+  { code: 'oms.order.warning.override', name: '强制通过订单校验警告', resourceRef: '/api/v1/oms/orders/*/submit-with-warnings', resourceType: 'BUTTON' },
+  { code: 'oms.order.page', name: '访问订单接入工作台', resourceRef: 'orders', resourceType: 'PAGE' },
   { code: 'mdm.contract.read', name: '查看合同与费率版本', resourceRef: '/api/v1/mdm/contracts/*', resourceType: 'API' },
   { code: 'mdm.contract.write', name: '维护合同与费率草稿', resourceRef: '/api/v1/mdm/rate-*', resourceType: 'API' },
   { code: 'mdm.contract.approve', name: '审批合同并发布费率', resourceRef: '/api/v1/mdm/rate-versions/*', resourceType: 'BUTTON' },

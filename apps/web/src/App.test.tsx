@@ -209,4 +209,13 @@ describe('App', () => {
     expect(screen.getByText('质量评估与履约资格')).toBeInTheDocument();
     expect(screen.getByRole('button', { name: '发布费率版本' })).toBeDisabled();
   });
+  it('opens multi-channel order intake and version validation', () => {
+    render(<App />); fireEvent.click(screen.getByRole('button', { name: '订单' }));
+    expect(screen.getByRole('heading', { name: '多渠道订单接入' })).toBeInTheDocument();
+    expect(screen.getByText('订单草稿与外部编号')).toBeInTheDocument();
+    expect(screen.getByText('字段校验与双单位数量')).toBeInTheDocument();
+    expect(screen.getByText('不可变 OrderVersion 与 ChangeSet')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: '校验并提交' })).toBeDisabled();
+    expect(screen.getByRole('button', { name: '强制通过警告' })).toBeDisabled();
+  });
 });

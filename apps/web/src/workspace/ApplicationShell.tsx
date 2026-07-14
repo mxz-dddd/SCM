@@ -30,6 +30,7 @@ import { ProductWorkbench } from '../mdm/ProductWorkbench';
 import { PartnerWorkbench } from '../mdm/PartnerWorkbench';
 import { WarehouseFleetWorkbench } from '../mdm/WarehouseFleetWorkbench';
 import { MdmGovernanceWorkbench } from '../mdm/MdmGovernanceWorkbench';
+import { OrderIntakeWorkbench } from '../oms/OrderIntakeWorkbench';
 import { useSessionStore } from '../platform/session-store';
 import { ComponentGallery } from '../ui/ComponentGallery';
 import { useWorkspaceStore } from './workspace-store';
@@ -284,6 +285,7 @@ export function ApplicationShell() {
     if (tabId === 'partners') return <PartnerWorkbench />;
     if (tabId === 'warehouses') return <WarehouseFleetWorkbench />;
     if (tabId === 'mdm-governance') return <MdmGovernanceWorkbench />;
+    if (tabId === 'orders') return <OrderIntakeWorkbench />;
     return (
       <section className="workspace-placeholder">
         <Typography.Title level={2}>

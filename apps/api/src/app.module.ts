@@ -4,19 +4,24 @@ import {
   RequestMethod,
   type NestModule,
 } from '@nestjs/common';
-import { APP_FILTER } from '@nestjs/core';
+import { APP_FILTER, APP_INTERCEPTOR } from '@nestjs/core';
 import { ApiExceptionFilter } from './common/api-exception.filter';
 import { DatabaseModule } from './database/database.module';
 import { HealthController } from './health.controller';
 import { MdmModule } from './modules/mdm/mdm.module';
+import { OmsModule } from './modules/oms/oms.module';
 import { AuthModule } from './modules/platform/auth/auth.module';
 import { TenantContextMiddleware } from './modules/platform/auth/tenant-context.middleware';
 import { PlatformModule } from './modules/platform/platform.module';
+import { IdempotencyInterceptor } from './modules/platform/idempotency.interceptor';
 
 @Module({
-  imports: [DatabaseModule, AuthModule, MdmModule, PlatformModule],
+  imports: [DatabaseModule, AuthModule, MdmModule, OmsModule, PlatformModule],
   controllers: [HealthController],
-  providers: [{ provide: APP_FILTER, useClass: ApiExceptionFilter }],
+  providers: [
+    { provide: APP_FILTER, useClass: ApiExceptionFilter },
+    { provide: APP_INTERCEPTOR, useClass: IdempotencyInterceptor },
+  ],
 })
 export class AppModule implements NestModule {
   configure(consumer: MiddlewareConsumer): void {
