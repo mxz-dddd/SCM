@@ -12,6 +12,30 @@ export type PermissionResourceType = (typeof PERMISSION_RESOURCE_TYPES)[number];
 
 export const ADMIN_PERMISSIONS = [
   {
+    code: 'mdm.product.read',
+    name: '查看商品、条码与包装版本',
+    resourceRef: '/api/v1/mdm/*',
+    resourceType: 'API',
+  },
+  {
+    code: 'mdm.product.write',
+    name: '维护商品、条码与包装版本',
+    resourceRef: '/api/v1/mdm/*',
+    resourceType: 'API',
+  },
+  {
+    code: 'mdm.product.publish',
+    name: '发布商品主数据版本',
+    resourceRef: '/api/v1/mdm/products/*/publish',
+    resourceType: 'BUTTON',
+  },
+  {
+    code: 'mdm.product.page',
+    name: '访问商品主数据工作台',
+    resourceRef: 'products',
+    resourceType: 'PAGE',
+  },
+  {
     code: 'platform.organization.read',
     name: '查看组织树',
     resourceRef: '/api/v1/platform/organizations',

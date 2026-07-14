@@ -176,4 +176,13 @@ describe('App', () => {
     expect(screen.getByText('PrintTemplate、打印机路由与 PrintJob')).toBeInTheDocument();
     expect(screen.getByRole('button', { name: '新建 10% 开关版本' })).toBeDisabled();
   });
+
+  it('opens versioned product, barcode and packaging master data', () => {
+    render(<App />);
+    fireEvent.click(screen.getByRole('button', { name: '商品' }));
+    expect(screen.getByRole('heading', { name: '商品、条码与包装主数据' })).toBeInTheDocument();
+    expect(screen.getByRole('form', { name: '查询条件' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: '发布新版本' })).toBeDisabled();
+    expect(screen.getByText(/ProductVersion 快照/)).toBeInTheDocument();
+  });
 });

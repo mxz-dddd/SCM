@@ -19,3 +19,4 @@
 - 2026-07-14 P1-15：完成一次、Cron 与业务事件 JobDefinition 调度、BullMQ worker 白名单路由、PostgreSQL 并发租约与过期恢复、超时/指数退避重试/取消/单调进度/结果文件、不可变 JobLog，以及统一异步任务工作台。
 - 2026-07-14 P1-16：完成统一 BusinessEvent 信封、兼容既有领域写入的事务 Outbox、worker 到 BullMQ 的有序 relay、原子领取租约、指数退避与死信恢复，以及消费者 Inbox/聚合版本 checkpoint 去重、失败重试和事件运维工作台。
 - 2026-07-14 P1-17：完成用户语言/IANA 时区与 UTC 显示、Decimal 单位换算版本、租户/组织/角色/稳定百分比特性开关与不可变决策、内外部评论/@提及/附件/解决协同，以及打印模板版本、打印机标签路由、BullMQ 打印任务和并发租约。
+- 2026-07-14 P2-01：完成商品分类、SKU/温层/危险/批次序列/保质期主数据，租户/客户作用域条码，Decimal 双单位包装层级与 PackageSpec 版本，以及不可变 ProductVersion 发布快照、审计 Outbox 和商品工作台。

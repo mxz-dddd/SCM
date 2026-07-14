@@ -196,6 +196,88 @@ enum PrintJobStatus {
   @@schema("platform")
 }
 
+enum ProductStatus {
+  DRAFT
+  ACTIVE
+  INACTIVE
+
+  @@schema("mdm")
+}
+
+enum ProductCategoryStatus {
+  ACTIVE
+  INACTIVE
+
+  @@schema("mdm")
+}
+
+enum ProductVersionStatus {
+  PUBLISHED
+
+  @@schema("mdm")
+}
+
+enum BarcodeStatus {
+  ACTIVE
+  INACTIVE
+
+  @@schema("mdm")
+}
+
+enum BarcodeType {
+  GTIN
+  EAN
+  UPC
+  GS1
+  CUSTOMER
+  INTERNAL
+
+  @@schema("mdm")
+}
+
+enum BatchControl {
+  NONE
+  OPTIONAL
+  REQUIRED
+
+  @@schema("mdm")
+}
+
+enum SerialControl {
+  NONE
+  OPTIONAL
+  REQUIRED
+
+  @@schema("mdm")
+}
+
+enum TemperatureZone {
+  AMBIENT
+  CHILLED
+  FROZEN
+  CONTROLLED
+
+  @@schema("mdm")
+}
+
+enum PackageSpecStatus {
+  DRAFT
+  PUBLISHED
+  RETIRED
+
+  @@schema("mdm")
+}
+
+enum PackageLevel {
+  EACH
+  INNER
+  CASE
+  PALLET
+  CUSTOM
+
+  @@schema("mdm")
+}
+
 enum ConfigScopeType {
   TENANT
   ORGANIZATION
@@ -518,6 +600,135 @@ model DataBaseline {
   @@index([tenantId, status], map: "data_baseline_tenant_status_idx")
   @@map("data_baseline")
   @@schema("platform")
+}
+
+model ProductCategory {
+  id        String                @id @default(uuid()) @db.Uuid
+  tenantId  String                @map("tenant_id") @db.Uuid
+  createdAt DateTime              @default(now()) @map("created_at") @db.Timestamptz(3)
+  createdBy String                @map("created_by") @db.Uuid
+  updatedAt DateTime              @updatedAt @map("updated_at") @db.Timestamptz(3)
+  updatedBy String                @map("updated_by") @db.Uuid
+  version   Int                   @default(1)
+  status    ProductCategoryStatus @default(ACTIVE)
+  code      String                @db.VarChar(100)
+  name      String                @db.VarChar(200)
+  parentId  String?               @map("parent_id") @db.Uuid
+  path      String                @db.VarChar(1000)
+
+  @@unique([tenantId, code], map: "product_category_tenant_code_key")
+  @@index([tenantId, parentId, status], map: "product_category_tenant_parent_idx")
+  @@map("product_category")
+  @@schema("mdm")
+}
+
+model Product {
+  id                    String          @id @default(uuid()) @db.Uuid
+  tenantId              String          @map("tenant_id") @db.Uuid
+  createdAt             DateTime        @default(now()) @map("created_at") @db.Timestamptz(3)
+  createdBy             String          @map("created_by") @db.Uuid
+  updatedAt             DateTime        @updatedAt @map("updated_at") @db.Timestamptz(3)
+  updatedBy             String          @map("updated_by") @db.Uuid
+  version               Int             @default(1)
+  status                ProductStatus   @default(DRAFT)
+  sku                   String          @db.VarChar(100)
+  name                  String          @db.VarChar(300)
+  categoryId            String?         @map("category_id") @db.Uuid
+  categorySnapshot      Json            @default("{}") @map("category_snapshot") @db.JsonB
+  baseUom               String          @map("base_uom") @db.VarChar(20)
+  temperatureZone       TemperatureZone @default(AMBIENT) @map("temperature_zone")
+  hazardous             Boolean         @default(false)
+  hazardousAttributes   Json            @default("{}") @map("hazardous_attributes") @db.JsonB
+  batchControl          BatchControl    @default(NONE) @map("batch_control")
+  serialControl         SerialControl   @default(NONE) @map("serial_control")
+  shelfLifeDays         Int?            @map("shelf_life_days")
+  minimumRemainingDays  Int?            @map("minimum_remaining_days")
+  currentVersionNumber  Int             @default(0) @map("current_version_number")
+
+  @@unique([tenantId, sku], map: "product_tenant_sku_key")
+  @@index([tenantId, status, categoryId, sku], map: "product_tenant_status_category_sku_idx")
+  @@map("product")
+  @@schema("mdm")
+}
+
+model ProductVersion {
+  id            String               @id @default(uuid()) @db.Uuid
+  tenantId      String               @map("tenant_id") @db.Uuid
+  createdAt     DateTime             @default(now()) @map("created_at") @db.Timestamptz(3)
+  createdBy     String               @map("created_by") @db.Uuid
+  updatedAt     DateTime             @default(now()) @map("updated_at") @db.Timestamptz(3)
+  updatedBy     String               @map("updated_by") @db.Uuid
+  version       Int                  @default(1)
+  status        ProductVersionStatus @default(PUBLISHED)
+  productId     String               @map("product_id") @db.Uuid
+  sku           String               @db.VarChar(100)
+  versionNumber Int                  @map("version_number")
+  snapshot      Json                 @db.JsonB
+  publishedAt   DateTime             @default(now()) @map("published_at") @db.Timestamptz(3)
+
+  @@unique([tenantId, productId, versionNumber], map: "product_version_tenant_product_version_key")
+  @@index([tenantId, sku, versionNumber], map: "product_version_tenant_sku_version_idx")
+  @@map("product_version")
+  @@schema("mdm")
+}
+
+model ProductBarcode {
+  id            String        @id @default(uuid()) @db.Uuid
+  tenantId      String        @map("tenant_id") @db.Uuid
+  createdAt     DateTime      @default(now()) @map("created_at") @db.Timestamptz(3)
+  createdBy     String        @map("created_by") @db.Uuid
+  updatedAt     DateTime      @updatedAt @map("updated_at") @db.Timestamptz(3)
+  updatedBy     String        @map("updated_by") @db.Uuid
+  version       Int           @default(1)
+  status        BarcodeStatus @default(ACTIVE)
+  productId     String        @map("product_id") @db.Uuid
+  packageSpecId String?       @map("package_spec_id") @db.Uuid
+  customerId    String?       @map("customer_id") @db.Uuid
+  barcode       String        @db.VarChar(200)
+  type          BarcodeType
+  isPrimary     Boolean       @default(false) @map("is_primary")
+
+  @@index([tenantId, productId, status], map: "product_barcode_tenant_product_idx")
+  @@index([tenantId, barcode, customerId, status], map: "product_barcode_tenant_resolution_idx")
+  @@map("product_barcode")
+  @@schema("mdm")
+}
+
+model PackageSpec {
+  id                String            @id @default(uuid()) @db.Uuid
+  tenantId          String            @map("tenant_id") @db.Uuid
+  createdAt         DateTime          @default(now()) @map("created_at") @db.Timestamptz(3)
+  createdBy         String            @map("created_by") @db.Uuid
+  updatedAt         DateTime          @updatedAt @map("updated_at") @db.Timestamptz(3)
+  updatedBy         String            @map("updated_by") @db.Uuid
+  version           Int               @default(1)
+  status            PackageSpecStatus @default(DRAFT)
+  productId         String            @map("product_id") @db.Uuid
+  code              String            @db.VarChar(100)
+  name              String            @db.VarChar(200)
+  versionNumber     Int               @map("version_number")
+  level             PackageLevel
+  customerId        String?           @map("customer_id") @db.Uuid
+  parentSpecId      String?           @map("parent_spec_id") @db.Uuid
+  originalUom       String            @map("original_uom") @db.VarChar(20)
+  baseUom           String            @map("base_uom") @db.VarChar(20)
+  quantityInBase    Decimal           @map("quantity_in_base") @db.Decimal(24, 12)
+  netWeight         Decimal?          @map("net_weight") @db.Decimal(24, 12)
+  grossWeight       Decimal?          @map("gross_weight") @db.Decimal(24, 12)
+  weightUom         String?           @map("weight_uom") @db.VarChar(20)
+  length            Decimal?          @db.Decimal(24, 12)
+  width             Decimal?          @db.Decimal(24, 12)
+  height            Decimal?          @db.Decimal(24, 12)
+  dimensionUom      String?           @map("dimension_uom") @db.VarChar(20)
+  volume            Decimal?          @db.Decimal(24, 12)
+  volumeUom         String?           @map("volume_uom") @db.VarChar(20)
+  publishedAt       DateTime?         @map("published_at") @db.Timestamptz(3)
+
+  @@unique([tenantId, productId, code, versionNumber], map: "package_spec_tenant_product_code_version_key")
+  @@index([tenantId, productId, status, level], map: "package_spec_tenant_product_status_level_idx")
+  @@index([tenantId, customerId, status], map: "package_spec_tenant_customer_status_idx")
+  @@map("package_spec")
+  @@schema("mdm")
 }
 
 model Tenant {

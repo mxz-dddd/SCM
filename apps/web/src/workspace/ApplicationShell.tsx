@@ -26,6 +26,7 @@ import { RuleEngineWorkbench } from '../platform/RuleEngineWorkbench';
 import { JobWorkbench } from '../platform/JobWorkbench';
 import { EventWorkbench } from '../platform/EventWorkbench';
 import { PlatformFinalizationWorkbench } from '../platform/PlatformFinalizationWorkbench';
+import { ProductWorkbench } from '../mdm/ProductWorkbench';
 import { useSessionStore } from '../platform/session-store';
 import { ComponentGallery } from '../ui/ComponentGallery';
 import { useWorkspaceStore } from './workspace-store';
@@ -102,6 +103,7 @@ const pageRegistry: readonly WorkspaceTab[] = [
     title: '业务事件',
   },
   { dirty: false, id: 'finalization', route: '/platform/finalization', title: '平台收尾' },
+  { dirty: false, id: 'products', route: '/mdm/products', title: '商品主数据' },
   { dirty: false, id: 'orders', route: '/oms/orders', title: '订单中心' },
   { dirty: false, id: 'inventory', route: '/wms/inventory', title: '库存视图' },
   { dirty: false, id: 'transport', route: '/tms/shipments', title: '运输执行' },
@@ -121,6 +123,7 @@ const modules = [
   ['调度', 'jobs'],
   ['事件', 'events'],
   ['收尾', 'finalization'],
+  ['商品', 'products'],
   ['订单', 'orders'],
   ['仓储', 'inventory'],
   ['运输', 'transport'],
@@ -268,6 +271,7 @@ export function ApplicationShell() {
     if (tabId === 'jobs') return <JobWorkbench />;
     if (tabId === 'events') return <EventWorkbench />;
     if (tabId === 'finalization') return <PlatformFinalizationWorkbench />;
+    if (tabId === 'products') return <ProductWorkbench />;
     return (
       <section className="workspace-placeholder">
         <Typography.Title level={2}>
