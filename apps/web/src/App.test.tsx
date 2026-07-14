@@ -221,5 +221,10 @@ describe('App', () => {
     expect(screen.getByText('合拆映射与数量金额守恒')).toBeInTheDocument();
     expect(screen.getByRole('button', { name: '执行风险审核' })).toBeDisabled();
     expect(screen.getByRole('button', { name: '解除冻结' })).toBeDisabled();
+    expect(screen.getByText('ATP 快照与不确定性')).toBeInTheDocument();
+    expect(screen.getByText('候选排除与规则版本')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: '执行 ATP 分配' })).toBeDisabled();
+    expect(screen.getByRole('button', { name: '释放预占' })).toBeDisabled();
+    expect(screen.getByRole('textbox', { name: '分配规则集代码' })).toHaveValue('ORDER_ALLOCATION_DEFAULT');
   });
 });

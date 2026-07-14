@@ -745,6 +745,16 @@ enum OrderStatus {
   APPROVED
   REJECTED
   HOLD
+  ALLOCATED
+
+  @@schema("oms")
+}
+
+enum AllocationStatus {
+  PROPOSED
+  RESERVED
+  RELEASED
+  FAILED
 
   @@schema("oms")
 }
@@ -1862,6 +1872,119 @@ model OrderHold {
   @@index([tenantId, businessOrderId, status, createdAt], map: "order_hold_tenant_order_idx")
   @@index([tenantId, orderLineId, status], map: "order_hold_tenant_line_idx")
   @@map("order_hold")
+  @@schema("oms")
+}
+
+model InventoryAvailabilityProjection {
+  id              String          @id @default(uuid()) @db.Uuid
+  tenantId        String          @map("tenant_id") @db.Uuid
+  createdAt       DateTime        @default(now()) @map("created_at") @db.Timestamptz(3)
+  createdBy       String          @map("created_by") @db.Uuid
+  updatedAt       DateTime        @updatedAt @map("updated_at") @db.Timestamptz(3)
+  updatedBy       String          @map("updated_by") @db.Uuid
+  version         Int             @default(1)
+  status          OmsRecordStatus @default(ACTIVE)
+  warehouseId     String          @map("warehouse_id") @db.Uuid
+  ownerId         String          @map("owner_id") @db.Uuid
+  productId       String          @map("product_id") @db.Uuid
+  batchNo         String          @default("") @map("batch_no") @db.VarChar(100)
+  baseUom         String          @map("base_uom") @db.VarChar(20)
+  onHand          Decimal         @map("on_hand") @db.Decimal(24, 12)
+  allocated       Decimal         @default(0) @db.Decimal(24, 12)
+  hold            Decimal         @default(0) @db.Decimal(24, 12)
+  inTransit       Decimal         @default(0) @map("in_transit") @db.Decimal(24, 12)
+  expectedInbound Decimal         @default(0) @map("expected_inbound") @db.Decimal(24, 12)
+  safetyStock     Decimal         @default(0) @map("safety_stock") @db.Decimal(24, 12)
+  promiseDate     DateTime?       @map("promise_date") @db.Timestamptz(3)
+  uncertainty     String          @default("CONFIRMED") @db.VarChar(30)
+  sourceVersion   Int             @map("source_version")
+  snapshotAt      DateTime        @map("snapshot_at") @db.Timestamptz(3)
+
+  @@unique([tenantId, warehouseId, ownerId, productId, batchNo], map: "availability_projection_natural_key")
+  @@index([tenantId, productId, ownerId, status], map: "availability_projection_lookup_idx")
+  @@map("inventory_availability_projection")
+  @@schema("oms")
+}
+
+model AvailabilityPromise {
+  id                 String          @id @default(uuid()) @db.Uuid
+  tenantId           String          @map("tenant_id") @db.Uuid
+  createdAt          DateTime        @default(now()) @map("created_at") @db.Timestamptz(3)
+  createdBy          String          @map("created_by") @db.Uuid
+  updatedAt          DateTime        @default(now()) @map("updated_at") @db.Timestamptz(3)
+  updatedBy          String          @map("updated_by") @db.Uuid
+  version            Int             @default(1)
+  status             OmsRecordStatus @default(ACTIVE)
+  productId          String          @map("product_id") @db.Uuid
+  ownerId            String          @map("owner_id") @db.Uuid
+  requestedQuantity  Decimal         @map("requested_quantity") @db.Decimal(24, 12)
+  baseUom            String          @map("base_uom") @db.VarChar(20)
+  availableNow       Decimal         @map("available_now") @db.Decimal(24, 12)
+  projectedAvailable Decimal         @map("projected_available") @db.Decimal(24, 12)
+  promiseDate        DateTime?       @map("promise_date") @db.Timestamptz(3)
+  snapshotAt         DateTime        @map("snapshot_at") @db.Timestamptz(3)
+  uncertainty        String          @db.VarChar(30)
+  componentSnapshot  Json            @map("component_snapshot") @db.JsonB
+
+  @@index([tenantId, productId, ownerId, createdAt], map: "availability_promise_lookup_idx")
+  @@map("availability_promise")
+  @@schema("oms")
+}
+
+model SourcingDecision {
+  id                   String          @id @default(uuid()) @db.Uuid
+  tenantId             String          @map("tenant_id") @db.Uuid
+  createdAt            DateTime        @default(now()) @map("created_at") @db.Timestamptz(3)
+  createdBy            String          @map("created_by") @db.Uuid
+  updatedAt            DateTime        @default(now()) @map("updated_at") @db.Timestamptz(3)
+  updatedBy            String          @map("updated_by") @db.Uuid
+  version              Int             @default(1)
+  status               OmsRecordStatus @default(ACTIVE)
+  businessOrderId      String          @map("business_order_id") @db.Uuid
+  orderVersion         Int             @map("order_version")
+  ruleSetCode          String          @map("rule_set_code") @db.VarChar(100)
+  ruleSetVersionNumber Int             @map("rule_set_version_number")
+  evaluationTraceId    String          @map("evaluation_trace_id") @db.Uuid
+  selectedCandidateId  String?         @map("selected_candidate_id") @db.Uuid
+  candidates           Json            @db.JsonB
+  exclusions           Json            @db.JsonB
+  inputSnapshot        Json            @map("input_snapshot") @db.JsonB
+
+  @@index([tenantId, businessOrderId, createdAt], map: "sourcing_decision_order_idx")
+  @@map("sourcing_decision")
+  @@schema("oms")
+}
+
+model OrderAllocation {
+  id               String           @id @default(uuid()) @db.Uuid
+  tenantId         String           @map("tenant_id") @db.Uuid
+  createdAt        DateTime         @default(now()) @map("created_at") @db.Timestamptz(3)
+  createdBy        String           @map("created_by") @db.Uuid
+  updatedAt        DateTime         @updatedAt @map("updated_at") @db.Timestamptz(3)
+  updatedBy        String           @map("updated_by") @db.Uuid
+  version          Int              @default(1)
+  status           AllocationStatus @default(PROPOSED)
+  businessOrderId  String           @map("business_order_id") @db.Uuid
+  orderLineId      String           @map("order_line_id") @db.Uuid
+  decisionId       String           @map("decision_id") @db.Uuid
+  projectionId     String?          @map("projection_id") @db.Uuid
+  warehouseId      String?          @map("warehouse_id") @db.Uuid
+  ownerId          String           @map("owner_id") @db.Uuid
+  productId        String           @map("product_id") @db.Uuid
+  batchNo          String           @default("") @map("batch_no") @db.VarChar(100)
+  quantityOriginal Decimal          @map("quantity_original") @db.Decimal(24, 12)
+  originalUom      String           @map("original_uom") @db.VarChar(20)
+  quantityBase     Decimal          @map("quantity_base") @db.Decimal(24, 12)
+  baseUom          String           @map("base_uom") @db.VarChar(20)
+  reservationKey   String           @map("reservation_key") @db.VarChar(200)
+  failureCode      String?          @map("failure_code") @db.VarChar(100)
+  reservedAt       DateTime?        @map("reserved_at") @db.Timestamptz(3)
+  releasedAt       DateTime?        @map("released_at") @db.Timestamptz(3)
+
+  @@unique([tenantId, reservationKey], map: "order_allocation_reservation_key")
+  @@index([tenantId, businessOrderId, status], map: "order_allocation_order_idx")
+  @@index([tenantId, projectionId, status], map: "order_allocation_projection_idx")
+  @@map("order_allocation")
   @@schema("oms")
 }
 

@@ -6,7 +6,7 @@ import {
   StatusBadge,
   createActionRegistry,
 } from '@scm/ui';
-import { Alert, Card, Col, Row, Typography } from 'antd';
+import { Alert, Card, Col, Input, Row, Typography } from 'antd';
 import { useSessionStore } from '../platform/session-store';
 
 interface OrderRow {
@@ -15,7 +15,7 @@ interface OrderRow {
   id: string;
   orderNo: string;
   priority: number;
-  status: 'DRAFT' | 'INVALID' | 'OPEN' | 'APPROVED' | 'REJECTED' | 'HOLD';
+  status: 'DRAFT' | 'INVALID' | 'OPEN' | 'APPROVED' | 'REJECTED' | 'HOLD' | 'ALLOCATED';
   type: string;
   validationErrors: readonly { field: string; message: string }[];
   version: number;
@@ -26,6 +26,7 @@ interface OrderLineRow {
   id: string;
   lineNo: number;
   originalUom: string | null;
+  productId: string | null;
   quantityBase: string | null;
   quantityOriginal: string | null;
 }
@@ -45,14 +46,33 @@ interface DuplicateCaseRow {
 }
 
 interface OrderDetail extends OrderRow {
+  allocations: AllocationRow[];
+  customerId: string | null;
   duplicateCases: DuplicateCaseRow[];
   holds: GovernanceRow[];
   lines: OrderLineRow[];
   mergeMemberships: GovernanceRow[];
   priorityDecisions: GovernanceRow[];
   reviews: GovernanceRow[];
+  sourcingDecisions: SourcingDecisionRow[];
   splitRelations: GovernanceRow[];
   versions: OrderVersionRow[];
+}
+
+interface AllocationRow extends GovernanceRow {
+  baseUom: string;
+  failureCode: string | null;
+  quantityBase: string;
+  version: number;
+  warehouseId: string;
+}
+
+interface SourcingDecisionRow extends GovernanceRow {
+  evaluationTraceId: string;
+  exclusions: readonly unknown[];
+  ruleSetCode: string;
+  ruleSetVersionNumber: number;
+  selectedCandidateId: string | null;
 }
 
 interface GovernanceRow {
@@ -76,10 +96,24 @@ interface ListResponse {
 
 const actions = createActionRegistry<OrderRow['status'] | 'NONE'>([
   {
-    allowedStatuses: ['DRAFT', 'INVALID', 'OPEN', 'APPROVED', 'REJECTED', 'HOLD', 'NONE'],
+    allowedStatuses: ['DRAFT', 'INVALID', 'OPEN', 'APPROVED', 'REJECTED', 'HOLD', 'ALLOCATED', 'NONE'],
     id: 'create-manual',
     label: '新建人工草稿',
     requiredPermissions: ['oms.order.write'],
+  },
+  {
+    allowedStatuses: ['APPROVED'],
+    confirmMessage: '将按已发布规则评估候选仓并原子预占可用量。',
+    id: 'allocate',
+    label: '执行 ATP 分配',
+    requiredPermissions: ['oms.order.allocate'],
+  },
+  {
+    allowedStatuses: ['ALLOCATED'],
+    confirmMessage: '释放将归还库存投影可用量并发送跨域释放事件。',
+    id: 'release-allocation',
+    label: '释放预占',
+    requiredPermissions: ['oms.allocation.release'],
   },
   {
     allowedStatuses: ['DRAFT', 'INVALID'],
@@ -144,6 +178,7 @@ export function OrderIntakeWorkbench() {
   const [detail, setDetail] = useState<OrderDetail>();
   const [error, setError] = useState<string>();
   const [notice, setNotice] = useState<string>();
+  const [ruleSetCode, setRuleSetCode] = useState('ORDER_ALLOCATION_DEFAULT');
   const permissions = useMemo(
     () =>
       new Set(
@@ -159,6 +194,9 @@ export function OrderIntakeWorkbench() {
               'oms.order.priority',
               'oms.order.hold',
               'oms.order.hold.release',
+              'oms.availability.read',
+              'oms.order.allocate',
+              'oms.allocation.release',
             ]
           : [],
       ),
@@ -292,6 +330,18 @@ export function OrderIntakeWorkbench() {
           method: 'POST',
         });
         setNotice('合单组已创建，来源订单映射保持可追溯');
+      } else if (selected && actionId === 'allocate') {
+        if (!detail?.customerId) throw new Error('订单缺少库存货主标识');
+        const result = (await request(`/api/v1/oms/orders/${selected.id}/allocations`, {
+          body: JSON.stringify({ expectedVersion: selected.version, ownerId: detail.customerId, ruleSetCode }),
+          method: 'POST',
+        })) as unknown as { status: string };
+        setNotice(result.status === 'FAILED' ? '候选仓不足或并发耗尽，分配已失败且未超卖' : 'ATP 分配与库存预占已完成');
+      } else if (selected && actionId === 'release-allocation') {
+        const allocation = detail?.allocations.find(({ status }) => status === 'RESERVED');
+        if (!allocation) throw new Error('未找到可释放的预占');
+        await request(`/api/v1/oms/allocations/${allocation.id}/release`, { body: JSON.stringify({ expectedVersion: allocation.version }), method: 'POST' });
+        setNotice('预占已释放，可用量已归还');
       }
       await refresh(1);
       if (selected) await loadDetail(selected.id);
@@ -319,6 +369,7 @@ export function OrderIntakeWorkbench() {
           onReset={() => setFilters({})}
         />
         <CommandBar actions={decisions} onAction={({ id }) => void execute(id)} />
+        <Input aria-label="分配规则集代码" onChange={(event) => setRuleSetCode(event.target.value.toUpperCase())} value={ruleSetCode} />
         <DataGrid
           columns={[
             { key: 'orderNo', label: '订单号' },
@@ -423,6 +474,17 @@ export function OrderIntakeWorkbench() {
         <Col span={12}>
           <Card title="合拆映射与数量金额守恒">
             <DataGrid columns={[{ key: 'businessOrderId', label: '来源订单' }, { key: 'childBusinessRef', label: '目标业务引用' }, { key: 'status', label: '状态' }]} onPageChange={() => undefined} onSelectionChange={() => undefined} page={1} pageSize={300} rows={[...(detail?.mergeMemberships ?? []), ...(detail?.splitRelations ?? [])]} selectedIds={[]} total={(detail?.mergeMemberships.length ?? 0) + (detail?.splitRelations.length ?? 0)} />
+          </Card>
+        </Col>
+        <Col span={12}>
+          <Card title="ATP 快照与不确定性">
+            <Typography.Paragraph>可用量按库存、已分配、冻结、安全库存、在途和预计入库汇总；承诺结果固定记录 snapshotAt 与 uncertainty。</Typography.Paragraph>
+            <DataGrid columns={[{ key: 'quantityBase', label: '预占基础数量' }, { key: 'baseUom', label: '基础单位' }, { key: 'warehouseId', label: '候选仓' }, { key: 'status', label: '预占状态' }, { key: 'failureCode', label: '失败原因' }]} onPageChange={() => undefined} onSelectionChange={() => undefined} page={1} pageSize={300} rows={detail?.allocations ?? []} selectedIds={[]} total={detail?.allocations.length ?? 0} />
+          </Card>
+        </Col>
+        <Col span={12}>
+          <Card title="候选排除与规则版本">
+            <DataGrid columns={[{ key: 'ruleSetCode', label: '规则集' }, { key: 'ruleSetVersionNumber', label: '规则版本' }, { key: 'selectedCandidateId', label: '选中候选' }, { key: 'exclusions', label: '排除原因' }, { key: 'evaluationTraceId', label: '评估轨迹' }]} onPageChange={() => undefined} onSelectionChange={() => undefined} page={1} pageSize={300} rows={detail?.sourcingDecisions ?? []} selectedIds={[]} total={detail?.sourcingDecisions.length ?? 0} />
           </Card>
         </Col>
       </Row>

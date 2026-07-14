@@ -33,6 +33,7 @@ import { NotificationService } from './notification.service';
 import { RoleController } from './role.controller';
 import { RuleEngineController } from './rule-engine.controller';
 import { RuleEngineService } from './rule-engine.service';
+import { RuleEvaluationFacade } from './public/rule-evaluation.facade';
 import { SearchService } from './search.service';
 import { RoleService } from './role.service';
 import { ServiceAccountController } from './service-account.controller';
@@ -88,6 +89,7 @@ import { WorkflowService } from './workflow.service';
     PermissionService,
     RoleService,
     RuleEngineService,
+    RuleEvaluationFacade,
     SearchService,
     ServiceAccountService,
     TenantService,
@@ -95,5 +97,6 @@ import { WorkflowService } from './workflow.service';
     WatermarkService,
     WorkflowService,
   ],
+  exports: [RuleEvaluationFacade],
 })
 export class PlatformModule {}
