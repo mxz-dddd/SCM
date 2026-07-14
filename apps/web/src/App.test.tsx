@@ -247,6 +247,21 @@ describe('App', () => {
     ).toBeInTheDocument();
   });
 
+  it('opens outbound orders, wave simulation and shortage handling', () => {
+    render(<App />);
+    fireEvent.click(screen.getByRole('button', { name: '出库' }));
+    expect(
+      screen.getByRole('heading', { name: '出库单、波次与库存分配' }),
+    ).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: '接收出库单' })).toBeDisabled();
+    expect(screen.getByRole('button', { name: '配置波次模板' })).toBeDisabled();
+    expect(
+      screen.getByRole('button', { name: '模拟波次工作量' }),
+    ).toBeDisabled();
+    expect(screen.getByRole('button', { name: '发布波次' })).toBeDisabled();
+    expect(screen.getByRole('button', { name: '处置缺货' })).toBeDisabled();
+  });
+
   it('opens partner, address and service-zone master data', () => {
     render(<App />);
     fireEvent.click(screen.getByRole('button', { name: '伙伴' }));

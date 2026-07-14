@@ -144,6 +144,48 @@ export const ADMIN_PERMISSIONS = [
     resourceType: 'BUTTON',
   },
   {
+    code: 'wms.outbound.read',
+    name: '查看出库与波次',
+    resourceRef: '/api/v1/wms/outbounds',
+    resourceType: 'PAGE',
+  },
+  {
+    code: 'wms.outbound.write',
+    name: '接收出库单',
+    resourceRef: '/api/v1/wms/outbounds',
+    resourceType: 'BUTTON',
+  },
+  {
+    code: 'wms.outbound.release',
+    name: '释放出库单',
+    resourceRef: '/api/v1/wms/outbounds/*/release',
+    resourceType: 'BUTTON',
+  },
+  {
+    code: 'wms.wave.template.write',
+    name: '配置波次模板',
+    resourceRef: '/api/v1/wms/wave-templates',
+    resourceType: 'BUTTON',
+  },
+  {
+    code: 'wms.wave.plan',
+    name: '模拟与创建波次',
+    resourceRef: '/api/v1/wms/wave*',
+    resourceType: 'BUTTON',
+  },
+  {
+    code: 'wms.wave.release',
+    name: '发布与完成波次',
+    resourceRef: '/api/v1/wms/waves/*/transition',
+    resourceType: 'BUTTON',
+  },
+  {
+    code: 'wms.outbound.shortage.resolve',
+    name: '处置出库缺货',
+    resourceRef: '/api/v1/wms/outbound-shortages/*/resolve',
+    resourceType: 'BUTTON',
+  },
+  {
     code: 'wms.quality.read',
     name: '查看质检与上架',
     resourceRef: '/api/v1/wms/inbounds/*/quality-putaway',

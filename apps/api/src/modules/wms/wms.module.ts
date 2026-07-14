@@ -9,6 +9,8 @@ import { InventoryGovernanceController } from './inventory-governance.controller
 import { InventoryGovernanceService } from './inventory-governance.service';
 import { InventoryController } from './inventory.controller';
 import { InventoryService } from './inventory.service';
+import { OutboundController } from './outbound.controller';
+import { OutboundService } from './outbound.service';
 import { QualityPutawayController } from './quality-putaway.controller';
 import { QualityPutawayService } from './quality-putaway.service';
 import { ReceivingDetailController } from './receiving-detail.controller';
@@ -20,6 +22,7 @@ import { ReceivingDetailService } from './receiving-detail.service';
     QualityPutawayController,
     InventoryController,
     InventoryGovernanceController,
+    OutboundController,
   ],
   imports: [MdmModule, PlatformModule],
   providers: [
@@ -28,6 +31,7 @@ import { ReceivingDetailService } from './receiving-detail.service';
     QualityPutawayService,
     InventoryService,
     InventoryGovernanceService,
+    OutboundService,
     PermissionGuard,
     PermissionService,
   ],

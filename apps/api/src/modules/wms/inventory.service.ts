@@ -801,6 +801,104 @@ export class InventoryService {
     });
   }
 
+  async reserveForOutbound(
+    tx: Prisma.TransactionClient,
+    id: string,
+    input: {
+      businessSnapshot: Readonly<Record<string, unknown>>;
+      expectedVersion: number;
+      quantityBase: string;
+      quantityOriginal: string;
+      sourceRef: string;
+    },
+    context: TenantContext,
+    metadata: CommandMetadata,
+  ) {
+    this.uuid(id, 'balanceId');
+    const quantity = this.quantity(input);
+    const rows = await tx.$queryRaw<
+      { base_uom: string; original_uom: string; version: number }[]
+    >`
+      UPDATE wms.inventory_balance
+      SET available_original = available_original - ${quantity.original},
+          available_base = available_base - ${quantity.base},
+          allocated_original = allocated_original + ${quantity.original},
+          allocated_base = allocated_base + ${quantity.base},
+          updated_at = CURRENT_TIMESTAMP,
+          updated_by = ${context.accountId}::uuid,
+          version = version + 1
+      WHERE id = ${id}::uuid
+        AND tenant_id = ${context.tenantId}::uuid
+        AND status = 'AVAILABLE'::wms."InventoryStockStatus"
+        AND version = ${input.expectedVersion}
+        AND available_original >= ${quantity.original}
+        AND available_base >= ${quantity.base}
+        AND ${quantity.original} * on_hand_base = ${quantity.base} * on_hand_original
+      RETURNING original_uom, base_uom, version
+    `;
+    if (!rows.length) throw this.conflict('INVENTORY_RESERVATION_CONFLICT');
+    const reservationId = randomUUID();
+    const reservation = await tx.inventoryReservation.create({
+      data: {
+        balanceId: id,
+        createdBy: context.accountId,
+        id: reservationId,
+        quantityBase: quantity.base,
+        quantityOriginal: quantity.original,
+        reservationNo: `RSV-${Date.now()}-${reservationId.slice(0, 6)}`,
+        sourceRef: input.sourceRef,
+        sourceType: 'WAVE',
+        tenantId: context.tenantId,
+        updatedBy: context.accountId,
+      },
+    });
+    await tx.allocationDetail.create({
+      data: {
+        balanceId: id,
+        businessSnapshot: json(input.businessSnapshot),
+        createdBy: context.accountId,
+        quantityBase: quantity.base,
+        quantityOriginal: quantity.original,
+        reservationId,
+        tenantId: context.tenantId,
+        updatedBy: context.accountId,
+      },
+    });
+    const movement = await this.appendMovement(
+      tx,
+      id,
+      'RESERVE',
+      quantity,
+      rows[0]!.original_uom,
+      rows[0]!.base_uom,
+      'WAVE',
+      input.sourceRef,
+      context,
+      metadata,
+    );
+    await this.record(
+      tx,
+      reservationId,
+      'InventoryReservation',
+      reservation.version,
+      'inventory.reserved.v1',
+      context,
+      metadata,
+      {
+        balanceId: id,
+        movementId: movement.id,
+        quantityBase: quantity.base.toString(),
+        reservationId,
+        sourceRef: input.sourceRef,
+      },
+    );
+    return {
+      balanceVersion: rows[0]!.version,
+      reservationId,
+      version: reservation.version,
+    };
+  }
+
   async transfer(
     id: string,
     input: TransferInventoryInput,

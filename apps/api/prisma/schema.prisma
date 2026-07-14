@@ -1229,6 +1229,42 @@ enum InventoryCaseStatus {
   RESOLVED
   @@schema("wms")
 }
+enum OutboundOrderStatus {
+  DRAFT
+  RELEASED
+  WAVED
+  ALLOCATED
+  CANCELLED
+  @@schema("wms")
+}
+enum OutboundOrderType {
+  SALES
+  TRANSFER
+  RETURN_VENDOR
+  @@schema("wms")
+}
+enum WavePlanStatus {
+  DRAFT
+  PLANNED
+  RELEASED
+  COMPLETED
+  CANCELLED
+  @@schema("wms")
+}
+enum OutboundShortageStatus {
+  OPEN
+  RESOLVED
+  @@schema("wms")
+}
+enum ShortageResolutionType {
+  WAIT_INBOUND
+  TRIGGER_REPLENISHMENT
+  SUBSTITUTE_LOT
+  CHANGE_WAREHOUSE
+  SPLIT_ORDER
+  SHORT_SHIP
+  @@schema("wms")
+}
 
 enum OrderType {
   SALES
@@ -4191,6 +4227,197 @@ model InventoryReconciliationCase {
   @@unique([tenantId,dedupeKey],map:"inventory_reconciliation_case_dedupe_key")
   @@index([tenantId,status,createdAt],map:"inventory_reconciliation_case_workbench_idx")
   @@map("inventory_reconciliation_case")
+  @@schema("wms")
+}
+
+model OutboundOrder {
+  id String @id @default(uuid()) @db.Uuid
+  tenantId String @map("tenant_id") @db.Uuid
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  createdBy String @map("created_by") @db.Uuid
+  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
+  updatedBy String @map("updated_by") @db.Uuid
+  version Int @default(1)
+  status OutboundOrderStatus @default(DRAFT)
+  outboundNo String @map("outbound_no") @db.VarChar(100)
+  sourceRef String @map("source_ref") @db.VarChar(200)
+  type OutboundOrderType
+  warehouseId String @map("warehouse_id") @db.Uuid
+  ownerId String @map("owner_id") @db.Uuid
+  customerId String? @map("customer_id") @db.Uuid
+  carrierMode String? @map("carrier_mode") @db.VarChar(100)
+  routeCode String? @map("route_code") @db.VarChar(100)
+  temperatureZone String? @map("temperature_zone") @db.VarChar(50)
+  serviceLevel String @map("service_level") @db.VarChar(100)
+  destinationSnapshot Json @map("destination_snapshot") @db.JsonB
+  cutoffAt DateTime @map("cutoff_at") @db.Timestamptz(3)
+  sourceSnapshot Json @map("source_snapshot") @db.JsonB
+  releasedAt DateTime? @map("released_at") @db.Timestamptz(3)
+  @@unique([tenantId,outboundNo],map:"outbound_order_tenant_no_key")
+  @@unique([tenantId,sourceRef],map:"outbound_order_source_key")
+  @@index([tenantId,warehouseId,status,cutoffAt],map:"outbound_order_workbench_idx")
+  @@map("outbound_order")
+  @@schema("wms")
+}
+
+model OutboundLine {
+  id String @id @default(uuid()) @db.Uuid
+  tenantId String @map("tenant_id") @db.Uuid
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  createdBy String @map("created_by") @db.Uuid
+  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
+  updatedBy String @map("updated_by") @db.Uuid
+  version Int @default(1)
+  status WmsRecordStatus @default(ACTIVE)
+  outboundOrderId String @map("outbound_order_id") @db.Uuid
+  lineNo Int @map("line_no")
+  productId String @map("product_id") @db.Uuid
+  quantityOriginal Decimal @map("quantity_original") @db.Decimal(24,12)
+  originalUom String @map("original_uom") @db.VarChar(20)
+  quantityBase Decimal @map("quantity_base") @db.Decimal(24,12)
+  baseUom String @map("base_uom") @db.VarChar(20)
+  allocatedOriginal Decimal @default(0) @map("allocated_original") @db.Decimal(24,12)
+  allocatedBase Decimal @default(0) @map("allocated_base") @db.Decimal(24,12)
+  shortageOriginal Decimal @default(0) @map("shortage_original") @db.Decimal(24,12)
+  shortageBase Decimal @default(0) @map("shortage_base") @db.Decimal(24,12)
+  allocationConstraints Json @default("{}") @map("allocation_constraints") @db.JsonB
+  productSnapshot Json @map("product_snapshot") @db.JsonB
+  @@unique([tenantId,outboundOrderId,lineNo],map:"outbound_line_order_no_key")
+  @@index([tenantId,productId,status],map:"outbound_line_product_idx")
+  @@map("outbound_line")
+  @@schema("wms")
+}
+
+model WaveTemplate {
+  id String @id @default(uuid()) @db.Uuid
+  tenantId String @map("tenant_id") @db.Uuid
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  createdBy String @map("created_by") @db.Uuid
+  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
+  updatedBy String @map("updated_by") @db.Uuid
+  version Int @default(1)
+  status WmsRecordStatus @default(ACTIVE)
+  templateNo String @map("template_no") @db.VarChar(100)
+  name String @db.VarChar(200)
+  warehouseId String @map("warehouse_id") @db.Uuid
+  criteria Json @map("criteria") @db.JsonB
+  strategy Json @map("strategy") @db.JsonB
+  capacitySnapshot Json @map("capacity_snapshot") @db.JsonB
+  workloadFactors Json @map("workload_factors") @db.JsonB
+  @@unique([tenantId,templateNo],map:"wave_template_tenant_no_key")
+  @@index([tenantId,warehouseId,status],map:"wave_template_lookup_idx")
+  @@map("wave_template")
+  @@schema("wms")
+}
+
+model WavePlan {
+  id String @id @default(uuid()) @db.Uuid
+  tenantId String @map("tenant_id") @db.Uuid
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  createdBy String @map("created_by") @db.Uuid
+  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
+  updatedBy String @map("updated_by") @db.Uuid
+  version Int @default(1)
+  status WavePlanStatus @default(DRAFT)
+  waveNo String @map("wave_no") @db.VarChar(100)
+  templateId String @map("template_id") @db.Uuid
+  warehouseId String @map("warehouse_id") @db.Uuid
+  cutoffAt DateTime @map("cutoff_at") @db.Timestamptz(3)
+  capacitySnapshot Json @map("capacity_snapshot") @db.JsonB
+  workloadSnapshot Json @map("workload_snapshot") @db.JsonB
+  simulationSnapshot Json @map("simulation_snapshot") @db.JsonB
+  plannedAt DateTime? @map("planned_at") @db.Timestamptz(3)
+  releasedAt DateTime? @map("released_at") @db.Timestamptz(3)
+  completedAt DateTime? @map("completed_at") @db.Timestamptz(3)
+  @@unique([tenantId,waveNo],map:"wave_plan_tenant_no_key")
+  @@index([tenantId,warehouseId,status,cutoffAt],map:"wave_plan_workbench_idx")
+  @@map("wave_plan")
+  @@schema("wms")
+}
+
+model WaveOrder {
+  id String @id @default(uuid()) @db.Uuid
+  tenantId String @map("tenant_id") @db.Uuid
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  createdBy String @map("created_by") @db.Uuid
+  updatedAt DateTime @default(now()) @map("updated_at") @db.Timestamptz(3)
+  updatedBy String @map("updated_by") @db.Uuid
+  version Int @default(1)
+  status WmsRecordStatus @default(ACTIVE)
+  waveId String @map("wave_id") @db.Uuid
+  outboundOrderId String @map("outbound_order_id") @db.Uuid
+  selectionSnapshot Json @map("selection_snapshot") @db.JsonB
+  @@unique([tenantId,waveId,outboundOrderId],map:"wave_order_membership_key")
+  @@index([tenantId,outboundOrderId,status],map:"wave_order_outbound_idx")
+  @@map("wave_order")
+  @@schema("wms")
+}
+
+model OutboundAllocation {
+  id String @id @default(uuid()) @db.Uuid
+  tenantId String @map("tenant_id") @db.Uuid
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  createdBy String @map("created_by") @db.Uuid
+  updatedAt DateTime @default(now()) @map("updated_at") @db.Timestamptz(3)
+  updatedBy String @map("updated_by") @db.Uuid
+  version Int @default(1)
+  status WmsRecordStatus @default(ACTIVE)
+  waveId String @map("wave_id") @db.Uuid
+  outboundOrderId String @map("outbound_order_id") @db.Uuid
+  outboundLineId String @map("outbound_line_id") @db.Uuid
+  balanceId String @map("balance_id") @db.Uuid
+  reservationId String @map("reservation_id") @db.Uuid
+  quantityOriginal Decimal @map("quantity_original") @db.Decimal(24,12)
+  quantityBase Decimal @map("quantity_base") @db.Decimal(24,12)
+  strategyTrace Json @map("strategy_trace") @db.JsonB
+  @@unique([tenantId,waveId,outboundLineId,balanceId],map:"outbound_allocation_dimension_key")
+  @@index([tenantId,outboundLineId,createdAt],map:"outbound_allocation_line_idx")
+  @@map("outbound_allocation")
+  @@schema("wms")
+}
+
+model OutboundShortageCase {
+  id String @id @default(uuid()) @db.Uuid
+  tenantId String @map("tenant_id") @db.Uuid
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  createdBy String @map("created_by") @db.Uuid
+  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
+  updatedBy String @map("updated_by") @db.Uuid
+  version Int @default(1)
+  status OutboundShortageStatus @default(OPEN)
+  caseNo String @map("case_no") @db.VarChar(100)
+  waveId String @map("wave_id") @db.Uuid
+  outboundOrderId String @map("outbound_order_id") @db.Uuid
+  outboundLineId String @map("outbound_line_id") @db.Uuid
+  requestedBase Decimal @map("requested_base") @db.Decimal(24,12)
+  allocatedBase Decimal @map("allocated_base") @db.Decimal(24,12)
+  shortageBase Decimal @map("shortage_base") @db.Decimal(24,12)
+  optionsSnapshot Json @map("options_snapshot") @db.JsonB
+  resolutionType ShortageResolutionType? @map("resolution_type")
+  resolutionSnapshot Json? @map("resolution_snapshot") @db.JsonB
+  resolvedAt DateTime? @map("resolved_at") @db.Timestamptz(3)
+  @@unique([tenantId,waveId,outboundLineId],map:"outbound_shortage_wave_line_key")
+  @@unique([tenantId,caseNo],map:"outbound_shortage_tenant_no_key")
+  @@index([tenantId,status,createdAt],map:"outbound_shortage_workbench_idx")
+  @@map("outbound_shortage_case")
+  @@schema("wms")
+}
+
+model OutboundReallocation {
+  id String @id @default(uuid()) @db.Uuid
+  tenantId String @map("tenant_id") @db.Uuid
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  createdBy String @map("created_by") @db.Uuid
+  updatedAt DateTime @default(now()) @map("updated_at") @db.Timestamptz(3)
+  updatedBy String @map("updated_by") @db.Uuid
+  version Int @default(1)
+  status WmsRecordStatus @default(ACTIVE)
+  shortageCaseId String @map("shortage_case_id") @db.Uuid
+  type ShortageResolutionType
+  resolutionSnapshot Json @map("resolution_snapshot") @db.JsonB
+  omsEventRef String @map("oms_event_ref") @db.Uuid
+  @@index([tenantId,shortageCaseId,createdAt],map:"outbound_reallocation_case_idx")
+  @@map("outbound_reallocation")
   @@schema("wms")
 }
 
