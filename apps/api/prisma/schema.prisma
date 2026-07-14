@@ -1177,6 +1177,58 @@ enum CountFreezeStatus {
   RELEASED
   @@schema("wms")
 }
+enum InventoryAdjustmentStatus {
+  DRAFT
+  PENDING_APPROVAL
+  APPROVED
+  POSTED
+  REJECTED
+  @@schema("wms")
+}
+enum InventoryAdjustmentType {
+  GAIN
+  LOSS
+  DAMAGE
+  DATA_FIX
+  @@schema("wms")
+}
+enum InventoryIssueMethod {
+  FIFO
+  FEFO
+  @@schema("wms")
+}
+enum ReplenishmentTaskStatus {
+  PLANNED
+  EXECUTING
+  COMPLETED
+  FAILED
+  CANCELLED
+  @@schema("wms")
+}
+enum InventoryAlertType {
+  AGED
+  NEAR_EXPIRY
+  EXPIRED
+  @@schema("wms")
+}
+enum InventoryAlertStatus {
+  OPEN
+  ACKNOWLEDGED
+  RESOLVED
+  @@schema("wms")
+}
+enum InventoryReconciliationStatus {
+  DRAFT
+  MATCHED
+  DIFFERENCE_RECORDED
+  CLOSED
+  @@schema("wms")
+}
+enum InventoryCaseStatus {
+  OPEN
+  RESOLVED
+  @@schema("wms")
+}
 
 enum OrderType {
   SALES
@@ -3958,6 +4010,187 @@ model InventoryCountFreeze {
   @@unique([tenantId,countOrderId,balanceId],map:"inventory_count_freeze_balance_key")
   @@index([tenantId,countOrderId,status,locationId],map:"inventory_count_freeze_order_idx")
   @@map("inventory_count_freeze")
+  @@schema("wms")
+}
+
+model InventoryAdjustmentOrder {
+  id String @id @default(uuid()) @db.Uuid
+  tenantId String @map("tenant_id") @db.Uuid
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  createdBy String @map("created_by") @db.Uuid
+  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
+  updatedBy String @map("updated_by") @db.Uuid
+  version Int @default(1)
+  status InventoryAdjustmentStatus @default(DRAFT)
+  adjustmentNo String @map("adjustment_no") @db.VarChar(100)
+  balanceId String @map("balance_id") @db.Uuid
+  type InventoryAdjustmentType
+  quantityOriginal Decimal @map("quantity_original") @db.Decimal(24,12)
+  quantityBase Decimal @map("quantity_base") @db.Decimal(24,12)
+  reasonCode String @map("reason_code") @db.VarChar(100)
+  reason String @db.VarChar(500)
+  attachmentRefs Json @map("attachment_refs") @db.JsonB
+  financialImpact Json @map("financial_impact") @db.JsonB
+  approvalReference String? @map("approval_reference") @db.VarChar(200)
+  movementId String? @map("movement_id") @db.Uuid
+  postedAt DateTime? @map("posted_at") @db.Timestamptz(3)
+  @@unique([tenantId,adjustmentNo],map:"inventory_adjustment_tenant_no_key")
+  @@index([tenantId,status,createdAt],map:"inventory_adjustment_workbench_idx")
+  @@index([tenantId,balanceId,createdAt],map:"inventory_adjustment_balance_idx")
+  @@map("inventory_adjustment_order")
+  @@schema("wms")
+}
+
+model ReplenishmentPolicy {
+  id String @id @default(uuid()) @db.Uuid
+  tenantId String @map("tenant_id") @db.Uuid
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  createdBy String @map("created_by") @db.Uuid
+  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
+  updatedBy String @map("updated_by") @db.Uuid
+  version Int @default(1)
+  status WmsRecordStatus @default(ACTIVE)
+  policyNo String @map("policy_no") @db.VarChar(100)
+  warehouseId String @map("warehouse_id") @db.Uuid
+  ownerId String? @map("owner_id") @db.Uuid
+  productId String @map("product_id") @db.Uuid
+  pickLocationId String @map("pick_location_id") @db.Uuid
+  minimumBase Decimal @map("minimum_base") @db.Decimal(24,12)
+  maximumBase Decimal @map("maximum_base") @db.Decimal(24,12)
+  leadTimeDays Int @default(0) @map("lead_time_days")
+  issueMethod InventoryIssueMethod @default(FEFO) @map("issue_method")
+  demandSnapshot Json @default("{}") @map("demand_snapshot") @db.JsonB
+  @@unique([tenantId,policyNo],map:"replenishment_policy_tenant_no_key")
+  @@index([tenantId,warehouseId,productId,status],map:"replenishment_policy_lookup_idx")
+  @@map("replenishment_policy")
+  @@schema("wms")
+}
+
+model ReplenishmentTask {
+  id String @id @default(uuid()) @db.Uuid
+  tenantId String @map("tenant_id") @db.Uuid
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  createdBy String @map("created_by") @db.Uuid
+  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
+  updatedBy String @map("updated_by") @db.Uuid
+  version Int @default(1)
+  status ReplenishmentTaskStatus @default(PLANNED)
+  taskNo String @map("task_no") @db.VarChar(100)
+  policyId String @map("policy_id") @db.Uuid
+  sourceBalanceId String @map("source_balance_id") @db.Uuid
+  targetLocationId String @map("target_location_id") @db.Uuid
+  quantityOriginal Decimal @map("quantity_original") @db.Decimal(24,12)
+  quantityBase Decimal @map("quantity_base") @db.Decimal(24,12)
+  issueMethod InventoryIssueMethod @map("issue_method")
+  selectionSnapshot Json @map("selection_snapshot") @db.JsonB
+  transferId String? @map("transfer_id") @db.Uuid
+  failureReason String? @map("failure_reason") @db.VarChar(500)
+  completedAt DateTime? @map("completed_at") @db.Timestamptz(3)
+  @@unique([tenantId,taskNo],map:"replenishment_task_tenant_no_key")
+  @@index([tenantId,status,createdAt],map:"replenishment_task_workbench_idx")
+  @@index([tenantId,sourceBalanceId,status],map:"replenishment_task_source_idx")
+  @@map("replenishment_task")
+  @@schema("wms")
+}
+
+model InventoryAgingSnapshot {
+  id String @id @default(uuid()) @db.Uuid
+  tenantId String @map("tenant_id") @db.Uuid
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  createdBy String @map("created_by") @db.Uuid
+  updatedAt DateTime @default(now()) @map("updated_at") @db.Timestamptz(3)
+  updatedBy String @map("updated_by") @db.Uuid
+  version Int @default(1)
+  status WmsRecordStatus @default(ACTIVE)
+  snapshotDate DateTime @map("snapshot_date") @db.Date
+  balanceId String @map("balance_id") @db.Uuid
+  inventoryLotId String? @map("inventory_lot_id") @db.Uuid
+  ageDays Int @map("age_days")
+  remainingShelfLifeDays Int? @map("remaining_shelf_life_days")
+  bucketCode String @map("bucket_code") @db.VarChar(50)
+  quantityBase Decimal @map("quantity_base") @db.Decimal(24,12)
+  @@unique([tenantId,snapshotDate,balanceId],map:"inventory_aging_snapshot_key")
+  @@index([tenantId,snapshotDate,bucketCode],map:"inventory_aging_bucket_idx")
+  @@map("inventory_aging_snapshot")
+  @@schema("wms")
+}
+
+model InventoryExpiryAlert {
+  id String @id @default(uuid()) @db.Uuid
+  tenantId String @map("tenant_id") @db.Uuid
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  createdBy String @map("created_by") @db.Uuid
+  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
+  updatedBy String @map("updated_by") @db.Uuid
+  version Int @default(1)
+  status InventoryAlertStatus @default(OPEN)
+  alertNo String @map("alert_no") @db.VarChar(100)
+  dedupeKey String @map("dedupe_key") @db.VarChar(300)
+  type InventoryAlertType
+  balanceId String @map("balance_id") @db.Uuid
+  inventoryLotId String? @map("inventory_lot_id") @db.Uuid
+  severity String @db.VarChar(20)
+  actionSuggestion String @map("action_suggestion") @db.VarChar(500)
+  snapshot Json @map("snapshot") @db.JsonB
+  resolvedAt DateTime? @map("resolved_at") @db.Timestamptz(3)
+  @@unique([tenantId,dedupeKey],map:"inventory_expiry_alert_dedupe_key")
+  @@index([tenantId,status,type,createdAt],map:"inventory_expiry_alert_workbench_idx")
+  @@map("inventory_expiry_alert")
+  @@schema("wms")
+}
+
+model InventoryReconciliation {
+  id String @id @default(uuid()) @db.Uuid
+  tenantId String @map("tenant_id") @db.Uuid
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  createdBy String @map("created_by") @db.Uuid
+  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
+  updatedBy String @map("updated_by") @db.Uuid
+  version Int @default(1)
+  status InventoryReconciliationStatus @default(DRAFT)
+  reconciliationNo String @map("reconciliation_no") @db.VarChar(100)
+  warehouseId String @map("warehouse_id") @db.Uuid
+  ownerId String? @map("owner_id") @db.Uuid
+  periodStart DateTime @map("period_start") @db.Timestamptz(3)
+  periodEnd DateTime @map("period_end") @db.Timestamptz(3)
+  openingBase Decimal @map("opening_base") @db.Decimal(24,12)
+  receiptBase Decimal @map("receipt_base") @db.Decimal(24,12)
+  shipmentBase Decimal @map("shipment_base") @db.Decimal(24,12)
+  adjustmentBase Decimal @map("adjustment_base") @db.Decimal(24,12)
+  countBase Decimal @map("count_base") @db.Decimal(24,12)
+  closingBase Decimal @map("closing_base") @db.Decimal(24,12)
+  erpClosingBase Decimal @map("erp_closing_base") @db.Decimal(24,12)
+  differenceBase Decimal @map("difference_base") @db.Decimal(24,12)
+  calculationSnapshot Json @map("calculation_snapshot") @db.JsonB
+  closedAt DateTime? @map("closed_at") @db.Timestamptz(3)
+  @@unique([tenantId,reconciliationNo],map:"inventory_reconciliation_tenant_no_key")
+  @@index([tenantId,warehouseId,status,periodEnd],map:"inventory_reconciliation_workbench_idx")
+  @@map("inventory_reconciliation")
+  @@schema("wms")
+}
+
+model InventoryReconciliationCase {
+  id String @id @default(uuid()) @db.Uuid
+  tenantId String @map("tenant_id") @db.Uuid
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  createdBy String @map("created_by") @db.Uuid
+  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
+  updatedBy String @map("updated_by") @db.Uuid
+  version Int @default(1)
+  status InventoryCaseStatus @default(OPEN)
+  caseNo String @map("case_no") @db.VarChar(100)
+  reconciliationId String @map("reconciliation_id") @db.Uuid
+  dedupeKey String @map("dedupe_key") @db.VarChar(300)
+  expectedBase Decimal @map("expected_base") @db.Decimal(24,12)
+  actualBase Decimal @map("actual_base") @db.Decimal(24,12)
+  differenceBase Decimal @map("difference_base") @db.Decimal(24,12)
+  description String @db.VarChar(1000)
+  resolution String? @db.VarChar(1000)
+  resolvedAt DateTime? @map("resolved_at") @db.Timestamptz(3)
+  @@unique([tenantId,caseNo],map:"inventory_reconciliation_case_tenant_no_key")
+  @@unique([tenantId,dedupeKey],map:"inventory_reconciliation_case_dedupe_key")
+  @@index([tenantId,status,createdAt],map:"inventory_reconciliation_case_workbench_idx")
+  @@map("inventory_reconciliation_case")
   @@schema("wms")
 }
 

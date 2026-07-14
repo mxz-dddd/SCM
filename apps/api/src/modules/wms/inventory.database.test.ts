@@ -3,6 +3,7 @@ import { PrismaClient } from '@prisma/client';
 import type { TenantContext } from '@scm/shared';
 import { afterAll, describe, expect, it } from 'vitest';
 import { MdmReferenceService } from '../mdm/public/mdm-reference.service';
+import { InventoryGovernanceService } from './inventory-governance.service';
 import { InventoryService } from './inventory.service';
 
 const databaseDescribe = process.env.DATABASE_URL ? describe : describe.skip;
@@ -783,5 +784,526 @@ databaseDescribe('WMS inventory balance and TraceChain persistence', () => {
         command(),
       ),
     ).resolves.toMatchObject({ frozen: false, lineCount: 1 });
+  });
+
+  it('governs adjustments, FEFO replenishment, aging, genealogy and ERP reconciliation', async () => {
+    const tenantId = randomUUID();
+    const actorId = randomUUID();
+    const ownerId = randomUUID();
+    const productId = randomUUID();
+    const warehouseId = randomUUID();
+    const pickLocationId = randomUUID();
+    const earlyLocationId = randomUUID();
+    const laterLocationId = randomUUID();
+    const earlyLotId = randomUUID();
+    const laterLotId = randomUUID();
+    const earlyReceiptLineId = randomUUID();
+    const laterReceiptLineId = randomUUID();
+    const now = new Date();
+    const context: TenantContext = {
+      accountId: actorId,
+      accountKind: 'TENANT_ADMIN',
+      deviceId: 'inventory-governance-db-test',
+      organizationIds: [],
+      permissionVersion: 1,
+      tenantId,
+      tokenId: randomUUID(),
+    };
+    const command = () => ({
+      correlationId: randomUUID(),
+      idempotencyKey: randomUUID(),
+      ipAddress: '127.0.0.1',
+    });
+    await prisma.product.create({
+      data: {
+        baseUom: 'EA',
+        createdBy: actorId,
+        currentVersionNumber: 1,
+        id: productId,
+        name: '库存治理测试商品',
+        sku: `GOV-${randomUUID().slice(0, 8)}`,
+        status: 'ACTIVE',
+        tenantId,
+        updatedBy: actorId,
+      },
+    });
+    await prisma.productVersion.create({
+      data: {
+        createdBy: actorId,
+        productId,
+        sku: `GOV-V-${randomUUID().slice(0, 8)}`,
+        snapshot: { baseUom: 'EA' },
+        tenantId,
+        updatedBy: actorId,
+        versionNumber: 1,
+      },
+    });
+    await prisma.warehouse.create({
+      data: {
+        code: `GOV-${randomUUID().slice(0, 8)}`,
+        createdBy: actorId,
+        id: warehouseId,
+        name: '库存治理测试仓',
+        status: 'ACTIVE',
+        tenantId,
+        timeZone: 'Asia/Shanghai',
+        updatedBy: actorId,
+      },
+    });
+    await prisma.warehouseLocation.createMany({
+      data: [
+        {
+          code: 'GOV-PICK',
+          createdBy: actorId,
+          id: pickLocationId,
+          name: '拣选位',
+          status: 'ACTIVE',
+          tenantId,
+          type: 'LOCATION',
+          updatedBy: actorId,
+          warehouseId,
+        },
+        {
+          code: 'GOV-EARLY',
+          createdBy: actorId,
+          id: earlyLocationId,
+          name: '早效期储位',
+          status: 'ACTIVE',
+          tenantId,
+          type: 'LOCATION',
+          updatedBy: actorId,
+          warehouseId,
+        },
+        {
+          code: 'GOV-LATER',
+          createdBy: actorId,
+          id: laterLocationId,
+          name: '晚效期储位',
+          status: 'ACTIVE',
+          tenantId,
+          type: 'LOCATION',
+          updatedBy: actorId,
+          warehouseId,
+        },
+      ],
+    });
+    for (const [receiptLineId, receivedAt] of [
+      [earlyReceiptLineId, new Date(now.getTime() - 240 * 86_400_000)],
+      [laterReceiptLineId, new Date(now.getTime() - 30 * 86_400_000)],
+    ] as const)
+      await prisma.receiptLine.create({
+        data: {
+          acceptedQuantityBase: '4',
+          acceptedQuantityOriginal: '4',
+          createdBy: actorId,
+          expectedBaseUom: 'EA',
+          expectedOriginalUom: 'EA',
+          expectedQuantityBase: '4',
+          expectedQuantityOriginal: '4',
+          id: receiptLineId,
+          inboundLineId: randomUUID(),
+          inboundOrderId: randomUUID(),
+          mode: 'ORDERED',
+          pendingQuantityBase: '0',
+          pendingQuantityOriginal: '0',
+          productId,
+          productSnapshot: { baseUom: 'EA' },
+          receiptTaskId: randomUUID(),
+          receivedAt,
+          receivedBaseUom: 'EA',
+          receivedOriginalUom: 'EA',
+          receivedQuantityBase: '4',
+          receivedQuantityOriginal: '4',
+          rejectedQuantityBase: '0',
+          rejectedQuantityOriginal: '0',
+          tenantId,
+          updatedBy: actorId,
+        },
+      });
+    await prisma.inventoryLot.createMany({
+      data: [
+        {
+          baseUom: 'EA',
+          createdBy: actorId,
+          expiryDate: new Date(now.getTime() - 2 * 86_400_000),
+          id: earlyLotId,
+          inboundOrderId: randomUUID(),
+          originalUom: 'EA',
+          ownerId,
+          productId,
+          productionDate: new Date(now.getTime() - 240 * 86_400_000),
+          quantityBase: '4',
+          quantityOriginal: '4',
+          receiptLineId: earlyReceiptLineId,
+          status: 'RELEASED',
+          supplierBatchNo: 'BATCH-EARLY',
+          tenantId,
+          updatedBy: actorId,
+        },
+        {
+          baseUom: 'EA',
+          createdBy: actorId,
+          expiryDate: new Date(now.getTime() + 20 * 86_400_000),
+          id: laterLotId,
+          inboundOrderId: randomUUID(),
+          originalUom: 'EA',
+          ownerId,
+          productId,
+          productionDate: new Date(now.getTime() - 30 * 86_400_000),
+          quantityBase: '4',
+          quantityOriginal: '4',
+          receiptLineId: laterReceiptLineId,
+          status: 'RELEASED',
+          supplierBatchNo: 'BATCH-LATER',
+          tenantId,
+          updatedBy: actorId,
+        },
+      ],
+    });
+    await prisma.serialNumber.create({
+      data: {
+        createdBy: actorId,
+        inboundOrderId: randomUUID(),
+        inventoryLotId: earlyLotId,
+        productId,
+        receiptLineId: earlyReceiptLineId,
+        serialNumber: `SER-GOV-${randomUUID().slice(0, 8)}`,
+        status: 'RELEASED',
+        tenantId,
+        updatedBy: actorId,
+      },
+    });
+    const inventory = new InventoryService(
+      prisma as never,
+      new MdmReferenceService(prisma as never),
+    );
+    const governance = new InventoryGovernanceService(
+      prisma as never,
+      new MdmReferenceService(prisma as never),
+      inventory,
+    );
+    const pick = await inventory.receive(
+      {
+        baseUom: 'EA',
+        businessRef: 'GOV-PICK-OPENING',
+        businessType: 'OPENING',
+        locationId: pickLocationId,
+        originalUom: 'EA',
+        ownerId,
+        productId,
+        quantityBase: '1',
+        quantityOriginal: '1',
+        status: 'AVAILABLE',
+        warehouseId,
+      },
+      context,
+      command(),
+    );
+    const early = await inventory.receive(
+      {
+        baseUom: 'EA',
+        businessRef: 'GOV-EARLY-OPENING',
+        businessType: 'OPENING',
+        handlingUnitId: randomUUID(),
+        inventoryLotId: earlyLotId,
+        locationId: earlyLocationId,
+        originalUom: 'EA',
+        ownerId,
+        productId,
+        quantityBase: '4',
+        quantityOriginal: '4',
+        status: 'AVAILABLE',
+        warehouseId,
+      },
+      context,
+      command(),
+    );
+    const later = await inventory.receive(
+      {
+        baseUom: 'EA',
+        businessRef: 'GOV-LATER-OPENING',
+        businessType: 'OPENING',
+        handlingUnitId: randomUUID(),
+        inventoryLotId: laterLotId,
+        locationId: laterLocationId,
+        originalUom: 'EA',
+        ownerId,
+        productId,
+        quantityBase: '4',
+        quantityOriginal: '4',
+        status: 'AVAILABLE',
+        warehouseId,
+      },
+      context,
+      command(),
+    );
+
+    await expect(
+      governance.createAdjustment(
+        {
+          attachmentRefs: [],
+          balanceId: early.balanceId,
+          financialImpact: {},
+          quantityBase: '1',
+          quantityOriginal: '1',
+          reason: '盘亏',
+          reasonCode: 'COUNT_LOSS',
+          type: 'LOSS',
+        },
+        context,
+        command(),
+      ),
+    ).rejects.toMatchObject({ code: 'INVENTORY_ADJUSTMENT_EVIDENCE_REQUIRED' });
+    const adjustment = await governance.createAdjustment(
+      {
+        attachmentRefs: ['attachment://inventory-loss-photo'],
+        balanceId: early.balanceId,
+        financialImpact: { amount: '12.50', currency: 'CNY' },
+        quantityBase: '1',
+        quantityOriginal: '1',
+        reason: '复核确认盘亏',
+        reasonCode: 'COUNT_LOSS',
+        type: 'LOSS',
+      },
+      context,
+      command(),
+    );
+    const pending = await governance.transitionAdjustment(
+      adjustment.adjustmentId,
+      {
+        expectedVersion: adjustment.version,
+        targetStatus: 'PENDING_APPROVAL',
+      },
+      context,
+      command(),
+    );
+    await expect(
+      governance.transitionAdjustment(
+        adjustment.adjustmentId,
+        {
+          expectedVersion: pending.version,
+          targetStatus: 'APPROVED',
+        },
+        context,
+        command(),
+      ),
+    ).rejects.toMatchObject({ code: 'INVENTORY_ADJUSTMENT_APPROVAL_REQUIRED' });
+    const approved = await governance.transitionAdjustment(
+      adjustment.adjustmentId,
+      {
+        approvalReference: 'ADJ-APPROVAL-001',
+        expectedVersion: pending.version,
+        targetStatus: 'APPROVED',
+      },
+      context,
+      command(),
+    );
+    const posted = await governance.transitionAdjustment(
+      adjustment.adjustmentId,
+      {
+        expectedBalanceVersion: 1,
+        expectedVersion: approved.version,
+        targetStatus: 'POSTED',
+      },
+      context,
+      command(),
+    );
+    expect(posted).toMatchObject({ status: 'POSTED' });
+    expect(
+      (
+        await prisma.inventoryBalance.findUniqueOrThrow({
+          where: { id: early.balanceId },
+        })
+      ).onHandBase.toString(),
+    ).toBe('3');
+    const held = await inventory.hold(
+      early.balanceId,
+      {
+        expectedVersion: 2,
+        quantityBase: '1',
+        quantityOriginal: '1',
+        reason: '召回隔离',
+        scopeRef: 'RECALL-GOV-001',
+        scopeType: 'LOT',
+      },
+      context,
+      command(),
+    );
+    expect(held.status).toBe('ACTIVE');
+
+    const policy = await governance.saveReplenishmentPolicy(
+      {
+        issueMethod: 'FEFO',
+        maximumBase: '5',
+        minimumBase: '3',
+        ownerId,
+        pickLocationId,
+        productId,
+        warehouseId,
+      },
+      context,
+      command(),
+    );
+    const plannedRace = await Promise.allSettled([
+      governance.planReplenishment(
+        policy.policyId,
+        { expectedVersion: policy.version },
+        context,
+        command(),
+      ),
+      governance.planReplenishment(
+        policy.policyId,
+        { expectedVersion: policy.version },
+        context,
+        command(),
+      ),
+    ]);
+    expect(
+      plannedRace.filter(({ status }) => status === 'fulfilled'),
+    ).toHaveLength(1);
+    expect(
+      plannedRace.filter(({ status }) => status === 'rejected'),
+    ).toHaveLength(1);
+    const task = await prisma.replenishmentTask.findFirstOrThrow({
+      where: { policyId: policy.policyId, tenantId },
+    });
+    expect(task.sourceBalanceId).toBe(later.balanceId);
+    expect(task.selectionSnapshot).toMatchObject({
+      inventoryLotId: laterLotId,
+    });
+    const executionRace = await Promise.allSettled([
+      governance.executeReplenishment(
+        task.id,
+        { expectedVersion: task.version },
+        context,
+        command(),
+      ),
+      governance.executeReplenishment(
+        task.id,
+        { expectedVersion: task.version },
+        context,
+        command(),
+      ),
+    ]);
+    expect(
+      executionRace.filter(({ status }) => status === 'fulfilled'),
+    ).toHaveLength(1);
+    expect(
+      executionRace.filter(({ status }) => status === 'rejected'),
+    ).toHaveLength(1);
+    expect(
+      await prisma.replenishmentTask.findUniqueOrThrow({
+        where: { id: task.id },
+      }),
+    ).toMatchObject({ status: 'COMPLETED' });
+    expect(
+      await prisma.inventoryBalance.aggregate({
+        _sum: { onHandBase: true },
+        where: { locationId: pickLocationId, productId, tenantId },
+      }),
+    ).toMatchObject({ _sum: { onHandBase: expect.anything() } });
+    const pickTotal = await prisma.inventoryBalance.aggregate({
+      _sum: { onHandBase: true },
+      where: { locationId: pickLocationId, productId, tenantId },
+    });
+    expect(pickTotal._sum.onHandBase?.toString()).toBe('5');
+
+    const aging = await governance.runAging(
+      {
+        agedDays: 180,
+        asOfDate: now.toISOString(),
+        nearExpiryDays: 30,
+        warehouseId,
+      },
+      context,
+      command(),
+    );
+    expect(aging.alertsCreated).toBeGreaterThan(0);
+    expect(
+      await prisma.inventoryExpiryAlert.findFirstOrThrow({
+        where: { balanceId: early.balanceId, tenantId, type: 'EXPIRED' },
+      }),
+    ).toMatchObject({ severity: 'CRITICAL', status: 'OPEN' });
+    const serial = await prisma.serialNumber.findFirstOrThrow({
+      where: { inventoryLotId: earlyLotId, tenantId },
+    });
+    const graph = await governance.genealogy(
+      { serialNumber: serial.serialNumber },
+      context,
+    );
+    expect(graph.nodes.map(({ type }) => type)).toEqual(
+      expect.arrayContaining([
+        'LOT',
+        'RECEIPT',
+        'SERIAL',
+        'BALANCE',
+        'MOVEMENT',
+      ]),
+    );
+    expect(graph.recallList.balanceIds).toContain(early.balanceId);
+    const snapshot = await inventory.list(
+      { inventoryLotId: laterLotId, warehouseId },
+      context,
+    );
+    expect(snapshot.snapshotAt).toBeInstanceOf(Date);
+    expect(
+      snapshot.items.every(
+        ({ inventoryLotId }) => inventoryLotId === laterLotId,
+      ),
+    ).toBe(true);
+
+    const reconciliation = await governance.reconcile(
+      {
+        erpClosingBase: '7',
+        periodEnd: new Date(now.getTime() + 60_000).toISOString(),
+        periodStart: new Date(now.getTime() - 60_000).toISOString(),
+        warehouseId,
+      },
+      context,
+      command(),
+    );
+    expect(reconciliation).toMatchObject({
+      differenceBase: '-1',
+      status: 'DIFFERENCE_RECORDED',
+    });
+    await expect(
+      governance.closeReconciliation(
+        reconciliation.reconciliationId,
+        { expectedVersion: reconciliation.version },
+        context,
+        command(),
+      ),
+    ).rejects.toMatchObject({ code: 'INVENTORY_RECONCILIATION_CASE_OPEN' });
+    const discrepancy =
+      await prisma.inventoryReconciliationCase.findUniqueOrThrow({
+        where: { id: reconciliation.caseId! },
+      });
+    await governance.resolveReconciliationCase(
+      discrepancy.id,
+      {
+        expectedVersion: discrepancy.version,
+        resolution: 'ERP 漏记盘亏，已补凭证',
+      },
+      context,
+      command(),
+    );
+    await expect(
+      governance.closeReconciliation(
+        reconciliation.reconciliationId,
+        { expectedVersion: reconciliation.version },
+        context,
+        command(),
+      ),
+    ).resolves.toMatchObject({ status: 'CLOSED' });
+    expect(
+      await prisma.inventoryMovement.count({
+        where: {
+          businessRef: adjustment.adjustmentId,
+          tenantId,
+          type: 'ADJUSTMENT',
+        },
+      }),
+    ).toBe(1);
+    expect(pick.balanceId).toBeTruthy();
   });
 });

@@ -73,6 +73,10 @@ export interface CreateCountInput {
   readonly type: 'CYCLE' | 'FULL';
   readonly warehouseId: string;
 }
+export interface ApplyAdjustmentInput extends InventoryQuantityInput {
+  readonly adjustmentId: string;
+  readonly direction: 'INCREASE' | 'DECREASE';
+}
 
 const json = (value: unknown) =>
   JSON.parse(JSON.stringify(value ?? {})) as Prisma.InputJsonValue;
@@ -115,11 +119,14 @@ export class InventoryService {
 
   async list(
     query: {
+      handlingUnitId?: string;
+      inventoryLotId?: string;
       locationId?: string;
       ownerId?: string;
       page?: number;
       pageSize?: number;
       productId?: string;
+      serialNumberId?: string;
       status?: InventoryStockStatus;
       warehouseId?: string;
     },
@@ -128,9 +135,12 @@ export class InventoryService {
     const page = Math.max(1, query.page ?? 1);
     const pageSize = Math.min(200, Math.max(1, query.pageSize ?? 50));
     const where = {
+      ...(query.handlingUnitId ? { handlingUnitId: query.handlingUnitId } : {}),
+      ...(query.inventoryLotId ? { inventoryLotId: query.inventoryLotId } : {}),
       ...(query.locationId ? { locationId: query.locationId } : {}),
       ...(query.ownerId ? { ownerId: query.ownerId } : {}),
       ...(query.productId ? { productId: query.productId } : {}),
+      ...(query.serialNumberId ? { serialNumberId: query.serialNumberId } : {}),
       ...(query.status ? { status: query.status } : {}),
       tenantId: context.tenantId,
       ...(query.warehouseId ? { warehouseId: query.warehouseId } : {}),
@@ -967,6 +977,102 @@ export class InventoryService {
         409,
       );
     return result;
+  }
+
+  async applyApprovedAdjustment(
+    tx: Prisma.TransactionClient,
+    id: string,
+    input: ApplyAdjustmentInput,
+    context: TenantContext,
+    metadata: CommandMetadata,
+  ) {
+    this.uuid(id, 'balanceId');
+    this.uuid(input.adjustmentId, 'adjustmentId');
+    const quantity = this.quantity(input);
+    await this.lockBalance(tx, id, context.tenantId);
+    const balance = await tx.inventoryBalance.findFirst({
+      where: { id, tenantId: context.tenantId },
+    });
+    if (
+      !balance ||
+      balance.status !== 'AVAILABLE' ||
+      balance.version !== input.expectedVersion ||
+      !this.sameRatio(
+        quantity.original,
+        quantity.base,
+        balance.onHandOriginal,
+        balance.onHandBase,
+      ) ||
+      (input.direction === 'DECREASE' &&
+        (balance.allocatedBase.greaterThan(0) ||
+          balance.holdBase.greaterThan(0) ||
+          quantity.base.greaterThan(balance.availableBase) ||
+          quantity.original.greaterThan(balance.availableOriginal)))
+    )
+      throw this.conflict('INVENTORY_ADJUSTMENT_CONFLICT');
+    const increase = input.direction === 'INCREASE';
+    const changed = await tx.inventoryBalance.updateMany({
+      data: {
+        availableBase: increase
+          ? { increment: quantity.base }
+          : { decrement: quantity.base },
+        availableOriginal: increase
+          ? { increment: quantity.original }
+          : { decrement: quantity.original },
+        onHandBase: increase
+          ? { increment: quantity.base }
+          : { decrement: quantity.base },
+        onHandOriginal: increase
+          ? { increment: quantity.original }
+          : { decrement: quantity.original },
+        updatedBy: context.accountId,
+        version: { increment: 1 },
+      },
+      where: {
+        ...(increase
+          ? {}
+          : {
+              availableBase: { gte: quantity.base },
+              availableOriginal: { gte: quantity.original },
+            }),
+        id,
+        status: 'AVAILABLE',
+        tenantId: context.tenantId,
+        version: input.expectedVersion,
+      },
+    });
+    if (changed.count !== 1)
+      throw this.conflict('INVENTORY_ADJUSTMENT_CONFLICT');
+    const movement = await this.appendMovement(
+      tx,
+      id,
+      'ADJUSTMENT',
+      quantity,
+      balance.originalUom,
+      balance.baseUom,
+      'INVENTORY_ADJUSTMENT',
+      input.adjustmentId,
+      context,
+      metadata,
+      increase ? {} : dimensionSnapshot(balance),
+      increase ? dimensionSnapshot(balance) : {},
+    );
+    await this.record(
+      tx,
+      id,
+      'InventoryBalance',
+      balance.version + 1,
+      'inventory.changed.v1',
+      context,
+      metadata,
+      {
+        adjustmentId: input.adjustmentId,
+        balanceKey: dimensionSnapshot(balance),
+        deltaBase: `${increase ? '' : '-'}${quantity.base.toString()}`,
+        movementType: 'ADJUSTMENT',
+      },
+    );
+    return { movementId: movement.id, version: balance.version + 1 };
   }
 
   async transferOwnership(

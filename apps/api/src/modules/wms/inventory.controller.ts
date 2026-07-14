@@ -47,16 +47,22 @@ export class InventoryController {
     @Query('locationId') locationId: string | undefined,
     @Query('ownerId') ownerId: string | undefined,
     @Query('productId') productId: string | undefined,
+    @Query('inventoryLotId') inventoryLotId: string | undefined,
+    @Query('serialNumberId') serialNumberId: string | undefined,
+    @Query('handlingUnitId') handlingUnitId: string | undefined,
     @Query('status') status: InventoryStockStatus | undefined,
     @Req() request: TenantRequest,
   ) {
     return this.service.list(
       {
+        ...(handlingUnitId ? { handlingUnitId } : {}),
+        ...(inventoryLotId ? { inventoryLotId } : {}),
         ...(locationId ? { locationId } : {}),
         ...(ownerId ? { ownerId } : {}),
         ...(page ? { page: Number(page) } : {}),
         ...(pageSize ? { pageSize: Number(pageSize) } : {}),
         ...(productId ? { productId } : {}),
+        ...(serialNumberId ? { serialNumberId } : {}),
         ...(status ? { status } : {}),
         ...(warehouseId ? { warehouseId } : {}),
       },

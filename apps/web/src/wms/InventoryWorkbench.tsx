@@ -8,6 +8,7 @@ import {
 } from '@scm/ui';
 import { Alert, Card, Drawer, Space, Typography } from 'antd';
 import { useSessionStore } from '../platform/session-store';
+import { InventoryGovernanceWorkbench } from './InventoryGovernanceWorkbench';
 
 type InventoryStatus =
   | 'NONE'
@@ -732,6 +733,7 @@ export function InventoryWorkbench() {
           </Card>
         </Space>
       </Drawer>
+      <InventoryGovernanceWorkbench />
     </section>
   );
 }

@@ -233,6 +233,16 @@ describe('App', () => {
     expect(screen.getByRole('button', { name: '审批盘点差异' })).toBeDisabled();
     expect(screen.getByRole('button', { name: '分段解冻' })).toBeDisabled();
     expect(
+      screen.getByRole('heading', { name: '库存治理、追溯与 ERP 对账' }),
+    ).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: '创建调整单' })).toBeDisabled();
+    expect(screen.getByRole('button', { name: '执行补货' })).toBeDisabled();
+    expect(screen.getByRole('button', { name: '运行库龄效期' })).toBeDisabled();
+    expect(screen.getByRole('button', { name: '批次序列追溯' })).toBeDisabled();
+    expect(
+      screen.getByRole('button', { name: '执行 ERP 对账' }),
+    ).toBeDisabled();
+    expect(
       screen.getByText(/available = onHand - allocated - hold/),
     ).toBeInTheDocument();
   });
