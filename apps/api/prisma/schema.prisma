@@ -8067,3 +8067,180 @@ model EtaPrediction {
   @@map("eta_prediction")
   @@schema("tms")
 }
+
+enum ShipmentMapProjectionStatus {
+  ACTIVE
+  STALE
+  ARCHIVED
+  @@schema("tms")
+}
+
+enum TransportExceptionStatus {
+  OPEN
+  ACKNOWLEDGED
+  IN_PROGRESS
+  RESOLVED
+  CLOSED
+  @@schema("tms")
+}
+
+enum TransportExceptionSeverity {
+  LOW
+  MEDIUM
+  HIGH
+  CRITICAL
+  @@schema("tms")
+}
+
+enum ExceptionActionStatus {
+  RECORDED
+  @@schema("tms")
+}
+
+enum EscalationStatus {
+  OPEN
+  ACKNOWLEDGED
+  @@schema("tms")
+}
+
+enum ShipmentAppointmentLinkStatus {
+  REQUESTED
+  LINKED
+  RESCHEDULE_REQUESTED
+  CANCELLATION_REQUESTED
+  CANCELLED
+  FAILED
+  @@schema("tms")
+}
+
+model ShipmentMapProjection {
+  id String @id @default(uuid()) @db.Uuid
+  tenantId String @map("tenant_id") @db.Uuid
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  createdBy String @map("created_by") @db.Uuid
+  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
+  updatedBy String @map("updated_by") @db.Uuid
+  version Int @default(1)
+  status ShipmentMapProjectionStatus @default(ACTIVE)
+  shipmentId String @map("shipment_id") @db.Uuid
+  shipmentStatus ShipmentStatus @map("shipment_status")
+  routeSnapshot Json @map("route_snapshot") @db.JsonB
+  milestoneSnapshot Json @map("milestone_snapshot") @db.JsonB
+  positionSnapshot Json @map("position_snapshot") @db.JsonB
+  etaSnapshot Json @map("eta_snapshot") @db.JsonB
+  exceptionSnapshot Json @map("exception_snapshot") @db.JsonB
+  vehicleSnapshot Json @map("vehicle_snapshot") @db.JsonB
+  driverRestrictedSnapshot Json @map("driver_restricted_snapshot") @db.JsonB
+  sourceVersions Json @map("source_versions") @db.JsonB
+  projectedAt DateTime @default(now()) @map("projected_at") @db.Timestamptz(3)
+  @@unique([tenantId,shipmentId],map:"shipment_map_projection_tenant_shipment_key")
+  @@index([tenantId,shipmentStatus,projectedAt],map:"shipment_map_projection_workbench_idx")
+  @@map("shipment_map_projection")
+  @@schema("tms")
+}
+
+model TransportException {
+  id String @id @default(uuid()) @db.Uuid
+  tenantId String @map("tenant_id") @db.Uuid
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  createdBy String @map("created_by") @db.Uuid
+  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
+  updatedBy String @map("updated_by") @db.Uuid
+  version Int @default(1)
+  status TransportExceptionStatus @default(OPEN)
+  severity TransportExceptionSeverity
+  exceptionNo String @map("exception_no") @db.VarChar(100)
+  shipmentId String @map("shipment_id") @db.Uuid
+  type String @db.VarChar(50)
+  dedupeKey String @map("dedupe_key") @db.VarChar(300)
+  detectedBy String @map("detected_by") @db.VarChar(50)
+  detectedAt DateTime @map("detected_at") @db.Timestamptz(3)
+  evidenceSnapshot Json @map("evidence_snapshot") @db.JsonB
+  financialHold Boolean @default(false) @map("financial_hold")
+  reassignRequested Boolean @default(false) @map("reassign_requested")
+  ownerId String? @map("owner_id") @db.Uuid
+  slaDueAt DateTime @map("sla_due_at") @db.Timestamptz(3)
+  acknowledgedAt DateTime? @map("acknowledged_at") @db.Timestamptz(3)
+  resolvedAt DateTime? @map("resolved_at") @db.Timestamptz(3)
+  closedAt DateTime? @map("closed_at") @db.Timestamptz(3)
+  resolutionSummary String? @map("resolution_summary") @db.VarChar(1000)
+  rootCause String? @map("root_cause") @db.VarChar(1000)
+  customerCommunicatedAt DateTime? @map("customer_communicated_at") @db.Timestamptz(3)
+  businessVerified Boolean @default(false) @map("business_verified")
+  @@unique([tenantId,exceptionNo],map:"transport_exception_tenant_no_key")
+  @@index([tenantId,shipmentId,status,severity],map:"transport_exception_shipment_idx")
+  @@index([tenantId,status,slaDueAt],map:"transport_exception_sla_idx")
+  @@map("transport_exception")
+  @@schema("tms")
+}
+
+model ExceptionAction {
+  id String @id @default(uuid()) @db.Uuid
+  tenantId String @map("tenant_id") @db.Uuid
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  createdBy String @map("created_by") @db.Uuid
+  updatedAt DateTime @default(now()) @map("updated_at") @db.Timestamptz(3)
+  updatedBy String @map("updated_by") @db.Uuid
+  version Int @default(1)
+  status ExceptionActionStatus @default(RECORDED)
+  transportExceptionId String @map("transport_exception_id") @db.Uuid
+  actionType String @map("action_type") @db.VarChar(50)
+  fromStatus TransportExceptionStatus @map("from_status")
+  toStatus TransportExceptionStatus @map("to_status")
+  ownerId String? @map("owner_id") @db.Uuid
+  handlingPlan String @map("handling_plan") @db.VarChar(2000)
+  expectedRecoveryAt DateTime? @map("expected_recovery_at") @db.Timestamptz(3)
+  rootCause String? @map("root_cause") @db.VarChar(1000)
+  evidenceSnapshot Json @map("evidence_snapshot") @db.JsonB
+  occurredAt DateTime @default(now()) @map("occurred_at") @db.Timestamptz(3)
+  @@index([tenantId,transportExceptionId,occurredAt,id],map:"exception_action_timeline_idx")
+  @@map("exception_action")
+  @@schema("tms")
+}
+
+model Escalation {
+  id String @id @default(uuid()) @db.Uuid
+  tenantId String @map("tenant_id") @db.Uuid
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  createdBy String @map("created_by") @db.Uuid
+  updatedAt DateTime @default(now()) @map("updated_at") @db.Timestamptz(3)
+  updatedBy String @map("updated_by") @db.Uuid
+  version Int @default(1)
+  status EscalationStatus @default(OPEN)
+  transportExceptionId String @map("transport_exception_id") @db.Uuid
+  level Int
+  reason String @db.VarChar(1000)
+  fromOwnerId String? @map("from_owner_id") @db.Uuid
+  toOwnerId String? @map("to_owner_id") @db.Uuid
+  dueAt DateTime @map("due_at") @db.Timestamptz(3)
+  escalatedAt DateTime @default(now()) @map("escalated_at") @db.Timestamptz(3)
+  @@unique([tenantId,transportExceptionId,level],map:"escalation_exception_level_key")
+  @@index([tenantId,status,dueAt],map:"escalation_due_idx")
+  @@map("escalation")
+  @@schema("tms")
+}
+
+model ShipmentAppointmentLink {
+  id String @id @default(uuid()) @db.Uuid
+  tenantId String @map("tenant_id") @db.Uuid
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  createdBy String @map("created_by") @db.Uuid
+  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
+  updatedBy String @map("updated_by") @db.Uuid
+  version Int @default(1)
+  status ShipmentAppointmentLinkStatus @default(REQUESTED)
+  shipmentId String @map("shipment_id") @db.Uuid
+  milestoneId String @map("milestone_id") @db.Uuid
+  requestRef String @map("request_ref") @db.VarChar(200)
+  appointmentRef String? @map("appointment_ref") @db.VarChar(200)
+  plannedAt DateTime @map("planned_at") @db.Timestamptz(3)
+  siteRequirementSnapshot Json @map("site_requirement_snapshot") @db.JsonB
+  appointmentSnapshot Json @default("{}") @map("appointment_snapshot") @db.JsonB
+  sourceVersion Int? @map("source_version")
+  linkedAt DateTime? @map("linked_at") @db.Timestamptz(3)
+  cancelledAt DateTime? @map("cancelled_at") @db.Timestamptz(3)
+  @@unique([tenantId,requestRef],map:"shipment_appointment_link_request_key")
+  @@index([tenantId,shipmentId,milestoneId,status],map:"shipment_appointment_link_shipment_idx")
+  @@map("shipment_appointment_link")
+  @@schema("tms")
+}

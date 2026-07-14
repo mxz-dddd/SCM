@@ -9,6 +9,8 @@ import { DispatchController } from './dispatch.controller';
 import { DispatchService } from './dispatch.service';
 import { LoadRouteController } from './load-route.controller';
 import { LoadRouteService } from './load-route.service';
+import { InTransitOperationsController } from './in-transit-operations.controller';
+import { InTransitOperationsService } from './in-transit-operations.service';
 import { PlanningController } from './planning.controller';
 import { PlanningService } from './planning.service';
 import { TrackingController } from './tracking.controller';
@@ -20,6 +22,7 @@ import { TransportOrderService } from './transport-order.service';
   controllers: [
     CapacityTenderController,
     DispatchController,
+    InTransitOperationsController,
     LoadRouteController,
     PlanningController,
     TrackingController,
@@ -29,6 +32,7 @@ import { TransportOrderService } from './transport-order.service';
   providers: [
     CapacityTenderService,
     DispatchService,
+    InTransitOperationsService,
     LoadRouteService,
     PlanningService,
     TrackingService,

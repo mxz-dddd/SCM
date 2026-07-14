@@ -13,6 +13,7 @@ import { LoadRouteOptimizationPanel } from './LoadRouteOptimizationPanel';
 import { CapacityTenderPanel } from './CapacityTenderPanel';
 import { DispatchPanel } from './DispatchPanel';
 import { DriverTrackingPanel } from './DriverTrackingPanel';
+import { InTransitOperationsPanel } from './InTransitOperationsPanel';
 
 type TransportStatus = 'OPEN' | 'PLANNED' | 'FROZEN' | 'RETURNED';
 
@@ -304,6 +305,7 @@ export function TransportOrderWorkbench() {
       <CapacityTenderPanel />
       <DispatchPanel />
       <DriverTrackingPanel />
+      <InTransitOperationsPanel />
     </section>
   );
 }

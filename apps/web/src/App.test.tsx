@@ -460,5 +460,15 @@ describe('App', () => {
     expect(
       screen.getByRole('button', { name: '按序同步离线队列' }),
     ).toBeDisabled();
+    expect(
+      screen.getByText('在途地图、异常处置与预约联动'),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole('img', { name: '脱敏在途路线图' }),
+    ).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: '运行异常检测' })).toBeDisabled();
+    expect(
+      screen.getByRole('button', { name: '请求 AMS 预约' }),
+    ).toBeDisabled();
   });
 });
