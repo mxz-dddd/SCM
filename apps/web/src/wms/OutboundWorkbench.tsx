@@ -23,6 +23,28 @@ interface OutboundView {
   >;
 }
 
+interface PickingView {
+  lines: Array<
+    Record<string, unknown> & {
+      id: string;
+      pickedBase: string;
+      productId: string;
+      taskId: string;
+      version: number;
+    }
+  >;
+  scans: Array<Record<string, unknown> & { id: string }>;
+  shortPicks: Array<
+    Record<string, unknown> & { id: string; status: string; version: number }
+  >;
+  tasks: Array<
+    Record<string, unknown> & { id: string; status: string; version: number }
+  >;
+  verifications: Array<
+    Record<string, unknown> & { id: string; status: string }
+  >;
+}
+
 const actions = createActionRegistry<'READY'>([
   {
     id: 'receive-outbound',
@@ -59,6 +81,46 @@ const actions = createActionRegistry<'READY'>([
     label: '处置缺货',
     requiredPermissions: ['wms.outbound.shortage.resolve'],
   },
+  {
+    id: 'assign-pick',
+    label: '领取拣选任务',
+    requiredPermissions: ['wms.picking.execute'],
+  },
+  {
+    id: 'start-pick',
+    label: '开始拣选',
+    requiredPermissions: ['wms.picking.execute'],
+  },
+  {
+    id: 'replan-pick',
+    label: '重算拣选路线',
+    requiredPermissions: ['wms.picking.supervise'],
+  },
+  {
+    id: 'rf-scan',
+    label: 'RF 扫描确认',
+    requiredPermissions: ['wms.picking.execute'],
+  },
+  {
+    id: 'short-pick',
+    label: '登记短拣',
+    requiredPermissions: ['wms.picking.execute'],
+  },
+  {
+    id: 'resolve-short-pick',
+    label: '处置短拣',
+    requiredPermissions: ['wms.picking.supervise'],
+  },
+  {
+    id: 'verify-pick',
+    label: '复核拣选',
+    requiredPermissions: ['wms.picking.verify'],
+  },
+  {
+    id: 'correct-pick',
+    label: '纠正差异',
+    requiredPermissions: ['wms.picking.verify'],
+  },
 ]);
 
 export function OutboundWorkbench() {
@@ -74,6 +136,13 @@ export function OutboundWorkbench() {
   });
   const [error, setError] = useState<string>();
   const [notice, setNotice] = useState<string>();
+  const [picking, setPicking] = useState<PickingView>({
+    lines: [],
+    scans: [],
+    shortPicks: [],
+    tasks: [],
+    verifications: [],
+  });
   const permissions = useMemo(
     () =>
       new Set(
@@ -125,9 +194,12 @@ export function OutboundWorkbench() {
   const refresh = useCallback(async () => {
     if (!accessToken || !claims) return;
     try {
-      setView(
-        (await request('/api/v1/wms/outbounds')) as unknown as OutboundView,
-      );
+      const [outboundView, pickingView] = await Promise.all([
+        request('/api/v1/wms/outbounds'),
+        request('/api/v1/wms/picking'),
+      ]);
+      setView(outboundView as unknown as OutboundView);
+      setPicking(pickingView as unknown as PickingView);
       setError(undefined);
     } catch (caught) {
       setError(caught instanceof Error ? caught.message : '出库查询失败');
@@ -275,6 +347,168 @@ export function OutboundWorkbench() {
           method: 'POST',
         });
         setNotice('缺货结果已回写 OMS 事件');
+      } else if (id === 'assign-pick') {
+        const task = picking.tasks.find(({ status }) => status === 'OPEN');
+        const taskId = window.prompt('拣选任务 UUID', task?.id ?? '');
+        const assigneeId = window.prompt(
+          '拣选员 UUID',
+          claims?.subject ?? '',
+        );
+        const containerCode = window.prompt('目标容器码');
+        if (!taskId || !assigneeId || !containerCode) return;
+        await request(`/api/v1/wms/pick-tasks/${taskId}/assign`, {
+          body: JSON.stringify({
+            assigneeId,
+            containerCode,
+            expectedVersion: task?.version ?? 1,
+          }),
+          method: 'POST',
+        });
+        setNotice('拣选任务已领取并绑定容器');
+      } else if (id === 'start-pick') {
+        const task = picking.tasks.find(({ status }) => status === 'ASSIGNED');
+        const taskId = window.prompt('拣选任务 UUID', task?.id ?? '');
+        if (!taskId) return;
+        await request(`/api/v1/wms/pick-tasks/${taskId}/start`, {
+          body: JSON.stringify({ expectedVersion: task?.version ?? 1 }),
+          method: 'POST',
+        });
+        setNotice('拣选任务已开始');
+      } else if (id === 'replan-pick') {
+        const task = picking.tasks.find(({ status }) =>
+          ['OPEN', 'ASSIGNED', 'IN_PROGRESS'].includes(status),
+        );
+        const taskId = window.prompt('拣选任务 UUID', task?.id ?? '');
+        if (!taskId) return;
+        await request(`/api/v1/wms/pick-tasks/${taskId}/replan`, {
+          body: JSON.stringify({
+            aisleDirection: window.prompt('FORWARD / REVERSE', 'FORWARD'),
+            congestionSnapshot: {},
+            expectedVersion: task?.version ?? 1,
+          }),
+          method: 'POST',
+        });
+        setNotice('新版最短拣选路线已生成，历史路线保留');
+      } else if (id === 'rf-scan') {
+        const task = picking.tasks.find(
+          ({ status }) => status === 'IN_PROGRESS',
+        );
+        const line = picking.lines.find(({ taskId }) => taskId === task?.id);
+        if (!task || !line) return;
+        const sourceLocationId = window.prompt(
+          '扫描源储位 UUID',
+          String(line.sourceLocationId ?? ''),
+        );
+        const productId = window.prompt('扫描商品 UUID', line.productId);
+        const targetContainerCode = window.prompt(
+          '扫描目标容器码',
+          String(task.containerCode ?? ''),
+        );
+        const quantityBase = window.prompt('确认数量', '1');
+        if (!sourceLocationId || !productId || !targetContainerCode || !quantityBase)
+          return;
+        await request(`/api/v1/wms/pick-tasks/${task.id}/scans`, {
+          body: JSON.stringify({
+            deviceId: 'WEB-RF',
+            deviceSequence: String(Date.now()),
+            ...(line.handlingUnitId
+              ? { handlingUnitId: line.handlingUnitId }
+              : {}),
+            productId,
+            quantityBase,
+            scannedAt: new Date().toISOString(),
+            sourceLocationId,
+            targetContainerCode,
+            taskLineId: line.id,
+          }),
+          method: 'POST',
+        });
+        setNotice('RF 扫描已确认；错误扫描会即时阻止并留痕');
+      } else if (id === 'short-pick') {
+        const task = picking.tasks.find(
+          ({ status }) => status === 'IN_PROGRESS',
+        );
+        const line = picking.lines.find(({ taskId }) => taskId === task?.id);
+        const shortBase = window.prompt('短拣数量', '1');
+        const reasonCode = window.prompt('短拣原因码', 'LOCATION_SHORT');
+        const reason = window.prompt('短拣说明');
+        if (!line || !shortBase || !reasonCode || !reason) return;
+        await request(`/api/v1/wms/pick-task-lines/${line.id}/short-pick`, {
+          body: JSON.stringify({
+            expectedLineVersion: line.version,
+            reason,
+            reasonCode,
+            shortBase,
+          }),
+          method: 'POST',
+        });
+        setNotice('短拣已显式登记，任务等待复核处置');
+      } else if (id === 'resolve-short-pick') {
+        const shortPick = picking.shortPicks.find(
+          ({ status }) => status === 'OPEN',
+        );
+        const type = window.prompt(
+          'REVIEW / FREEZE / CYCLE_COUNT / REALLOCATE / SHORT_SHIP',
+          'REVIEW',
+        );
+        const reason = window.prompt('处置说明');
+        if (!shortPick || !type || !reason) return;
+        await request(`/api/v1/wms/short-picks/${shortPick.id}/resolve`, {
+          body: JSON.stringify({
+            expectedVersion: shortPick.version,
+            resolutionSnapshot: { reason },
+            type,
+          }),
+          method: 'POST',
+        });
+        setNotice('短拣已处置并进入复核门禁');
+      } else if (id === 'verify-pick') {
+        const task = picking.tasks.find(({ status }) => status === 'REVIEWING');
+        if (!task) return;
+        const lines = picking.lines
+          .filter(({ taskId }) => taskId === task.id)
+          .map((line) => ({
+            productId: line.productId,
+            quantityBase: String(line.pickedBase),
+            taskLineId: line.id,
+          }));
+        await request(`/api/v1/wms/pick-tasks/${task.id}/verify`, {
+          body: JSON.stringify({
+            actualSnapshot: {
+              containerCode: window.prompt(
+                '复核容器码',
+                String(task.containerCode ?? ''),
+              ),
+              lines,
+            },
+            expectedVersion: task.version,
+            scopeRef: String(task.containerCode ?? task.id),
+            scopeType: 'CONTAINER',
+          }),
+          method: 'POST',
+        });
+        setNotice('拣选复核结果已固化');
+      } else if (id === 'correct-pick') {
+        const verification = picking.verifications.find(
+          ({ status }) => status === 'FAILED',
+        );
+        const correctionType = window.prompt(
+          'RETURN / SUPPLEMENT / REALLOCATE',
+          'RETURN',
+        );
+        const reason = window.prompt('纠正说明');
+        if (!verification || !correctionType || !reason) return;
+        await request(
+          `/api/v1/wms/pick-verifications/${verification.id}/correct`,
+          {
+            body: JSON.stringify({
+              actualSnapshot: { reason },
+              correctionType,
+            }),
+            method: 'POST',
+          },
+        );
+        setNotice('差异纠正已追加，原始复核事实保持不变');
       }
       await refresh();
     } catch (caught) {
@@ -284,10 +518,11 @@ export function OutboundWorkbench() {
 
   return (
     <section>
-      <Typography.Title level={2}>出库单、波次与库存分配</Typography.Title>
+      <Typography.Title level={2}>出库、波次、拣选与复核</Typography.Title>
       <Typography.Paragraph>
         波次模板支持候选与工作量模拟；发布时按整箱、FEFO/FIFO
         和最少拆分原子预占，缺口进入可回写 OMS 的处置工单。
+        波次发布生成温层隔离的拣选任务，RF 错扫即时阻止，短拣必须处置后才能复核。
       </Typography.Paragraph>
       {error ? <Alert message={error} showIcon type="error" /> : null}
       {notice ? <Alert message={notice} showIcon type="success" /> : null}
@@ -317,6 +552,31 @@ export function OutboundWorkbench() {
           <Typography.Text>
             分配明细 {view.allocations.length} 条；缺货工单{' '}
             {view.shortages.length} 条；快照 {view.snapshotAt}
+          </Typography.Text>
+        </Card>
+        <Card title="拣选任务、RF 扫描与复核">
+          <DataGrid
+            columns={[
+              { key: 'taskNo', label: '任务号' },
+              { key: 'mode', label: '模式' },
+              {
+                key: 'status',
+                label: '状态',
+                render: (value) => <StatusBadge status={String(value)} />,
+              },
+              { key: 'containerCode', label: '目标容器' },
+              { key: 'routeVersion', label: '路线版本' },
+              { key: 'version', label: '版本' },
+            ]}
+            onPageChange={() => undefined}
+            page={1}
+            pageSize={100}
+            rows={picking.tasks}
+            total={picking.tasks.length}
+          />
+          <Typography.Text>
+            RF 事件 {picking.scans.length} 条；短拣工单 {picking.shortPicks.length}{' '}
+            条；复核事实 {picking.verifications.length} 条
           </Typography.Text>
         </Card>
       </Space>

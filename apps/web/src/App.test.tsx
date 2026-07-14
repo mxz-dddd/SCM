@@ -251,9 +251,11 @@ describe('App', () => {
     render(<App />);
     fireEvent.click(screen.getByRole('button', { name: '出库' }));
     expect(
-      screen.getByRole('heading', { name: '出库单、波次与库存分配' }),
+      screen.getByRole('heading', { name: '出库、波次、拣选与复核' }),
     ).toBeInTheDocument();
     expect(screen.getByRole('button', { name: '接收出库单' })).toBeDisabled();
+    expect(screen.getByRole('button', { name: 'RF 扫描确认' })).toBeDisabled();
+    expect(screen.getByRole('button', { name: '复核拣选' })).toBeDisabled();
     expect(screen.getByRole('button', { name: '配置波次模板' })).toBeDisabled();
     expect(
       screen.getByRole('button', { name: '模拟波次工作量' }),

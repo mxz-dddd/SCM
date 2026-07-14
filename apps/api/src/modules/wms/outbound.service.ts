@@ -1,6 +1,10 @@
 import { randomUUID } from 'node:crypto';
 import { Inject, Injectable } from '@nestjs/common';
-import { Prisma, type ShortageResolutionType } from '@prisma/client';
+import {
+  PickMode,
+  Prisma,
+  type ShortageResolutionType,
+} from '@prisma/client';
 import type { TenantContext } from '@scm/shared';
 import { AppError } from '../../common/app-error';
 import { isUuid } from '../../common/validation';
@@ -666,7 +670,7 @@ export class OutboundService {
 
   private async allocateWave(
     tx: Prisma.TransactionClient,
-    wave: { id: string; templateId: string },
+    wave: { id: string; templateId: string; warehouseId: string },
     memberships: readonly { outboundOrderId: string }[],
     context: TenantContext,
     metadata: CommandMetadata,
@@ -870,6 +874,158 @@ export class OutboundService {
           version: { increment: 1 },
         },
         where: { id: order.id },
+      });
+    }
+    await this.generatePickTasks(tx, wave, strategy, context);
+  }
+
+  private async generatePickTasks(
+    tx: Prisma.TransactionClient,
+    wave: { id: string; warehouseId: string },
+    strategy: Record<string, unknown>,
+    context: TenantContext,
+  ) {
+    const requestedMode = text(strategy.pickMode)?.toUpperCase() ?? 'ORDER';
+    if (!Object.values(PickMode).includes(requestedMode as PickMode))
+      throw new AppError(
+        'PICK_MODE_INVALID',
+        `Unsupported pick mode ${requestedMode}`,
+        400,
+      );
+    const mode = requestedMode as PickMode;
+    const allocations = await tx.outboundAllocation.findMany({
+      where: { tenantId: context.tenantId, waveId: wave.id },
+    });
+    if (!allocations.length) return;
+    const [balances, orders, lines, locations] = await Promise.all([
+      tx.inventoryBalance.findMany({
+        where: {
+          id: { in: allocations.map(({ balanceId }) => balanceId) },
+          tenantId: context.tenantId,
+        },
+      }),
+      tx.outboundOrder.findMany({
+        where: {
+          id: { in: allocations.map(({ outboundOrderId }) => outboundOrderId) },
+          tenantId: context.tenantId,
+        },
+      }),
+      tx.outboundLine.findMany({
+        where: {
+          id: { in: allocations.map(({ outboundLineId }) => outboundLineId) },
+          tenantId: context.tenantId,
+        },
+      }),
+      this.mdm.listWarehouseLocations(wave.warehouseId, context),
+    ]);
+    const balanceById = new Map(balances.map((row) => [row.id, row]));
+    const orderById = new Map(orders.map((row) => [row.id, row]));
+    const lineById = new Map(lines.map((row) => [row.id, row]));
+    const locationById = new Map(locations.map((row) => [row.id, row]));
+    const groups = new Map<string, typeof allocations>();
+    for (const allocation of allocations) {
+      const order = orderById.get(allocation.outboundOrderId)!;
+      const balance = balanceById.get(allocation.balanceId)!;
+      const temperature = order.temperatureZone ?? 'UNSPECIFIED';
+      const grouping =
+        mode === 'ORDER' || mode === 'EACH'
+          ? order.id
+          : mode === 'ZONE'
+            ? balance.locationId
+            : mode === 'FULL_CASE'
+              ? (balance.handlingUnitId ?? allocation.id)
+              : 'combined';
+      const key = `${temperature}:${grouping}`;
+      groups.set(key, [...(groups.get(key) ?? []), allocation]);
+    }
+    let sequence = 0;
+    for (const grouped of groups.values()) {
+      sequence += 1;
+      const firstOrder = orderById.get(grouped[0]!.outboundOrderId)!;
+      const taskId = randomUUID();
+      const ordered = [...grouped].sort((left, right) => {
+        const leftLocation = locationById.get(
+          balanceById.get(left.balanceId)!.locationId,
+        );
+        const rightLocation = locationById.get(
+          balanceById.get(right.balanceId)!.locationId,
+        );
+        return (
+          (leftLocation?.sequence ?? Number.MAX_SAFE_INTEGER) -
+            (rightLocation?.sequence ?? Number.MAX_SAFE_INTEGER) ||
+          (leftLocation?.code ?? '').localeCompare(rightLocation?.code ?? '') ||
+          left.id.localeCompare(right.id)
+        );
+      });
+      await tx.pickTask.create({
+        data: {
+          createdBy: context.accountId,
+          id: taskId,
+          mode,
+          outboundOrderId:
+            new Set(grouped.map(({ outboundOrderId }) => outboundOrderId))
+              .size === 1
+              ? firstOrder.id
+              : null,
+          taskNo: `PCK-${Date.now()}-${sequence}-${taskId.slice(0, 6)}`,
+          temperatureZone: firstOrder.temperatureZone,
+          tenantId: context.tenantId,
+          updatedBy: context.accountId,
+          waveId: wave.id,
+          workload: grouped.reduce(
+            (sum, row) => sum.add(row.quantityBase),
+            new Prisma.Decimal(0),
+          ),
+        },
+      });
+      for (const allocation of ordered) {
+        const balance = balanceById.get(allocation.balanceId)!;
+        const line = lineById.get(allocation.outboundLineId)!;
+        await tx.pickTaskLine.create({
+          data: {
+            allocationId: allocation.id,
+            balanceId: balance.id,
+            createdBy: context.accountId,
+            handlingUnitId: balance.handlingUnitId,
+            inventoryLotId: balance.inventoryLotId,
+            outboundLineId: line.id,
+            outboundOrderId: allocation.outboundOrderId,
+            productId: line.productId,
+            requiredBase: allocation.quantityBase,
+            serialNumberId: balance.serialNumberId,
+            sourceLocationId: balance.locationId,
+            taskId,
+            tenantId: context.tenantId,
+            updatedBy: context.accountId,
+          },
+        });
+      }
+      await tx.pickRouteVersion.create({
+        data: {
+          createdBy: context.accountId,
+          inputSnapshot: json({
+            aisleDirection: 'FORWARD',
+            congestion: {},
+            mode,
+            source: 'WAVE_RELEASE',
+          }),
+          routeSnapshot: json({
+            stops: ordered.map((allocation, index) => {
+              const balance = balanceById.get(allocation.balanceId)!;
+              const location = locationById.get(balance.locationId);
+              return {
+                allocationId: allocation.id,
+                locationCode: location?.code,
+                locationId: balance.locationId,
+                sequence: index + 1,
+              };
+            }),
+          }),
+          routeVersion: 1,
+          taskId,
+          tenantId: context.tenantId,
+          updatedBy: context.accountId,
+        },
       });
     }
   }

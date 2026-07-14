@@ -1234,7 +1234,43 @@ enum OutboundOrderStatus {
   RELEASED
   WAVED
   ALLOCATED
+  PICKING
   CANCELLED
+  @@schema("wms")
+}
+enum PickTaskStatus {
+  OPEN
+  ASSIGNED
+  IN_PROGRESS
+  SHORT_PICK
+  REVIEWING
+  COMPLETED
+  CANCELLED
+  @@schema("wms")
+}
+enum PickMode {
+  ORDER
+  BATCH
+  SEEDING
+  ZONE
+  FULL_CASE
+  EACH
+  @@schema("wms")
+}
+enum PickScanOutcome {
+  ACCEPTED
+  REJECTED
+  @@schema("wms")
+}
+enum ShortPickStatus {
+  OPEN
+  RESOLVED
+  @@schema("wms")
+}
+enum PickVerificationStatus {
+  PASSED
+  FAILED
+  CORRECTED
   @@schema("wms")
 }
 enum OutboundOrderType {
@@ -4418,6 +4454,174 @@ model OutboundReallocation {
   omsEventRef String @map("oms_event_ref") @db.Uuid
   @@index([tenantId,shortageCaseId,createdAt],map:"outbound_reallocation_case_idx")
   @@map("outbound_reallocation")
+  @@schema("wms")
+}
+
+model PickTask {
+  id String @id @default(uuid()) @db.Uuid
+  tenantId String @map("tenant_id") @db.Uuid
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  createdBy String @map("created_by") @db.Uuid
+  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
+  updatedBy String @map("updated_by") @db.Uuid
+  version Int @default(1)
+  status PickTaskStatus @default(OPEN)
+  taskNo String @map("task_no") @db.VarChar(100)
+  waveId String @map("wave_id") @db.Uuid
+  outboundOrderId String? @map("outbound_order_id") @db.Uuid
+  mode PickMode
+  temperatureZone String? @map("temperature_zone") @db.VarChar(50)
+  routeVersion Int @default(1) @map("route_version")
+  assignedTo String? @map("assigned_to") @db.Uuid
+  containerCode String? @map("container_code") @db.VarChar(200)
+  workload Decimal @default(0) @db.Decimal(24,6)
+  startedAt DateTime? @map("started_at") @db.Timestamptz(3)
+  completedAt DateTime? @map("completed_at") @db.Timestamptz(3)
+  @@unique([tenantId,taskNo],map:"pick_task_tenant_no_key")
+  @@index([tenantId,waveId,status,createdAt],map:"pick_task_workbench_idx")
+  @@map("pick_task")
+  @@schema("wms")
+}
+
+model PickTaskLine {
+  id String @id @default(uuid()) @db.Uuid
+  tenantId String @map("tenant_id") @db.Uuid
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  createdBy String @map("created_by") @db.Uuid
+  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
+  updatedBy String @map("updated_by") @db.Uuid
+  version Int @default(1)
+  status WmsRecordStatus @default(ACTIVE)
+  taskId String @map("task_id") @db.Uuid
+  allocationId String @map("allocation_id") @db.Uuid
+  outboundOrderId String @map("outbound_order_id") @db.Uuid
+  outboundLineId String @map("outbound_line_id") @db.Uuid
+  balanceId String @map("balance_id") @db.Uuid
+  sourceLocationId String @map("source_location_id") @db.Uuid
+  productId String @map("product_id") @db.Uuid
+  handlingUnitId String? @map("handling_unit_id") @db.Uuid
+  inventoryLotId String? @map("inventory_lot_id") @db.Uuid
+  serialNumberId String? @map("serial_number_id") @db.Uuid
+  requiredBase Decimal @map("required_base") @db.Decimal(24,12)
+  pickedBase Decimal @default(0) @map("picked_base") @db.Decimal(24,12)
+  shortBase Decimal @default(0) @map("short_base") @db.Decimal(24,12)
+  targetContainerCode String? @map("target_container_code") @db.VarChar(200)
+  @@unique([tenantId,taskId,allocationId],map:"pick_task_line_allocation_key")
+  @@index([tenantId,taskId,sourceLocationId],map:"pick_task_line_route_idx")
+  @@map("pick_task_line")
+  @@schema("wms")
+}
+
+model PickRouteVersion {
+  id String @id @default(uuid()) @db.Uuid
+  tenantId String @map("tenant_id") @db.Uuid
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  createdBy String @map("created_by") @db.Uuid
+  updatedAt DateTime @default(now()) @map("updated_at") @db.Timestamptz(3)
+  updatedBy String @map("updated_by") @db.Uuid
+  version Int @default(1)
+  status WmsRecordStatus @default(ACTIVE)
+  taskId String @map("task_id") @db.Uuid
+  routeVersion Int @map("route_version")
+  inputSnapshot Json @map("input_snapshot") @db.JsonB
+  routeSnapshot Json @map("route_snapshot") @db.JsonB
+  @@unique([tenantId,taskId,routeVersion],map:"pick_route_task_version_key")
+  @@map("pick_route_version")
+  @@schema("wms")
+}
+
+model PickScanEvent {
+  id String @id @default(uuid()) @db.Uuid
+  tenantId String @map("tenant_id") @db.Uuid
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  createdBy String @map("created_by") @db.Uuid
+  updatedAt DateTime @default(now()) @map("updated_at") @db.Timestamptz(3)
+  updatedBy String @map("updated_by") @db.Uuid
+  version Int @default(1)
+  status WmsRecordStatus @default(ACTIVE)
+  taskId String @map("task_id") @db.Uuid
+  taskLineId String @map("task_line_id") @db.Uuid
+  deviceId String @map("device_id") @db.VarChar(200)
+  deviceSequence BigInt @map("device_sequence")
+  sourceLocationId String @map("source_location_id") @db.Uuid
+  productId String @map("product_id") @db.Uuid
+  handlingUnitId String? @map("handling_unit_id") @db.Uuid
+  targetContainerCode String @map("target_container_code") @db.VarChar(200)
+  quantityBase Decimal @map("quantity_base") @db.Decimal(24,12)
+  outcome PickScanOutcome
+  rejectionCode String? @map("rejection_code") @db.VarChar(100)
+  scannedAt DateTime @map("scanned_at") @db.Timestamptz(3)
+  @@unique([tenantId,deviceId,deviceSequence],map:"pick_scan_device_sequence_key")
+  @@index([tenantId,taskId,createdAt],map:"pick_scan_task_idx")
+  @@map("pick_scan_event")
+  @@schema("wms")
+}
+
+model PickConfirmation {
+  id String @id @default(uuid()) @db.Uuid
+  tenantId String @map("tenant_id") @db.Uuid
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  createdBy String @map("created_by") @db.Uuid
+  updatedAt DateTime @default(now()) @map("updated_at") @db.Timestamptz(3)
+  updatedBy String @map("updated_by") @db.Uuid
+  version Int @default(1)
+  status WmsRecordStatus @default(ACTIVE)
+  taskId String @map("task_id") @db.Uuid
+  taskLineId String @map("task_line_id") @db.Uuid
+  scanEventId String @map("scan_event_id") @db.Uuid
+  quantityBase Decimal @map("quantity_base") @db.Decimal(24,12)
+  confirmationSnapshot Json @map("confirmation_snapshot") @db.JsonB
+  @@unique([tenantId,scanEventId],map:"pick_confirmation_scan_key")
+  @@index([tenantId,taskLineId,createdAt],map:"pick_confirmation_line_idx")
+  @@map("pick_confirmation")
+  @@schema("wms")
+}
+
+model ShortPickCase {
+  id String @id @default(uuid()) @db.Uuid
+  tenantId String @map("tenant_id") @db.Uuid
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  createdBy String @map("created_by") @db.Uuid
+  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
+  updatedBy String @map("updated_by") @db.Uuid
+  version Int @default(1)
+  status ShortPickStatus @default(OPEN)
+  caseNo String @map("case_no") @db.VarChar(100)
+  taskId String @map("task_id") @db.Uuid
+  taskLineId String @map("task_line_id") @db.Uuid
+  shortBase Decimal @map("short_base") @db.Decimal(24,12)
+  reasonCode String @map("reason_code") @db.VarChar(100)
+  reason String @db.VarChar(500)
+  optionsSnapshot Json @map("options_snapshot") @db.JsonB
+  resolutionType String? @map("resolution_type") @db.VarChar(100)
+  resolutionSnapshot Json? @map("resolution_snapshot") @db.JsonB
+  resolvedAt DateTime? @map("resolved_at") @db.Timestamptz(3)
+  @@unique([tenantId,taskLineId],map:"short_pick_line_key")
+  @@unique([tenantId,caseNo],map:"short_pick_tenant_no_key")
+  @@index([tenantId,status,createdAt],map:"short_pick_workbench_idx")
+  @@map("short_pick_case")
+  @@schema("wms")
+}
+
+model PickVerificationResult {
+  id String @id @default(uuid()) @db.Uuid
+  tenantId String @map("tenant_id") @db.Uuid
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  createdBy String @map("created_by") @db.Uuid
+  updatedAt DateTime @default(now()) @map("updated_at") @db.Timestamptz(3)
+  updatedBy String @map("updated_by") @db.Uuid
+  version Int @default(1)
+  status PickVerificationStatus
+  taskId String @map("task_id") @db.Uuid
+  scopeType String @map("scope_type") @db.VarChar(50)
+  scopeRef String @map("scope_ref") @db.VarChar(200)
+  expectedSnapshot Json @map("expected_snapshot") @db.JsonB
+  actualSnapshot Json @map("actual_snapshot") @db.JsonB
+  varianceSnapshot Json @map("variance_snapshot") @db.JsonB
+  correctionType String? @map("correction_type") @db.VarChar(100)
+  correctedAt DateTime? @map("corrected_at") @db.Timestamptz(3)
+  @@index([tenantId,taskId,createdAt],map:"pick_verification_task_idx")
+  @@map("pick_verification_result")
   @@schema("wms")
 }
 

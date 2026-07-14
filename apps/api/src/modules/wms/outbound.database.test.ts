@@ -5,6 +5,7 @@ import { afterAll, describe, expect, it } from 'vitest';
 import { MdmReferenceService } from '../mdm/public/mdm-reference.service';
 import { InventoryService } from './inventory.service';
 import { OutboundService } from './outbound.service';
+import { PickService } from './pick.service';
 
 const databaseDescribe = process.env.DATABASE_URL ? describe : describe.skip;
 const prisma = new PrismaClient();
@@ -85,6 +86,7 @@ databaseDescribe('WMS outbound planning and allocation persistence', () => {
     const mdm = new MdmReferenceService(prisma as never);
     const inventory = new InventoryService(prisma as never, mdm);
     const service = new OutboundService(prisma as never, mdm, inventory);
+    const picking = new PickService(prisma as never, mdm);
     const stock = await inventory.receive(
       {
         baseUom: 'EA',
@@ -308,5 +310,208 @@ databaseDescribe('WMS outbound planning and allocation persistence', () => {
         where: { eventName: 'outbound.shortage-resolved.v1', tenantId },
       }),
     ).toBe(shortages.length);
+
+    const pickLines = await prisma.pickTaskLine.findMany({
+      where: { tenantId },
+    });
+    expect(pickLines.length).toBeGreaterThan(0);
+    const selectedLine = [...pickLines].sort((left, right) =>
+      right.requiredBase.comparedTo(left.requiredBase),
+    )[0]!;
+    expect(selectedLine.requiredBase.greaterThan(1)).toBe(true);
+    const selectedTask = await prisma.pickTask.findUniqueOrThrow({
+      where: { id: selectedLine.taskId },
+    });
+    expect(selectedTask.mode).toBe('ORDER');
+    expect(
+      await prisma.pickRouteVersion.count({
+        where: { taskId: selectedTask.id, tenantId },
+      }),
+    ).toBe(1);
+    const assigned = await picking.assignTask(
+      selectedTask.id,
+      {
+        assigneeId: actorId,
+        containerCode: 'TOTE-P2-19',
+        expectedVersion: selectedTask.version,
+      },
+      context,
+      command(),
+    );
+    const replanned = await picking.replanRoute(
+      selectedTask.id,
+      {
+        aisleDirection: 'REVERSE',
+        congestionSnapshot: { [selectedLine.sourceLocationId]: 2 },
+        expectedVersion: assigned.version,
+      },
+      context,
+      command(),
+    );
+    expect(replanned.routeVersion).toBe(2);
+    expect(
+      await prisma.pickRouteVersion.count({
+        where: { taskId: selectedTask.id, tenantId },
+      }),
+    ).toBe(2);
+    const started = await picking.startTask(
+      selectedTask.id,
+      { expectedVersion: replanned.version },
+      context,
+      command(),
+    );
+    expect(started.status).toBe('IN_PROGRESS');
+    const wrongScan = {
+      deviceId: 'RF-P2-19',
+      deviceSequence: '1',
+      ...(selectedLine.handlingUnitId
+        ? { handlingUnitId: selectedLine.handlingUnitId }
+        : {}),
+      productId: selectedLine.productId,
+      quantityBase: '1',
+      scannedAt: new Date().toISOString(),
+      sourceLocationId: randomUUID(),
+      targetContainerCode: 'TOTE-P2-19',
+      taskLineId: selectedLine.id,
+    };
+    await expect(
+      picking.scan(selectedTask.id, wrongScan, context, command()),
+    ).rejects.toMatchObject({ code: 'PICK_SOURCE_LOCATION_MISMATCH' });
+    expect(
+      await prisma.pickScanEvent.count({
+        where: { outcome: 'REJECTED', tenantId },
+      }),
+    ).toBe(1);
+    await expect(
+      picking.scan(selectedTask.id, wrongScan, context, command()),
+    ).rejects.toMatchObject({ code: 'PICK_SOURCE_LOCATION_MISMATCH' });
+    await expect(
+      picking.scan(
+        selectedTask.id,
+        { ...wrongScan, productId: randomUUID() },
+        context,
+        command(),
+      ),
+    ).rejects.toMatchObject({ code: 'PICK_DEVICE_SEQUENCE_CONFLICT' });
+    const pickedQuantity = selectedLine.requiredBase.sub(1).toString();
+    const acceptedScan = {
+      ...wrongScan,
+      deviceSequence: '2',
+      productId: selectedLine.productId,
+      quantityBase: pickedQuantity,
+      sourceLocationId: selectedLine.sourceLocationId,
+    };
+    const accepted = await picking.scan(
+      selectedTask.id,
+      acceptedScan,
+      context,
+      command(),
+    );
+    expect(accepted.outcome).toBe('ACCEPTED');
+    await expect(
+      picking.scan(selectedTask.id, acceptedScan, context, command()),
+    ).resolves.toMatchObject({
+      confirmationId: accepted.confirmationId,
+      replayed: true,
+    });
+    const afterPickLine = await prisma.pickTaskLine.findUniqueOrThrow({
+      where: { id: selectedLine.id },
+    });
+    expect(() =>
+      picking.shortPick(
+        selectedLine.id,
+        {
+          expectedLineVersion: afterPickLine.version,
+          reason: '',
+          reasonCode: '',
+          shortBase: '1',
+        },
+        context,
+        command(),
+      ),
+    ).toThrow('Short-pick reason code and explanation are required');
+    const short = await picking.shortPick(
+      selectedLine.id,
+      {
+        expectedLineVersion: afterPickLine.version,
+        reason: '储位实物短少',
+        reasonCode: 'LOCATION_SHORT',
+        shortBase: '1',
+      },
+      context,
+      command(),
+    );
+    expect(short.status).toBe('OPEN');
+    const resolvedShort = await picking.resolveShortPick(
+      short.shortPickId,
+      {
+        expectedVersion: short.version,
+        resolutionSnapshot: { approvedBy: actorId, action: 'short ship' },
+        type: 'SHORT_SHIP',
+      },
+      context,
+      command(),
+    );
+    expect(resolvedShort.taskStatus).toBe('REVIEWING');
+    const actualLines = [
+      {
+        productId: selectedLine.productId,
+        quantityBase: pickedQuantity,
+        taskLineId: selectedLine.id,
+      },
+    ];
+    const failed = await picking.verifyTask(
+      selectedTask.id,
+      {
+        actualSnapshot: { containerCode: 'WRONG-TOTE', lines: actualLines },
+        expectedVersion: resolvedShort.taskVersion,
+        scopeRef: 'TOTE-P2-19',
+        scopeType: 'CONTAINER',
+      },
+      context,
+      command(),
+    );
+    expect(failed.status).toBe('FAILED');
+    const correction = await picking.correctVerification(
+      failed.verificationId,
+      {
+        actualSnapshot: { action: 'returned wrong container' },
+        correctionType: 'RETURN',
+      },
+      context,
+      command(),
+    );
+    expect(correction.status).toBe('CORRECTED');
+    const passed = await picking.verifyTask(
+      selectedTask.id,
+      {
+        actualSnapshot: {
+          containerCode: 'TOTE-P2-19',
+          lines: actualLines,
+        },
+        expectedVersion: failed.taskVersion,
+        scopeRef: 'TOTE-P2-19',
+        scopeType: 'CONTAINER',
+      },
+      context,
+      command(),
+    );
+    expect(passed.status).toBe('PASSED');
+    expect(
+      (await prisma.pickTask.findUniqueOrThrow({ where: { id: selectedTask.id } }))
+        .status,
+    ).toBe('COMPLETED');
+    await expect(
+      prisma.pickConfirmation.update({
+        data: { quantityBase: '999' },
+        where: { id: accepted.confirmationId! },
+      }),
+    ).rejects.toBeTruthy();
+    await expect(
+      prisma.pickVerificationResult.update({
+        data: { scopeRef: 'MUTATED' },
+        where: { id: failed.verificationId },
+      }),
+    ).rejects.toBeTruthy();
   });
 });

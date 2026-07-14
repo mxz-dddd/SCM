@@ -186,6 +186,30 @@ export const ADMIN_PERMISSIONS = [
     resourceType: 'BUTTON',
   },
   {
+    code: 'wms.picking.read',
+    name: '查看拣选工作台',
+    resourceRef: '/api/v1/wms/picking',
+    resourceType: 'PAGE',
+  },
+  {
+    code: 'wms.picking.execute',
+    name: '执行拣选与 RF 扫描',
+    resourceRef: '/api/v1/wms/pick-task*',
+    resourceType: 'BUTTON',
+  },
+  {
+    code: 'wms.picking.supervise',
+    name: '处置短拣与重算路线',
+    resourceRef: '/api/v1/wms/*pick*',
+    resourceType: 'BUTTON',
+  },
+  {
+    code: 'wms.picking.verify',
+    name: '执行拣选复核与纠正',
+    resourceRef: '/api/v1/wms/pick-*verify*',
+    resourceType: 'BUTTON',
+  },
+  {
     code: 'wms.quality.read',
     name: '查看质检与上架',
     resourceRef: '/api/v1/wms/inbounds/*/quality-putaway',
