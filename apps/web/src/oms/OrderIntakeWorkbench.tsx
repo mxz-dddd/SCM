@@ -14,7 +14,8 @@ interface OrderRow {
   externalOrderNo: string | null;
   id: string;
   orderNo: string;
-  status: 'DRAFT' | 'INVALID' | 'OPEN';
+  priority: number;
+  status: 'DRAFT' | 'INVALID' | 'OPEN' | 'APPROVED' | 'REJECTED' | 'HOLD';
   type: string;
   validationErrors: readonly { field: string; message: string }[];
   version: number;
@@ -45,8 +46,25 @@ interface DuplicateCaseRow {
 
 interface OrderDetail extends OrderRow {
   duplicateCases: DuplicateCaseRow[];
+  holds: GovernanceRow[];
   lines: OrderLineRow[];
+  mergeMemberships: GovernanceRow[];
+  priorityDecisions: GovernanceRow[];
+  reviews: GovernanceRow[];
+  splitRelations: GovernanceRow[];
   versions: OrderVersionRow[];
+}
+
+interface GovernanceRow {
+  businessOrderId?: string;
+  childBusinessRef?: string;
+  createdAt: string;
+  findings?: unknown;
+  holdType?: string;
+  id: string;
+  priority?: number;
+  reason?: string;
+  status: string;
 }
 
 interface ListResponse {
@@ -58,7 +76,7 @@ interface ListResponse {
 
 const actions = createActionRegistry<OrderRow['status'] | 'NONE'>([
   {
-    allowedStatuses: ['DRAFT', 'INVALID', 'OPEN', 'NONE'],
+    allowedStatuses: ['DRAFT', 'INVALID', 'OPEN', 'APPROVED', 'REJECTED', 'HOLD', 'NONE'],
     id: 'create-manual',
     label: '新建人工草稿',
     requiredPermissions: ['oms.order.write'],
@@ -69,6 +87,39 @@ const actions = createActionRegistry<OrderRow['status'] | 'NONE'>([
     id: 'submit',
     label: '校验并提交',
     requiredPermissions: ['oms.order.submit'],
+  },
+  {
+    allowedStatuses: ['OPEN'],
+    confirmMessage: '将按金额、信用和风险标记执行自动或人工审核路由。',
+    id: 'review',
+    label: '执行风险审核',
+    requiredPermissions: ['oms.order.review'],
+  },
+  {
+    allowedStatuses: ['OPEN', 'APPROVED', 'HOLD'],
+    id: 'priority',
+    label: '提升优先级',
+    requiredPermissions: ['oms.order.priority'],
+  },
+  {
+    allowedStatuses: ['OPEN', 'APPROVED'],
+    confirmMessage: '冻结将阻止订单进入后续释放流程。',
+    id: 'hold',
+    label: '冻结订单',
+    requiredPermissions: ['oms.order.hold'],
+  },
+  {
+    allowedStatuses: ['HOLD'],
+    confirmMessage: '解除冻结需要记录原因并保留释放事实。',
+    id: 'release-hold',
+    label: '解除冻结',
+    requiredPermissions: ['oms.order.hold.release'],
+  },
+  {
+    allowedStatuses: ['OPEN', 'APPROVED'],
+    id: 'merge',
+    label: '合并选中订单',
+    requiredPermissions: ['oms.order.adjust'],
   },
   {
     allowedStatuses: ['INVALID'],
@@ -102,6 +153,12 @@ export function OrderIntakeWorkbench() {
               'oms.order.write',
               'oms.order.submit',
               'oms.order.warning.override',
+              'oms.order.review',
+              'oms.order.approve',
+              'oms.order.adjust',
+              'oms.order.priority',
+              'oms.order.hold',
+              'oms.order.hold.release',
             ]
           : [],
       ),
@@ -161,7 +218,7 @@ export function OrderIntakeWorkbench() {
     }
   }
 
-  const selected = response.items.find(({ id }) => id === selectedIds[0]);
+  const selected = response.items.find(({ id }) => id === selectedIds.at(-1));
   const decisions = actions
     .list()
     .map(({ id }) =>
@@ -189,7 +246,7 @@ export function OrderIntakeWorkbench() {
           method: 'POST',
         });
         setNotice('人工订单草稿已创建，可通过 API 或后续编辑补充字段');
-      } else if (selected) {
+      } else if (selected && ['submit', 'submit-with-warnings'].includes(actionId)) {
         const result = (await request(`/api/v1/oms/orders/${selected.id}/${actionId}`, {
           body: JSON.stringify({ expectedVersion: selected.version }),
           method: 'POST',
@@ -199,6 +256,42 @@ export function OrderIntakeWorkbench() {
             ? '订单校验通过并已打开'
             : `订单仍为 ${result.status}，发现 ${result.fieldErrors.length} 个字段错误`,
         );
+      } else if (selected && actionId === 'review') {
+        const result = (await request(`/api/v1/oms/orders/${selected.id}/review`, {
+          body: JSON.stringify({ autoApproveLimit: '10000', expectedVersion: selected.version }),
+          method: 'POST',
+        })) as unknown as { reviewStatus: string; status: string };
+        setNotice(`审核结果：${result.reviewStatus}，订单状态 ${result.status}`);
+      } else if (selected && actionId === 'priority') {
+        await request(`/api/v1/oms/orders/${selected.id}/priority`, {
+          body: JSON.stringify({ expectedVersion: selected.version, factors: { source: 'WORKBENCH' }, priority: 80, ruleVersion: 'workbench-v1' }),
+          method: 'POST',
+        });
+        setNotice('优先级已更新，已执行数量不会参与重新分配');
+      } else if (selected && actionId === 'hold') {
+        await request(`/api/v1/oms/orders/${selected.id}/holds`, {
+          body: JSON.stringify({ expectedVersion: selected.version, holdType: 'OPERATIONS', reason: '工作台人工冻结' }),
+          method: 'POST',
+        });
+        setNotice('订单已冻结');
+      } else if (selected && actionId === 'release-hold') {
+        const activeHold = detail?.holds.find(({ status }) => status === 'ACTIVE');
+        if (!activeHold) throw new Error('未找到可解除的活动冻结');
+        await request(`/api/v1/oms/order-holds/${activeHold.id}/release`, {
+          body: JSON.stringify({ expectedVersion: selected.version, reason: '工作台人工解冻' }),
+          method: 'POST',
+        });
+        setNotice('订单冻结已解除');
+      } else if (selected && actionId === 'merge') {
+        const members = response.items
+          .filter(({ id }) => selectedIds.includes(id))
+          .map(({ id, version }) => ({ expectedVersion: version, orderId: id }));
+        if (members.length < 2) throw new Error('请至少选择两张相同客户、地址和币种的订单');
+        await request('/api/v1/oms/order-merge-groups', {
+          body: JSON.stringify({ members }),
+          method: 'POST',
+        });
+        setNotice('合单组已创建，来源订单映射保持可追溯');
       }
       await refresh(1);
       if (selected) await loadDetail(selected.id);
@@ -241,9 +334,9 @@ export function OrderIntakeWorkbench() {
           ]}
           onPageChange={(page) => void refresh(page)}
           onSelectionChange={(ids) => {
-            const next = ids.slice(-1);
+            const next = ids;
             setSelectedIds(next);
-            if (next[0]) void loadDetail(next[0]);
+            if (next.at(-1)) void loadDetail(next.at(-1)!);
           }}
           page={response.page}
           pageSize={response.pageSize}
@@ -310,6 +403,26 @@ export function OrderIntakeWorkbench() {
               selectedIds={[]}
               total={detail?.duplicateCases.length ?? 0}
             />
+          </Card>
+        </Col>
+        <Col span={12}>
+          <Card title="审核风险与人工审批">
+            <DataGrid columns={[{ key: 'status', label: '审核状态' }, { key: 'findings', label: '风险发现' }, { key: 'createdAt', label: '审核时间' }]} onPageChange={() => undefined} onSelectionChange={() => undefined} page={1} pageSize={300} rows={detail?.reviews ?? []} selectedIds={[]} total={detail?.reviews.length ?? 0} />
+          </Card>
+        </Col>
+        <Col span={12}>
+          <Card title="订单与行级冻结">
+            <DataGrid columns={[{ key: 'holdType', label: '冻结类型' }, { key: 'reason', label: '原因' }, { key: 'status', label: '状态' }]} onPageChange={() => undefined} onSelectionChange={() => undefined} page={1} pageSize={300} rows={detail?.holds ?? []} selectedIds={[]} total={detail?.holds.length ?? 0} />
+          </Card>
+        </Col>
+        <Col span={12}>
+          <Card title="优先级决策与实物保护">
+            <DataGrid columns={[{ key: 'priority', label: '优先级' }, { key: 'status', label: '决策状态' }, { key: 'createdAt', label: '决策时间' }]} onPageChange={() => undefined} onSelectionChange={() => undefined} page={1} pageSize={300} rows={detail?.priorityDecisions ?? []} selectedIds={[]} total={detail?.priorityDecisions.length ?? 0} />
+          </Card>
+        </Col>
+        <Col span={12}>
+          <Card title="合拆映射与数量金额守恒">
+            <DataGrid columns={[{ key: 'businessOrderId', label: '来源订单' }, { key: 'childBusinessRef', label: '目标业务引用' }, { key: 'status', label: '状态' }]} onPageChange={() => undefined} onSelectionChange={() => undefined} page={1} pageSize={300} rows={[...(detail?.mergeMemberships ?? []), ...(detail?.splitRelations ?? [])]} selectedIds={[]} total={(detail?.mergeMemberships.length ?? 0) + (detail?.splitRelations.length ?? 0)} />
           </Card>
         </Col>
       </Row>

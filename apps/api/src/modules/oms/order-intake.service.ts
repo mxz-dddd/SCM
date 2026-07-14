@@ -18,6 +18,7 @@ import type { CommandMetadata } from '../platform/tenant.service';
 export interface SaveOrderLineInput {
   readonly lineNo: number;
   readonly packageSpecId?: string;
+  readonly priority?: number;
   readonly productId?: string;
   readonly quantity?: string;
   readonly rawData?: Readonly<Record<string, unknown>>;
@@ -28,9 +29,11 @@ export interface SaveOrderLineInput {
 
 export interface SaveOrderInput {
   readonly channel: OrderChannel;
+  readonly currency?: string;
   readonly customerId?: string;
   readonly deliveryAddressId?: string;
   readonly extensions?: Readonly<Record<string, unknown>>;
+  readonly expedited?: boolean;
   readonly externalOrderNo?: string;
   readonly externalVersion?: string;
   readonly fileObjectId?: string;
@@ -41,6 +44,8 @@ export interface SaveOrderInput {
   readonly requestedUntil?: string;
   readonly requiredExtensionFields?: readonly string[];
   readonly type: OrderType;
+  readonly totalAmount?: string;
+  readonly vip?: boolean;
 }
 
 export interface UpdateOrderInput extends SaveOrderInput {
@@ -117,6 +122,16 @@ function optionalDecimal(value: string | undefined): Prisma.Decimal | null {
   }
 }
 
+function optionalMoney(value: string | undefined): Prisma.Decimal | null {
+  if (value === undefined) return null;
+  try {
+    const parsed = new Prisma.Decimal(value);
+    return parsed.isFinite() && !parsed.isNegative() ? parsed : null;
+  } catch {
+    return null;
+  }
+}
+
 function jsonObject(value: unknown): Prisma.InputJsonObject {
   return JSON.parse(JSON.stringify(value ?? {})) as Prisma.InputJsonObject;
 }
@@ -172,7 +187,7 @@ export class OrderIntakeService {
       where: { id: orderId, tenantId: context.tenantId },
     });
     if (!order) throw new AppError('ORDER_NOT_FOUND', 'Order was not found', 404);
-    const [lines, versions, changeSets, duplicateCases, rawMessages] = await Promise.all([
+    const [lines, versions, changeSets, duplicateCases, rawMessages, reviews, holds, priorityDecisions, mergeMemberships, splitRelations] = await Promise.all([
       this.prisma.businessOrderLine.findMany({
         orderBy: { lineNo: 'asc' },
         where: { orderId, status: 'ACTIVE', tenantId: context.tenantId },
@@ -198,8 +213,28 @@ export class OrderIntakeService {
           tenantId: context.tenantId,
         },
       }),
+      this.prisma.orderReview.findMany({
+        orderBy: { createdAt: 'desc' },
+        where: { businessOrderId: orderId, tenantId: context.tenantId },
+      }),
+      this.prisma.orderHold.findMany({
+        orderBy: { createdAt: 'desc' },
+        where: { businessOrderId: orderId, tenantId: context.tenantId },
+      }),
+      this.prisma.priorityDecision.findMany({
+        orderBy: { createdAt: 'desc' },
+        where: { businessOrderId: orderId, tenantId: context.tenantId },
+      }),
+      this.prisma.orderMergeMember.findMany({
+        orderBy: { createdAt: 'desc' },
+        where: { businessOrderId: orderId, tenantId: context.tenantId },
+      }),
+      this.prisma.orderSplitRelation.findMany({
+        orderBy: { createdAt: 'desc' },
+        where: { sourceOrderId: orderId, tenantId: context.tenantId },
+      }),
     ]);
-    return { ...order, changeSets, duplicateCases, lines, rawMessages, versions };
+    return { ...order, changeSets, duplicateCases, holds, lines, mergeMemberships, priorityDecisions, rawMessages, reviews, splitRelations, versions };
   }
 
   async create(
@@ -287,9 +322,11 @@ export class OrderIntakeService {
         data: {
           channel: input.channel,
           createdBy: context.accountId,
+          currency: input.currency?.trim().toUpperCase() ?? null,
           customerId: input.customerId ?? null,
           deliveryAddressId: input.deliveryAddressId ?? null,
           extensions: jsonObject(input.extensions),
+          expedited: input.expedited ?? false,
           externalOrderNo,
           externalVersion,
           id: randomUUID(),
@@ -301,8 +338,10 @@ export class OrderIntakeService {
           requiredExtensionFields: jsonArray(input.requiredExtensionFields),
           sourcePayloadHash,
           tenantId: context.tenantId,
+          totalAmount: optionalMoney(input.totalAmount),
           type: input.type,
           updatedBy: context.accountId,
+          vip: input.vip ?? false,
         },
       });
       const lines = await this.createLines(transaction, order.id, 1, input.lines ?? [], context);
@@ -400,11 +439,13 @@ export class OrderIntakeService {
         const changed = await transaction.businessOrder.update({
           data: {
             channel: input.channel,
+            currency: input.currency?.trim().toUpperCase() ?? null,
             customerId: input.customerId ?? null,
             customerSnapshot: {},
             deliveryAddressId: input.deliveryAddressId ?? null,
             deliveryAddressSnapshot: {},
             extensions: jsonObject(input.extensions),
+            expedited: input.expedited ?? false,
             externalOrderNo,
             externalVersion,
             mappingVersion: text(input.mappingVersion, 'mappingVersion', 100),
@@ -413,11 +454,13 @@ export class OrderIntakeService {
             requestedUntil: optionalDate(input.requestedUntil),
             requiredExtensionFields: jsonArray(input.requiredExtensionFields),
             sourcePayloadHash,
+            totalAmount: optionalMoney(input.totalAmount),
             type: input.type,
             updatedBy: context.accountId,
             validationErrors: [],
             version: { increment: 1 },
             warningOverrides: [],
+            vip: input.vip ?? false,
           },
           where: { id: orderId },
         });
@@ -740,6 +783,7 @@ export class OrderIntakeService {
             orderId,
             originalUom: input.uom?.trim().toUpperCase() ?? null,
             packageSpecId: input.packageSpecId ?? null,
+            priority: input.priority ?? 50,
             productId: input.productId ?? null,
             quantityOriginal: optionalDecimal(input.quantity),
             rawData: jsonObject(input.rawData ?? input),
@@ -758,6 +802,18 @@ export class OrderIntakeService {
     if (!ORDER_TYPES.includes(input.type) || !CHANNELS.includes(input.channel))
       throw new AppError('ORDER_INPUT_INVALID', 'Order type or channel is invalid', 400);
     text(input.mappingVersion, 'mappingVersion', 100);
+    const amount = optionalMoney(input.totalAmount);
+    const currency = input.currency?.trim().toUpperCase();
+    if (
+      (input.totalAmount === undefined) !== (currency === undefined) ||
+      (input.totalAmount !== undefined && amount === null) ||
+      (currency !== undefined && !/^[A-Z]{3}$/.test(currency))
+    )
+      throw new AppError(
+        'ORDER_MONEY_INVALID',
+        'totalAmount and ISO currency must be provided together',
+        400,
+      );
     if (input.customerId && !isUuid(input.customerId))
       throw new AppError('ORDER_INPUT_INVALID', 'customerId is invalid', 400);
     if (input.deliveryAddressId && !isUuid(input.deliveryAddressId))
@@ -769,6 +825,11 @@ export class OrderIntakeService {
         throw new AppError('ORDER_INPUT_INVALID', `lines[${index}].productId is invalid`, 400);
       if (line.packageSpecId && !isUuid(line.packageSpecId))
         throw new AppError('ORDER_INPUT_INVALID', `lines[${index}].packageSpecId is invalid`, 400);
+      if (
+        line.priority !== undefined &&
+        (!Number.isInteger(line.priority) || line.priority < 1 || line.priority > 100)
+      )
+        throw new AppError('ORDER_INPUT_INVALID', `lines[${index}].priority is invalid`, 400);
     }
   }
 

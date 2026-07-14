@@ -742,6 +742,9 @@ enum OrderStatus {
   DRAFT
   INVALID
   OPEN
+  APPROVED
+  REJECTED
+  HOLD
 
   @@schema("oms")
 }
@@ -775,6 +778,22 @@ enum OmsRecordStatus {
 enum DuplicateCaseStatus {
   OPEN
   RESOLVED
+
+  @@schema("oms")
+}
+
+enum OrderReviewStatus {
+  AUTO_APPROVED
+  PENDING_APPROVAL
+  APPROVED
+  REJECTED
+
+  @@schema("oms")
+}
+
+enum OrderHoldStatus {
+  ACTIVE
+  RELEASED
 
   @@schema("oms")
 }
@@ -1567,6 +1586,11 @@ model BusinessOrder {
   requiredExtensionFields Json         @default("[]") @map("required_extension_fields") @db.JsonB
   validationErrors        Json         @default("[]") @map("validation_errors") @db.JsonB
   warningOverrides        Json         @default("[]") @map("warning_overrides") @db.JsonB
+  totalAmount             Decimal?     @map("total_amount") @db.Decimal(24, 6)
+  currency                String?      @db.Char(3)
+  priority                Int          @default(50)
+  vip                     Boolean      @default(false)
+  expedited               Boolean      @default(false)
 
   @@unique([tenantId, type, orderNo], map: "business_order_tenant_type_no_key")
   @@unique([tenantId, channel, externalOrderNo, externalVersion], map: "business_order_tenant_external_key")
@@ -1600,6 +1624,8 @@ model BusinessOrderLine {
   requestedFrom            DateTime?        @map("requested_from") @db.Timestamptz(3)
   requestedUntil           DateTime?        @map("requested_until") @db.Timestamptz(3)
   rawData                  Json             @default("{}") @map("raw_data") @db.JsonB
+  executedQuantityBase     Decimal          @default(0) @map("executed_quantity_base") @db.Decimal(24, 12)
+  priority                 Int              @default(50)
 
   @@unique([tenantId, orderId, lineNo, lineVersion], map: "business_order_line_tenant_order_line_version_key")
   @@index([tenantId, orderId, status, lineNo], map: "business_order_line_tenant_order_idx")
@@ -1695,6 +1721,147 @@ model ChangeSet {
   @@unique([tenantId, businessOrderId, toVersion], map: "change_set_tenant_order_version_key")
   @@index([tenantId, businessOrderId, appliedAt], map: "change_set_tenant_order_idx")
   @@map("change_set")
+  @@schema("oms")
+}
+
+model OrderReview {
+  id                 String            @id @default(uuid()) @db.Uuid
+  tenantId           String            @map("tenant_id") @db.Uuid
+  createdAt          DateTime          @default(now()) @map("created_at") @db.Timestamptz(3)
+  createdBy          String            @map("created_by") @db.Uuid
+  updatedAt          DateTime          @default(now()) @map("updated_at") @db.Timestamptz(3)
+  updatedBy          String            @map("updated_by") @db.Uuid
+  version            Int               @default(1)
+  status             OrderReviewStatus
+  businessOrderId    String            @map("business_order_id") @db.Uuid
+  orderVersion       Int               @map("order_version")
+  findings           Json              @default("[]") @db.JsonB
+  inputSnapshot      Json              @map("input_snapshot") @db.JsonB
+  approvalInstanceId String?           @map("approval_instance_id") @db.Uuid
+  decidedAt          DateTime?         @map("decided_at") @db.Timestamptz(3)
+  decidedBy          String?           @map("decided_by") @db.Uuid
+
+  @@index([tenantId, businessOrderId, createdAt], map: "order_review_tenant_order_idx")
+  @@index([tenantId, status, createdAt], map: "order_review_tenant_status_idx")
+  @@map("order_review")
+  @@schema("oms")
+}
+
+model OrderMergeGroup {
+  id               String          @id @default(uuid()) @db.Uuid
+  tenantId         String          @map("tenant_id") @db.Uuid
+  createdAt        DateTime        @default(now()) @map("created_at") @db.Timestamptz(3)
+  createdBy        String          @map("created_by") @db.Uuid
+  updatedAt        DateTime        @default(now()) @map("updated_at") @db.Timestamptz(3)
+  updatedBy        String          @map("updated_by") @db.Uuid
+  version          Int             @default(1)
+  status           OmsRecordStatus @default(ACTIVE)
+  code             String          @db.VarChar(100)
+  customerId       String          @map("customer_id") @db.Uuid
+  addressId        String          @map("address_id") @db.Uuid
+  currency         String?         @db.Char(3)
+  aggregateAmount  Decimal?        @map("aggregate_amount") @db.Decimal(24, 6)
+  allocationSnapshot Json          @map("allocation_snapshot") @db.JsonB
+
+  @@unique([tenantId, code], map: "order_merge_group_tenant_code_key")
+  @@index([tenantId, customerId, status, createdAt], map: "order_merge_group_tenant_customer_idx")
+  @@map("order_merge_group")
+  @@schema("oms")
+}
+
+model OrderMergeMember {
+  id               String          @id @default(uuid()) @db.Uuid
+  tenantId         String          @map("tenant_id") @db.Uuid
+  createdAt        DateTime        @default(now()) @map("created_at") @db.Timestamptz(3)
+  createdBy        String          @map("created_by") @db.Uuid
+  updatedAt        DateTime        @default(now()) @map("updated_at") @db.Timestamptz(3)
+  updatedBy        String          @map("updated_by") @db.Uuid
+  version          Int             @default(1)
+  status           OmsRecordStatus @default(ACTIVE)
+  mergeGroupId     String          @map("merge_group_id") @db.Uuid
+  businessOrderId  String          @map("business_order_id") @db.Uuid
+  orderVersion     Int             @map("order_version")
+  orderSnapshot    Json            @map("order_snapshot") @db.JsonB
+  amountAllocation Decimal?        @map("amount_allocation") @db.Decimal(24, 6)
+  quantityAllocation Json          @map("quantity_allocation") @db.JsonB
+
+  @@unique([tenantId, mergeGroupId, businessOrderId], map: "order_merge_member_tenant_group_order_key")
+  @@index([tenantId, businessOrderId, status], map: "order_merge_member_tenant_order_idx")
+  @@map("order_merge_member")
+  @@schema("oms")
+}
+
+model OrderSplitRelation {
+  id                       String          @id @default(uuid()) @db.Uuid
+  tenantId                 String          @map("tenant_id") @db.Uuid
+  createdAt                DateTime        @default(now()) @map("created_at") @db.Timestamptz(3)
+  createdBy                String          @map("created_by") @db.Uuid
+  updatedAt                DateTime        @default(now()) @map("updated_at") @db.Timestamptz(3)
+  updatedBy                String          @map("updated_by") @db.Uuid
+  version                  Int             @default(1)
+  status                   OmsRecordStatus @default(ACTIVE)
+  splitGroupId             String          @map("split_group_id") @db.Uuid
+  sourceOrderId            String          @map("source_order_id") @db.Uuid
+  sourceLineId             String          @map("source_line_id") @db.Uuid
+  sourceOrderVersion       Int             @map("source_order_version")
+  childBusinessRef         String          @map("child_business_ref") @db.VarChar(200)
+  quantityOriginal         Decimal         @map("quantity_original") @db.Decimal(24, 12)
+  originalUom              String          @map("original_uom") @db.VarChar(20)
+  quantityBase             Decimal         @map("quantity_base") @db.Decimal(24, 12)
+  baseUom                  String          @map("base_uom") @db.VarChar(20)
+  amountAllocation         Decimal?        @map("amount_allocation") @db.Decimal(24, 6)
+  currency                 String?         @db.Char(3)
+
+  @@unique([tenantId, splitGroupId, sourceLineId, childBusinessRef], map: "order_split_tenant_group_line_child_key")
+  @@index([tenantId, sourceOrderId, sourceLineId], map: "order_split_tenant_source_idx")
+  @@map("order_split_relation")
+  @@schema("oms")
+}
+
+model PriorityDecision {
+  id                           String          @id @default(uuid()) @db.Uuid
+  tenantId                     String          @map("tenant_id") @db.Uuid
+  createdAt                    DateTime        @default(now()) @map("created_at") @db.Timestamptz(3)
+  createdBy                    String          @map("created_by") @db.Uuid
+  updatedAt                    DateTime        @default(now()) @map("updated_at") @db.Timestamptz(3)
+  updatedBy                    String          @map("updated_by") @db.Uuid
+  version                      Int             @default(1)
+  status                       OmsRecordStatus @default(ACTIVE)
+  businessOrderId              String          @map("business_order_id") @db.Uuid
+  orderLineId                  String?         @map("order_line_id") @db.Uuid
+  previousPriority             Int             @map("previous_priority")
+  priority                     Int
+  factors                      Json            @db.JsonB
+  ruleVersion                  String          @map("rule_version") @db.VarChar(100)
+  reallocationEligibleQuantity Decimal?        @map("reallocation_eligible_quantity") @db.Decimal(24, 12)
+  baseUom                      String?         @map("base_uom") @db.VarChar(20)
+
+  @@index([tenantId, businessOrderId, createdAt], map: "priority_decision_tenant_order_idx")
+  @@map("priority_decision")
+  @@schema("oms")
+}
+
+model OrderHold {
+  id                 String          @id @default(uuid()) @db.Uuid
+  tenantId           String          @map("tenant_id") @db.Uuid
+  createdAt          DateTime        @default(now()) @map("created_at") @db.Timestamptz(3)
+  createdBy          String          @map("created_by") @db.Uuid
+  updatedAt          DateTime        @updatedAt @map("updated_at") @db.Timestamptz(3)
+  updatedBy          String          @map("updated_by") @db.Uuid
+  version            Int             @default(1)
+  status             OrderHoldStatus @default(ACTIVE)
+  businessOrderId    String          @map("business_order_id") @db.Uuid
+  orderLineId        String?         @map("order_line_id") @db.Uuid
+  holdType           String          @map("hold_type") @db.VarChar(100)
+  reason             String          @db.VarChar(1000)
+  previousOrderStatus OrderStatus    @map("previous_order_status")
+  releasedAt         DateTime?       @map("released_at") @db.Timestamptz(3)
+  releasedBy         String?         @map("released_by") @db.Uuid
+  releaseReason      String?         @map("release_reason") @db.VarChar(1000)
+
+  @@index([tenantId, businessOrderId, status, createdAt], map: "order_hold_tenant_order_idx")
+  @@index([tenantId, orderLineId, status], map: "order_hold_tenant_line_idx")
+  @@map("order_hold")
   @@schema("oms")
 }
 

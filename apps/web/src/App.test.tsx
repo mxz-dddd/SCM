@@ -217,5 +217,9 @@ describe('App', () => {
     expect(screen.getByText('不可变 OrderVersion 与 ChangeSet')).toBeInTheDocument();
     expect(screen.getByRole('button', { name: '校验并提交' })).toBeDisabled();
     expect(screen.getByRole('button', { name: '强制通过警告' })).toBeDisabled();
+    expect(screen.getByText('审核风险与人工审批')).toBeInTheDocument();
+    expect(screen.getByText('合拆映射与数量金额守恒')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: '执行风险审核' })).toBeDisabled();
+    expect(screen.getByRole('button', { name: '解除冻结' })).toBeDisabled();
   });
 });

@@ -4,10 +4,12 @@ import { PermissionGuard } from '../platform/auth/permission.guard';
 import { PermissionService } from '../platform/auth/permission.service';
 import { OrderIntakeController } from './order-intake.controller';
 import { OrderIntakeService } from './order-intake.service';
+import { OrderGovernanceController } from './order-governance.controller';
+import { OrderGovernanceService } from './order-governance.service';
 
 @Module({
-  controllers: [OrderIntakeController],
+  controllers: [OrderGovernanceController, OrderIntakeController],
   imports: [MdmModule],
-  providers: [OrderIntakeService, PermissionGuard, PermissionService],
+  providers: [OrderGovernanceService, OrderIntakeService, PermissionGuard, PermissionService],
 })
 export class OmsModule {}
