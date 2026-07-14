@@ -11,6 +11,7 @@ import { useSessionStore } from '../platform/session-store';
 import { TransportPlanningPanel } from './TransportPlanningPanel';
 import { LoadRouteOptimizationPanel } from './LoadRouteOptimizationPanel';
 import { CapacityTenderPanel } from './CapacityTenderPanel';
+import { DispatchPanel } from './DispatchPanel';
 
 type TransportStatus = 'OPEN' | 'PLANNED' | 'FROZEN' | 'RETURNED';
 
@@ -300,6 +301,7 @@ export function TransportOrderWorkbench() {
       <TransportPlanningPanel />
       <LoadRouteOptimizationPanel />
       <CapacityTenderPanel />
+      <DispatchPanel />
     </section>
   );
 }

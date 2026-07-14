@@ -438,5 +438,19 @@ describe('App', () => {
     expect(
       screen.getByRole('button', { name: '登记转委托责任链' }),
     ).toBeDisabled();
+    expect(
+      screen.getByText('车辆司机指派、证照与发运确认'),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText('Accepted→Dispatched 资源排班'),
+    ).toBeInTheDocument();
+    expect(screen.getByText('可用车队与 ComplianceCheck')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: '指派车辆司机' })).toBeDisabled();
+    expect(
+      screen.getByRole('button', { name: '执行发运证照检查' }),
+    ).toBeDisabled();
+    expect(
+      screen.getByRole('button', { name: '确认发运进入跟踪' }),
+    ).toBeDisabled();
   });
 });

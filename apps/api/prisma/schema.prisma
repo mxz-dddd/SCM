@@ -7654,3 +7654,135 @@ model SubcontractAssignment {
   @@map("subcontract_assignment")
   @@schema("tms")
 }
+
+enum VehicleAssignmentStatus {
+  ASSIGNED
+  DISPATCHED
+  REVOKED
+  @@schema("tms")
+}
+
+enum ComplianceCheckStatus {
+  PASSED
+  FAILED
+  @@schema("tms")
+}
+
+enum TransportComplianceExceptionStatus {
+  OPEN
+  RESOLVED
+  @@schema("tms")
+}
+
+enum ShipmentDispatchStatus {
+  CONFIRMED
+  @@schema("tms")
+}
+
+model VehicleAssignment {
+  id                    String                  @id @default(uuid()) @db.Uuid
+  tenantId              String                  @map("tenant_id") @db.Uuid
+  createdAt             DateTime                @default(now()) @map("created_at") @db.Timestamptz(3)
+  createdBy             String                  @map("created_by") @db.Uuid
+  updatedAt             DateTime                @updatedAt @map("updated_at") @db.Timestamptz(3)
+  updatedBy             String                  @map("updated_by") @db.Uuid
+  version               Int                     @default(1)
+  status                VehicleAssignmentStatus @default(ASSIGNED)
+  assignmentNo          String                  @map("assignment_no") @db.VarChar(100)
+  shipmentId            String                  @map("shipment_id") @db.Uuid
+  carrierTenderId       String                  @map("carrier_tender_id") @db.Uuid
+  vehicleRef            String                  @map("vehicle_ref") @db.Uuid
+  driverRef             String                  @map("driver_ref") @db.Uuid
+  vehicleSnapshot       Json                    @map("vehicle_snapshot") @db.JsonB
+  driverSnapshot        Json                    @map("driver_snapshot") @db.JsonB
+  backupContactSnapshot Json                    @map("backup_contact_snapshot") @db.JsonB
+  requirementSnapshot   Json                    @map("requirement_snapshot") @db.JsonB
+  eligibilitySnapshot   Json                    @map("eligibility_snapshot") @db.JsonB
+  scheduleFrom          DateTime                @map("schedule_from") @db.Timestamptz(3)
+  scheduleTo            DateTime                @map("schedule_to") @db.Timestamptz(3)
+  assignedAt            DateTime                @default(now()) @map("assigned_at") @db.Timestamptz(3)
+  assignedBy            String                  @map("assigned_by") @db.Uuid
+  revokedAt             DateTime?               @map("revoked_at") @db.Timestamptz(3)
+  revokeReason          String?                 @map("revoke_reason") @db.VarChar(500)
+  @@unique([tenantId, assignmentNo], map: "vehicle_assignment_tenant_no_key")
+  @@index([tenantId, shipmentId, status, createdAt], map: "vehicle_assignment_tenant_shipment_status_idx")
+  @@index([tenantId, vehicleRef, status, scheduleFrom, scheduleTo], map: "vehicle_assignment_tenant_vehicle_schedule_idx")
+  @@index([tenantId, driverRef, status, scheduleFrom, scheduleTo], map: "vehicle_assignment_tenant_driver_schedule_idx")
+  @@map("vehicle_assignment")
+  @@schema("tms")
+}
+
+model ComplianceCheck {
+  id                  String                @id @default(uuid()) @db.Uuid
+  tenantId            String                @map("tenant_id") @db.Uuid
+  createdAt           DateTime              @default(now()) @map("created_at") @db.Timestamptz(3)
+  createdBy           String                @map("created_by") @db.Uuid
+  updatedAt           DateTime              @default(now()) @map("updated_at") @db.Timestamptz(3)
+  updatedBy           String                @map("updated_by") @db.Uuid
+  version             Int                   @default(1)
+  status              ComplianceCheckStatus
+  checkNo             String                @map("check_no") @db.VarChar(100)
+  shipmentId          String                @map("shipment_id") @db.Uuid
+  vehicleAssignmentId String                @map("vehicle_assignment_id") @db.Uuid
+  assignmentVersion   Int                   @map("assignment_version")
+  checklistSnapshot   Json                  @map("checklist_snapshot") @db.JsonB
+  failureReasons      Json                  @map("failure_reasons") @db.JsonB
+  checkedAt           DateTime              @default(now()) @map("checked_at") @db.Timestamptz(3)
+  checkedBy           String                @map("checked_by") @db.Uuid
+  @@unique([tenantId, checkNo], map: "compliance_check_tenant_no_key")
+  @@index([tenantId, vehicleAssignmentId, status, checkedAt], map: "compliance_check_tenant_assignment_status_idx")
+  @@index([tenantId, shipmentId, status, checkedAt], map: "compliance_check_tenant_shipment_status_idx")
+  @@map("compliance_check")
+  @@schema("tms")
+}
+
+model TransportComplianceException {
+  id                  String                              @id @default(uuid()) @db.Uuid
+  tenantId            String                              @map("tenant_id") @db.Uuid
+  createdAt           DateTime                            @default(now()) @map("created_at") @db.Timestamptz(3)
+  createdBy           String                              @map("created_by") @db.Uuid
+  updatedAt           DateTime                            @updatedAt @map("updated_at") @db.Timestamptz(3)
+  updatedBy           String                              @map("updated_by") @db.Uuid
+  version             Int                                 @default(1)
+  status              TransportComplianceExceptionStatus @default(OPEN)
+  shipmentId          String                              @map("shipment_id") @db.Uuid
+  vehicleAssignmentId String                              @map("vehicle_assignment_id") @db.Uuid
+  complianceCheckId   String                              @map("compliance_check_id") @db.Uuid
+  exceptionCode       String                              @map("exception_code") @db.VarChar(100)
+  message             String                              @db.VarChar(500)
+  evidenceSnapshot    Json                                @map("evidence_snapshot") @db.JsonB
+  resolvedAt          DateTime?                           @map("resolved_at") @db.Timestamptz(3)
+  resolvedBy          String?                             @map("resolved_by") @db.Uuid
+  resolution          String?                             @db.VarChar(500)
+  @@index([tenantId, shipmentId, status, createdAt], map: "transport_compliance_exception_tenant_shipment_idx")
+  @@index([tenantId, vehicleAssignmentId, status, createdAt], map: "transport_compliance_exception_tenant_assignment_idx")
+  @@map("transport_compliance_exception")
+  @@schema("tms")
+}
+
+model ShipmentDispatch {
+  id                  String                 @id @default(uuid()) @db.Uuid
+  tenantId            String                 @map("tenant_id") @db.Uuid
+  createdAt           DateTime               @default(now()) @map("created_at") @db.Timestamptz(3)
+  createdBy           String                 @map("created_by") @db.Uuid
+  updatedAt           DateTime               @default(now()) @map("updated_at") @db.Timestamptz(3)
+  updatedBy           String                 @map("updated_by") @db.Uuid
+  version             Int                    @default(1)
+  status              ShipmentDispatchStatus @default(CONFIRMED)
+  dispatchNo          String                 @map("dispatch_no") @db.VarChar(100)
+  shipmentId          String                 @map("shipment_id") @db.Uuid
+  vehicleAssignmentId String                 @map("vehicle_assignment_id") @db.Uuid
+  complianceCheckId   String                 @map("compliance_check_id") @db.Uuid
+  assignmentSnapshot  Json                   @map("assignment_snapshot") @db.JsonB
+  loadSnapshot        Json                   @map("load_snapshot") @db.JsonB
+  sealSnapshot        Json                   @map("seal_snapshot") @db.JsonB
+  documentSnapshot    Json                   @map("document_snapshot") @db.JsonB
+  actualDepartureAt   DateTime               @map("actual_departure_at") @db.Timestamptz(3)
+  confirmedAt         DateTime               @default(now()) @map("confirmed_at") @db.Timestamptz(3)
+  confirmedBy         String                 @map("confirmed_by") @db.Uuid
+  @@unique([tenantId, dispatchNo], map: "shipment_dispatch_tenant_no_key")
+  @@unique([tenantId, shipmentId], map: "shipment_dispatch_tenant_shipment_key")
+  @@index([tenantId, actualDepartureAt, createdAt], map: "shipment_dispatch_tenant_departure_idx")
+  @@map("shipment_dispatch")
+  @@schema("tms")
+}
