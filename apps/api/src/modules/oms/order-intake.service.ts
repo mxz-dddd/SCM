@@ -72,8 +72,19 @@ interface ResolvedLine {
   readonly productSnapshot: Prisma.InputJsonObject;
 }
 
-const ORDER_TYPES: readonly OrderType[] = ['SALES', 'PURCHASE', 'TRANSFER', 'RETURN'];
-const CHANNELS: readonly OrderChannel[] = ['API', 'EDI', 'FILE', 'PORTAL', 'MANUAL'];
+const ORDER_TYPES: readonly OrderType[] = [
+  'SALES',
+  'PURCHASE',
+  'TRANSFER',
+  'RETURN',
+];
+const CHANNELS: readonly OrderChannel[] = [
+  'API',
+  'EDI',
+  'FILE',
+  'PORTAL',
+  'MANUAL',
+];
 const UOM = /^[A-Z][A-Z0-9_.-]{0,19}$/;
 
 export function assertOrderSubmissionTransition(
@@ -186,8 +197,31 @@ export class OrderIntakeService {
     const order = await this.prisma.businessOrder.findFirst({
       where: { id: orderId, tenantId: context.tenantId },
     });
-    if (!order) throw new AppError('ORDER_NOT_FOUND', 'Order was not found', 404);
-    const [lines, versions, changeSets, duplicateCases, rawMessages, reviews, holds, priorityDecisions, mergeMemberships, splitRelations, allocations, sourcingDecisions, fulfillmentOrders, shipmentRequests, collaborations, asns] = await Promise.all([
+    if (!order)
+      throw new AppError('ORDER_NOT_FOUND', 'Order was not found', 404);
+    const [
+      lines,
+      versions,
+      changeSets,
+      duplicateCases,
+      rawMessages,
+      reviews,
+      holds,
+      priorityDecisions,
+      mergeMemberships,
+      splitRelations,
+      allocations,
+      sourcingDecisions,
+      fulfillmentOrders,
+      shipmentRequests,
+      collaborations,
+      asns,
+      orderChanges,
+      lineProgress,
+      backorders,
+      substitutions,
+      rmas,
+    ] = await Promise.all([
       this.prisma.businessOrderLine.findMany({
         orderBy: { lineNo: 'asc' },
         where: { orderId, status: 'ACTIVE', tenantId: context.tenantId },
@@ -233,14 +267,84 @@ export class OrderIntakeService {
         orderBy: { createdAt: 'desc' },
         where: { sourceOrderId: orderId, tenantId: context.tenantId },
       }),
-      this.prisma.orderAllocation.findMany({ orderBy: { createdAt: 'desc' }, where: { businessOrderId: orderId, tenantId: context.tenantId } }),
-      this.prisma.sourcingDecision.findMany({ orderBy: { createdAt: 'desc' }, where: { businessOrderId: orderId, tenantId: context.tenantId } }),
-      this.prisma.fulfillmentOrder.findMany({ orderBy: { createdAt: 'desc' }, where: { businessOrderId: orderId, tenantId: context.tenantId } }),
-      this.prisma.shipmentRequest.findMany({ orderBy: { createdAt: 'desc' }, where: { businessOrderId: orderId, tenantId: context.tenantId } }),
-      this.prisma.partnerCollaboration.findMany({ orderBy: { createdAt: 'desc' }, where: { businessOrderId: orderId, tenantId: context.tenantId } }),
-      this.prisma.partnerAsn.findMany({ orderBy: { createdAt: 'desc' }, where: { businessOrderId: orderId, tenantId: context.tenantId } }),
+      this.prisma.orderAllocation.findMany({
+        orderBy: { createdAt: 'desc' },
+        where: { businessOrderId: orderId, tenantId: context.tenantId },
+      }),
+      this.prisma.sourcingDecision.findMany({
+        orderBy: { createdAt: 'desc' },
+        where: { businessOrderId: orderId, tenantId: context.tenantId },
+      }),
+      this.prisma.fulfillmentOrder.findMany({
+        orderBy: { createdAt: 'desc' },
+        where: { businessOrderId: orderId, tenantId: context.tenantId },
+      }),
+      this.prisma.shipmentRequest.findMany({
+        orderBy: { createdAt: 'desc' },
+        where: { businessOrderId: orderId, tenantId: context.tenantId },
+      }),
+      this.prisma.partnerCollaboration.findMany({
+        orderBy: { createdAt: 'desc' },
+        where: { businessOrderId: orderId, tenantId: context.tenantId },
+      }),
+      this.prisma.partnerAsn.findMany({
+        orderBy: { createdAt: 'desc' },
+        where: { businessOrderId: orderId, tenantId: context.tenantId },
+      }),
+      this.prisma.orderChange.findMany({
+        orderBy: { createdAt: 'desc' },
+        where: { businessOrderId: orderId, tenantId: context.tenantId },
+      }),
+      this.prisma.orderLineProgress.findMany({
+        orderBy: { createdAt: 'desc' },
+        where: { businessOrderId: orderId, tenantId: context.tenantId },
+      }),
+      this.prisma.backorder.findMany({
+        orderBy: { createdAt: 'desc' },
+        where: { businessOrderId: orderId, tenantId: context.tenantId },
+      }),
+      this.prisma.substitutionProposal.findMany({
+        orderBy: { createdAt: 'desc' },
+        where: { businessOrderId: orderId, tenantId: context.tenantId },
+      }),
+      this.prisma.returnMerchandiseAuthorization.findMany({
+        orderBy: { createdAt: 'desc' },
+        where: { businessOrderId: orderId, tenantId: context.tenantId },
+      }),
     ]);
-    return { ...order, allocations, asns, changeSets, collaborations, duplicateCases, fulfillmentOrders, holds, lines, mergeMemberships, priorityDecisions, rawMessages, reviews, shipmentRequests, sourcingDecisions, splitRelations, versions };
+    const changeConfirmations =
+      await this.prisma.changeDomainConfirmation.findMany({
+        orderBy: { createdAt: 'asc' },
+        where: {
+          orderChangeId: { in: orderChanges.map(({ id }) => id) },
+          tenantId: context.tenantId,
+        },
+      });
+    return {
+      ...order,
+      allocations,
+      asns,
+      backorders,
+      changeConfirmations,
+      changeSets,
+      collaborations,
+      duplicateCases,
+      fulfillmentOrders,
+      holds,
+      lineProgress,
+      lines,
+      mergeMemberships,
+      orderChanges,
+      priorityDecisions,
+      rawMessages,
+      reviews,
+      rmas,
+      shipmentRequests,
+      sourcingDecisions,
+      splitRelations,
+      substitutions,
+      versions,
+    };
   }
 
   async create(
@@ -350,7 +454,13 @@ export class OrderIntakeService {
           vip: input.vip ?? false,
         },
       });
-      const lines = await this.createLines(transaction, order.id, 1, input.lines ?? [], context);
+      const lines = await this.createLines(
+        transaction,
+        order.id,
+        1,
+        input.lines ?? [],
+        context,
+      );
       await transaction.orderVersion.create({
         data: {
           businessOrderId: order.id,
@@ -363,20 +473,27 @@ export class OrderIntakeService {
           versionNumber: 1,
         },
       });
-      await this.record(transaction, order, 'order.created.v1', context, metadata, {
-        channel: order.channel,
-        customer: order.customerId,
-        lines: lines.map(({ id, lineNo, productId, quantityOriginal }) => ({
-          id,
-          lineNo,
-          productId,
-          quantity: quantityOriginal?.toString() ?? null,
-        })),
-        requestedWindow: {
-          from: order.requestedFrom?.toISOString() ?? null,
-          until: order.requestedUntil?.toISOString() ?? null,
+      await this.record(
+        transaction,
+        order,
+        'order.created.v1',
+        context,
+        metadata,
+        {
+          channel: order.channel,
+          customer: order.customerId,
+          lines: lines.map(({ id, lineNo, productId, quantityOriginal }) => ({
+            id,
+            lineNo,
+            productId,
+            quantity: quantityOriginal?.toString() ?? null,
+          })),
+          requestedWindow: {
+            from: order.requestedFrom?.toISOString() ?? null,
+            until: order.requestedUntil?.toISOString() ?? null,
+          },
         },
-      });
+      );
       return {
         kind: 'success' as const,
         result: {
@@ -412,7 +529,8 @@ export class OrderIntakeService {
         const before = await transaction.businessOrder.findFirst({
           where: { id: orderId, tenantId: context.tenantId },
         });
-        if (!before) throw new AppError('ORDER_NOT_FOUND', 'Order was not found', 404);
+        if (!before)
+          throw new AppError('ORDER_NOT_FOUND', 'Order was not found', 404);
         this.mutable(before.status);
         this.expected(before.version, input.expectedVersion);
         const externalOrderNo = optionalText(input.externalOrderNo, 200);
@@ -504,9 +622,16 @@ export class OrderIntakeService {
             },
           }),
         ]);
-        await this.record(transaction, changed, 'order.changed.v1', context, metadata, {
-          status: changed.status,
-        });
+        await this.record(
+          transaction,
+          changed,
+          'order.changed.v1',
+          context,
+          metadata,
+          {
+            status: changed.status,
+          },
+        );
         return {
           accepted: false,
           orderId,
@@ -537,7 +662,8 @@ export class OrderIntakeService {
     const order = await this.prisma.businessOrder.findFirst({
       where: { id: orderId, tenantId: context.tenantId },
     });
-    if (!order) throw new AppError('ORDER_NOT_FOUND', 'Order was not found', 404);
+    if (!order)
+      throw new AppError('ORDER_NOT_FOUND', 'Order was not found', 404);
     this.mutable(order.status);
     this.expected(order.version, input.expectedVersion);
     const lines = await this.prisma.businessOrderLine.findMany({
@@ -546,7 +672,9 @@ export class OrderIntakeService {
     });
     const references = await this.mdm.resolveOrderReferences(
       {
-        ...(order.deliveryAddressId ? { addressId: order.deliveryAddressId } : {}),
+        ...(order.deliveryAddressId
+          ? { addressId: order.deliveryAddressId }
+          : {}),
         ...(order.customerId ? { customerId: order.customerId } : {}),
         lines: lines.map(({ packageSpecId, productId }) => ({
           ...(packageSpecId ? { packageSpecId } : {}),
@@ -556,16 +684,19 @@ export class OrderIntakeService {
       context,
     );
     const validation = this.validate(order, lines, references);
-    const blocked = validation.errors.length > 0 ||
+    const blocked =
+      validation.errors.length > 0 ||
       (validation.warnings.length > 0 && !overrideWarnings);
     const target: 'INVALID' | 'OPEN' = blocked ? 'INVALID' : 'OPEN';
-    if (target !== order.status) assertOrderSubmissionTransition(order.status, target);
+    if (target !== order.status)
+      assertOrderSubmissionTransition(order.status, target);
 
     return this.prisma.$transaction(async (transaction) => {
       const current = await transaction.businessOrder.findFirst({
         where: { id: orderId, tenantId: context.tenantId },
       });
-      if (!current) throw new AppError('ORDER_NOT_FOUND', 'Order was not found', 404);
+      if (!current)
+        throw new AppError('ORDER_NOT_FOUND', 'Order was not found', 404);
       this.expected(current.version, input.expectedVersion);
       const changed = await transaction.businessOrder.update({
         data: {
@@ -575,7 +706,9 @@ export class OrderIntakeService {
           updatedBy: context.accountId,
           validationErrors: jsonArray(validation.errors),
           version: { increment: 1 },
-          warningOverrides: jsonArray(overrideWarnings ? validation.warnings : []),
+          warningOverrides: jsonArray(
+            overrideWarnings ? validation.warnings : [],
+          ),
         },
         where: { id: orderId },
       });
@@ -603,7 +736,8 @@ export class OrderIntakeService {
         transaction.orderVersion.create({
           data: {
             businessOrderId: orderId,
-            changeReason: target === 'OPEN' ? 'ORDER_SUBMITTED' : 'ORDER_VALIDATION_FAILED',
+            changeReason:
+              target === 'OPEN' ? 'ORDER_SUBMITTED' : 'ORDER_VALIDATION_FAILED',
             createdBy: context.accountId,
             id: randomUUID(),
             snapshot: jsonObject({ order: changed, lines: snapshotLines }),
@@ -666,19 +800,33 @@ export class OrderIntakeService {
       readonly productId: string | null;
       readonly quantityOriginal: Prisma.Decimal | null;
     }[],
-    references: Awaited<ReturnType<MdmReferenceService['resolveOrderReferences']>>,
+    references: Awaited<
+      ReturnType<MdmReferenceService['resolveOrderReferences']>
+    >,
   ) {
     const errors: AppFieldError[] = [];
     const warnings: AppFieldError[] = [];
     if (!order.externalOrderNo)
-      errors.push({ field: 'externalOrderNo', message: 'External order number is required' });
+      errors.push({
+        field: 'externalOrderNo',
+        message: 'External order number is required',
+      });
     if (!order.customerId)
       errors.push({ field: 'customerId', message: 'Customer is required' });
     else if (!references.customer)
-      errors.push({ field: 'customerId', message: 'Active customer was not found' });
+      errors.push({
+        field: 'customerId',
+        message: 'Active customer was not found',
+      });
     if (!order.deliveryAddressId)
-      errors.push({ field: 'deliveryAddressId', message: 'Delivery address is required' });
-    else if (!references.address || references.address.partnerId !== order.customerId)
+      errors.push({
+        field: 'deliveryAddressId',
+        message: 'Delivery address is required',
+      });
+    else if (
+      !references.address ||
+      references.address.partnerId !== order.customerId
+    )
       errors.push({
         field: 'deliveryAddressId',
         message: 'Active delivery address for this customer was not found',
@@ -689,16 +837,29 @@ export class OrderIntakeService {
         message: 'Delivery address geocode has not been verified',
       });
     if (!order.requestedFrom)
-      errors.push({ field: 'requestedFrom', message: 'Requested window start is required' });
+      errors.push({
+        field: 'requestedFrom',
+        message: 'Requested window start is required',
+      });
     if (!order.requestedUntil)
-      errors.push({ field: 'requestedUntil', message: 'Requested window end is required' });
+      errors.push({
+        field: 'requestedUntil',
+        message: 'Requested window end is required',
+      });
     if (
       order.requestedFrom &&
       order.requestedUntil &&
       order.requestedUntil <= order.requestedFrom
     )
-      errors.push({ field: 'requestedUntil', message: 'Requested window is invalid' });
-    if (!lines.length) errors.push({ field: 'lines', message: 'At least one order line is required' });
+      errors.push({
+        field: 'requestedUntil',
+        message: 'Requested window is invalid',
+      });
+    if (!lines.length)
+      errors.push({
+        field: 'lines',
+        message: 'At least one order line is required',
+      });
     const extensions = order.extensions as Record<string, unknown>;
     const requiredFields = Array.isArray(order.requiredExtensionFields)
       ? order.requiredExtensionFields
@@ -713,15 +874,29 @@ export class OrderIntakeService {
 
     const resolvedLines: ResolvedLine[] = lines.map((line, index) => {
       const path = `lines[${index}]`;
-      const product = references.products.find(({ id }) => id === line.productId);
+      const product = references.products.find(
+        ({ id }) => id === line.productId,
+      );
       if (!line.productId)
-        errors.push({ field: `${path}.productId`, message: 'Product is required' });
+        errors.push({
+          field: `${path}.productId`,
+          message: 'Product is required',
+        });
       else if (!product)
-        errors.push({ field: `${path}.productId`, message: 'Active published product was not found' });
+        errors.push({
+          field: `${path}.productId`,
+          message: 'Active published product was not found',
+        });
       if (!line.quantityOriginal)
-        errors.push({ field: `${path}.quantity`, message: 'Positive decimal quantity is required' });
+        errors.push({
+          field: `${path}.quantity`,
+          message: 'Positive decimal quantity is required',
+        });
       if (!line.originalUom || !UOM.test(line.originalUom))
-        errors.push({ field: `${path}.uom`, message: 'Valid unit of measure is required' });
+        errors.push({
+          field: `${path}.uom`,
+          message: 'Valid unit of measure is required',
+        });
       if (product?.hazardous && extensions.allowHazardous !== true)
         errors.push({
           field: `${path}.productId`,
@@ -732,7 +907,11 @@ export class OrderIntakeService {
       );
       let baseQuantity: Prisma.Decimal | null = null;
       let baseUom: string | null = product?.baseUom ?? null;
-      if (product && line.quantityOriginal && line.originalUom === product.baseUom) {
+      if (
+        product &&
+        line.quantityOriginal &&
+        line.originalUom === product.baseUom
+      ) {
         baseQuantity = line.quantityOriginal;
       } else if (product && line.quantityOriginal && line.originalUom) {
         if (
@@ -742,10 +921,13 @@ export class OrderIntakeService {
         )
           errors.push({
             field: `${path}.packageSpecId`,
-            message: 'Published package specification for this product and unit is required',
+            message:
+              'Published package specification for this product and unit is required',
           });
         else {
-          baseQuantity = line.quantityOriginal.mul(specification.quantityInBase);
+          baseQuantity = line.quantityOriginal.mul(
+            specification.quantityInBase,
+          );
           baseUom = specification.baseUom;
         }
       }
@@ -769,7 +951,11 @@ export class OrderIntakeService {
   ) {
     const lineNumbers = new Set<number>();
     for (const line of inputs) {
-      if (!Number.isInteger(line.lineNo) || line.lineNo <= 0 || lineNumbers.has(line.lineNo))
+      if (
+        !Number.isInteger(line.lineNo) ||
+        line.lineNo <= 0 ||
+        lineNumbers.has(line.lineNo)
+      )
         throw new AppError(
           'ORDER_LINE_NUMBER_INVALID',
           'Order line numbers must be unique positive integers',
@@ -806,7 +992,11 @@ export class OrderIntakeService {
 
   private basic(input: SaveOrderInput): void {
     if (!ORDER_TYPES.includes(input.type) || !CHANNELS.includes(input.channel))
-      throw new AppError('ORDER_INPUT_INVALID', 'Order type or channel is invalid', 400);
+      throw new AppError(
+        'ORDER_INPUT_INVALID',
+        'Order type or channel is invalid',
+        400,
+      );
     text(input.mappingVersion, 'mappingVersion', 100);
     const amount = optionalMoney(input.totalAmount);
     const currency = input.currency?.trim().toUpperCase();
@@ -823,19 +1013,37 @@ export class OrderIntakeService {
     if (input.customerId && !isUuid(input.customerId))
       throw new AppError('ORDER_INPUT_INVALID', 'customerId is invalid', 400);
     if (input.deliveryAddressId && !isUuid(input.deliveryAddressId))
-      throw new AppError('ORDER_INPUT_INVALID', 'deliveryAddressId is invalid', 400);
+      throw new AppError(
+        'ORDER_INPUT_INVALID',
+        'deliveryAddressId is invalid',
+        400,
+      );
     if (input.fileObjectId && !isUuid(input.fileObjectId))
       throw new AppError('ORDER_INPUT_INVALID', 'fileObjectId is invalid', 400);
     for (const [index, line] of (input.lines ?? []).entries()) {
       if (line.productId && !isUuid(line.productId))
-        throw new AppError('ORDER_INPUT_INVALID', `lines[${index}].productId is invalid`, 400);
+        throw new AppError(
+          'ORDER_INPUT_INVALID',
+          `lines[${index}].productId is invalid`,
+          400,
+        );
       if (line.packageSpecId && !isUuid(line.packageSpecId))
-        throw new AppError('ORDER_INPUT_INVALID', `lines[${index}].packageSpecId is invalid`, 400);
+        throw new AppError(
+          'ORDER_INPUT_INVALID',
+          `lines[${index}].packageSpecId is invalid`,
+          400,
+        );
       if (
         line.priority !== undefined &&
-        (!Number.isInteger(line.priority) || line.priority < 1 || line.priority > 100)
+        (!Number.isInteger(line.priority) ||
+          line.priority < 1 ||
+          line.priority > 100)
       )
-        throw new AppError('ORDER_INPUT_INVALID', `lines[${index}].priority is invalid`, 400);
+        throw new AppError(
+          'ORDER_INPUT_INVALID',
+          `lines[${index}].priority is invalid`,
+          400,
+        );
     }
   }
 
@@ -859,7 +1067,8 @@ export class OrderIntakeService {
   }
 
   private uuid(id: string): void {
-    if (!isUuid(id)) throw new AppError('ORDER_NOT_FOUND', 'Order was not found', 404);
+    if (!isUuid(id))
+      throw new AppError('ORDER_NOT_FOUND', 'Order was not found', 404);
   }
 
   private async rawMessageIds(orderId: string, context: TenantContext) {
@@ -878,7 +1087,11 @@ export class OrderIntakeService {
 
   private async record(
     transaction: Prisma.TransactionClient,
-    order: { readonly id: string; readonly orderNo: string; readonly version: number },
+    order: {
+      readonly id: string;
+      readonly orderNo: string;
+      readonly version: number;
+    },
     eventName: string,
     context: TenantContext,
     metadata: CommandMetadata,

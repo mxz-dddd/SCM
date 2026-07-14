@@ -747,6 +747,7 @@ enum OrderStatus {
   HOLD
   ALLOCATED
   RELEASED
+  CANCELLED
 
   @@schema("oms")
 }
@@ -832,6 +833,57 @@ enum AsnPackageType {
   CARTON
   PALLET
 
+  @@schema("oms")
+}
+
+enum OrderChangeStatus {
+  PENDING_CONFIRMATIONS
+  APPLIED
+  REJECTED
+  COMPENSATING
+  FAILED
+  @@schema("oms")
+}
+enum DomainConfirmationStatus {
+  PENDING
+  ACCEPTED
+  REJECTED
+  @@schema("oms")
+}
+enum BackorderStatus {
+  OPEN
+  RESOLVED
+  CANCELLED
+  @@schema("oms")
+}
+enum BackorderDisposition {
+  WAIT
+  SUBSTITUTE
+  REALLOCATE
+  CANCEL
+  @@schema("oms")
+}
+enum SubstitutionStatus {
+  PENDING
+  CONFIRMED
+  REJECTED
+  EXPIRED
+  @@schema("oms")
+}
+enum RmaStatus {
+  REQUESTED
+  AUTHORIZED
+  REJECTED
+  RECEIVED
+  RESOLVED
+  CLOSED
+  @@schema("oms")
+}
+enum RmaResolution {
+  REFUND
+  EXCHANGE
+  REPAIR
+  REJECT
   @@schema("oms")
 }
 
@@ -2329,6 +2381,170 @@ model OrderTimelineProjection {
   @@unique([tenantId, eventId], map: "order_timeline_event_key")
   @@index([tenantId, businessOrderId, occurredAt, id], map: "order_timeline_order_time_idx")
   @@map("order_timeline_projection")
+  @@schema("oms")
+}
+
+model OrderChange {
+  id String @id @default(uuid()) @db.Uuid
+  tenantId String @map("tenant_id") @db.Uuid
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  createdBy String @map("created_by") @db.Uuid
+  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
+  updatedBy String @map("updated_by") @db.Uuid
+  version Int @default(1)
+  status OrderChangeStatus @default(PENDING_CONFIRMATIONS)
+  businessOrderId String @map("business_order_id") @db.Uuid
+  orderVersion Int @map("order_version")
+  requestedChanges Json @map("requested_changes") @db.JsonB
+  impactAssessment Json @map("impact_assessment") @db.JsonB
+  requiredDomains String[] @map("required_domains")
+  appliedOrderVersion Int? @map("applied_order_version")
+  failureReason String? @map("failure_reason") @db.VarChar(1000)
+  @@index([tenantId,businessOrderId,status,createdAt],map:"order_change_order_idx")
+  @@map("order_change")
+  @@schema("oms")
+}
+
+model ChangeDomainConfirmation {
+  id String @id @default(uuid()) @db.Uuid
+  tenantId String @map("tenant_id") @db.Uuid
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  createdBy String @map("created_by") @db.Uuid
+  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
+  updatedBy String @map("updated_by") @db.Uuid
+  version Int @default(1)
+  status DomainConfirmationStatus @default(PENDING)
+  orderChangeId String @map("order_change_id") @db.Uuid
+  domain String @db.VarChar(50)
+  reason String? @db.VarChar(1000)
+  confirmedAt DateTime? @map("confirmed_at") @db.Timestamptz(3)
+  @@unique([tenantId,orderChangeId,domain],map:"change_confirmation_domain_key")
+  @@index([tenantId,orderChangeId,status],map:"change_confirmation_status_idx")
+  @@map("change_domain_confirmation")
+  @@schema("oms")
+}
+
+model OrderLineProgress {
+  id String @id @default(uuid()) @db.Uuid
+  tenantId String @map("tenant_id") @db.Uuid
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  createdBy String @map("created_by") @db.Uuid
+  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
+  updatedBy String @map("updated_by") @db.Uuid
+  version Int @default(1)
+  status OmsRecordStatus @default(ACTIVE)
+  businessOrderId String @map("business_order_id") @db.Uuid
+  orderLineId String @map("order_line_id") @db.Uuid
+  sourceVersion Int @map("source_version")
+  promisedBase Decimal @default(0) @map("promised_base") @db.Decimal(24,12)
+  allocatedBase Decimal @default(0) @map("allocated_base") @db.Decimal(24,12)
+  shippedBase Decimal @default(0) @map("shipped_base") @db.Decimal(24,12)
+  deliveredBase Decimal @default(0) @map("delivered_base") @db.Decimal(24,12)
+  cancelledBase Decimal @default(0) @map("cancelled_base") @db.Decimal(24,12)
+  baseUom String @map("base_uom") @db.VarChar(20)
+  @@unique([tenantId,orderLineId],map:"order_line_progress_line_key")
+  @@index([tenantId,businessOrderId,status],map:"order_line_progress_order_idx")
+  @@map("order_line_progress")
+  @@schema("oms")
+}
+
+model Backorder {
+  id String @id @default(uuid()) @db.Uuid
+  tenantId String @map("tenant_id") @db.Uuid
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  createdBy String @map("created_by") @db.Uuid
+  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
+  updatedBy String @map("updated_by") @db.Uuid
+  version Int @default(1)
+  status BackorderStatus @default(OPEN)
+  businessOrderId String @map("business_order_id") @db.Uuid
+  orderLineId String @map("order_line_id") @db.Uuid
+  quantityBase Decimal @map("quantity_base") @db.Decimal(24,12)
+  baseUom String @map("base_uom") @db.VarChar(20)
+  disposition BackorderDisposition @default(WAIT)
+  reason String @db.VarChar(1000)
+  resolvedAt DateTime? @map("resolved_at") @db.Timestamptz(3)
+  @@index([tenantId,businessOrderId,status],map:"backorder_order_idx")
+  @@map("backorder")
+  @@schema("oms")
+}
+
+model SubstitutionProposal {
+  id String @id @default(uuid()) @db.Uuid
+  tenantId String @map("tenant_id") @db.Uuid
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  createdBy String @map("created_by") @db.Uuid
+  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
+  updatedBy String @map("updated_by") @db.Uuid
+  version Int @default(1)
+  status SubstitutionStatus @default(PENDING)
+  businessOrderId String @map("business_order_id") @db.Uuid
+  orderLineId String @map("order_line_id") @db.Uuid
+  partnerId String @map("partner_id") @db.Uuid
+  originalProductId String @map("original_product_id") @db.Uuid
+  replacementProductId String @map("replacement_product_id") @db.Uuid
+  quantityOriginal Decimal @map("quantity_original") @db.Decimal(24,12)
+  originalUom String @map("original_uom") @db.VarChar(20)
+  quantityBase Decimal @map("quantity_base") @db.Decimal(24,12)
+  baseUom String @map("base_uom") @db.VarChar(20)
+  compatibilitySnapshot Json @map("compatibility_snapshot") @db.JsonB
+  priceDelta Decimal? @map("price_delta") @db.Decimal(24,6)
+  currency String? @db.Char(3)
+  respondBy DateTime @map("respond_by") @db.Timestamptz(3)
+  timeoutPolicy BackorderDisposition @map("timeout_policy")
+  decidedAt DateTime? @map("decided_at") @db.Timestamptz(3)
+  decisionReason String? @map("decision_reason") @db.VarChar(1000)
+  @@index([tenantId,businessOrderId,status,respondBy],map:"substitution_order_idx")
+  @@map("substitution_proposal")
+  @@schema("oms")
+}
+
+model ReturnMerchandiseAuthorization {
+  id String @id @default(uuid()) @db.Uuid
+  tenantId String @map("tenant_id") @db.Uuid
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  createdBy String @map("created_by") @db.Uuid
+  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
+  updatedBy String @map("updated_by") @db.Uuid
+  version Int @default(1)
+  status RmaStatus @default(REQUESTED)
+  rmaNo String @map("rma_no") @db.VarChar(100)
+  businessOrderId String @map("business_order_id") @db.Uuid
+  partnerId String @map("partner_id") @db.Uuid
+  requestedAt DateTime @default(now()) @map("requested_at") @db.Timestamptz(3)
+  returnBy DateTime @map("return_by") @db.Timestamptz(3)
+  reason String @db.VarChar(1000)
+  resolution RmaResolution?
+  reverseShipmentRequestId String? @map("reverse_shipment_request_id") @db.Uuid
+  resolvedAt DateTime? @map("resolved_at") @db.Timestamptz(3)
+  closedAt DateTime? @map("closed_at") @db.Timestamptz(3)
+  @@unique([tenantId,rmaNo],map:"rma_tenant_no_key")
+  @@index([tenantId,businessOrderId,status],map:"rma_order_idx")
+  @@map("return_merchandise_authorization")
+  @@schema("oms")
+}
+
+model RmaLine {
+  id String @id @default(uuid()) @db.Uuid
+  tenantId String @map("tenant_id") @db.Uuid
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  createdBy String @map("created_by") @db.Uuid
+  updatedAt DateTime @default(now()) @map("updated_at") @db.Timestamptz(3)
+  updatedBy String @map("updated_by") @db.Uuid
+  version Int @default(1)
+  status OmsRecordStatus @default(ACTIVE)
+  rmaId String @map("rma_id") @db.Uuid
+  sourceOrderLineId String @map("source_order_line_id") @db.Uuid
+  lineNo Int @map("line_no")
+  productId String @map("product_id") @db.Uuid
+  quantityOriginal Decimal @map("quantity_original") @db.Decimal(24,12)
+  originalUom String @map("original_uom") @db.VarChar(20)
+  quantityBase Decimal @map("quantity_base") @db.Decimal(24,12)
+  baseUom String @map("base_uom") @db.VarChar(20)
+  itemCondition String @map("item_condition") @db.VarChar(100)
+  @@unique([tenantId,rmaId,lineNo],map:"rma_line_no_key")
+  @@index([tenantId,sourceOrderLineId,status],map:"rma_line_source_idx")
+  @@map("rma_line")
   @@schema("oms")
 }
 

@@ -13,10 +13,13 @@ import { FulfillmentReleaseController } from './fulfillment-release.controller';
 import { FulfillmentReleaseService } from './fulfillment-release.service';
 import { CollaborationTimelineController } from './collaboration-timeline.controller';
 import { CollaborationTimelineService } from './collaboration-timeline.service';
+import { ChangeReverseController } from './change-reverse.controller';
+import { ChangeReverseService } from './change-reverse.service';
 
 @Module({
   controllers: [
     AtpAllocationController,
+    ChangeReverseController,
     CollaborationTimelineController,
     FulfillmentReleaseController,
     OrderGovernanceController,
@@ -25,6 +28,7 @@ import { CollaborationTimelineService } from './collaboration-timeline.service';
   imports: [MdmModule, PlatformModule],
   providers: [
     AtpAllocationService,
+    ChangeReverseService,
     CollaborationTimelineService,
     FulfillmentReleaseService,
     OrderGovernanceService,

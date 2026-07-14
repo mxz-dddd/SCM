@@ -237,5 +237,13 @@ describe('App', () => {
     expect(screen.getByText('跨域订单时间线投影')).toBeInTheDocument();
     expect(screen.getByRole('button', { name: '记录伙伴确认' })).toBeDisabled();
     expect(screen.getByRole('button', { name: '提交供应商 ASN' })).toBeDisabled();
+    expect(screen.getByText('变更影响评估与域确认')).toBeInTheDocument();
+    expect(screen.getByText('部分履约、欠货与替代品')).toBeInTheDocument();
+    expect(screen.getByText('履约数量守恒投影')).toBeInTheDocument();
+    expect(screen.getByText('RMA 逆向全周期')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: '发起订单变更' })).toBeDisabled();
+    expect(screen.getByRole('button', { name: '取消订单' })).toBeDisabled();
+    expect(screen.getByRole('button', { name: '建议替代品' })).toBeDisabled();
+    expect(screen.getByRole('button', { name: '申请 RMA' })).toBeDisabled();
   });
 });
