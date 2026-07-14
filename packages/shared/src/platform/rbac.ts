@@ -12,6 +12,24 @@ export type PermissionResourceType = (typeof PERMISSION_RESOURCE_TYPES)[number];
 
 export const ADMIN_PERMISSIONS = [
   {
+    code: 'tms.transport.read',
+    name: '查看运输订单',
+    resourceRef: '/api/v1/tms/transport-orders*',
+    resourceType: 'PAGE',
+  },
+  {
+    code: 'tms.transport.receive',
+    name: '接收运输订单',
+    resourceRef: '/api/v1/tms/transport-orders',
+    resourceType: 'BUTTON',
+  },
+  {
+    code: 'tms.transport.review',
+    name: '审核运输订单',
+    resourceRef: '/api/v1/tms/transport-orders/*/review',
+    resourceType: 'BUTTON',
+  },
+  {
     code: 'wms.inventory.read',
     name: '查看库存余额',
     resourceRef: '/api/v1/wms/inventory',

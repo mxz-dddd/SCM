@@ -14,6 +14,7 @@ import { AuthModule } from './modules/platform/auth/auth.module';
 import { TenantContextMiddleware } from './modules/platform/auth/tenant-context.middleware';
 import { PlatformModule } from './modules/platform/platform.module';
 import { IdempotencyInterceptor } from './modules/platform/idempotency.interceptor';
+import { TmsModule } from './modules/tms/tms.module';
 import { WmsModule } from './modules/wms/wms.module';
 
 @Module({
@@ -23,6 +24,7 @@ import { WmsModule } from './modules/wms/wms.module';
     MdmModule,
     OmsModule,
     PlatformModule,
+    TmsModule,
     WmsModule,
   ],
   controllers: [HealthController],

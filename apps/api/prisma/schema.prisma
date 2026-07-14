@@ -6818,3 +6818,119 @@ model SequenceReservation {
   @@map("sequence_reservation")
   @@schema("platform")
 }
+
+enum TmsRecordStatus {
+  ACTIVE
+  INACTIVE
+  @@schema("tms")
+}
+
+enum TransportOrderType {
+  SALES
+  PURCHASE
+  TRANSFER
+  STANDALONE
+  RETURN
+  @@schema("tms")
+}
+
+enum TransportOrderStatus {
+  OPEN
+  PLANNED
+  APPROVED
+  TENDERED
+  ACCEPTED
+  DISPATCHED
+  TRACKING
+  DELIVERED
+  POD
+  SETTLED
+  CLOSED
+  FROZEN
+  RETURNED
+  CANCELLED
+  @@schema("tms")
+}
+
+enum TransportReviewDecision {
+  APPROVE
+  FREEZE
+  RETURN
+  @@schema("tms")
+}
+
+model TransportOrder {
+  id                           String               @id @default(uuid()) @db.Uuid
+  tenantId                     String               @map("tenant_id") @db.Uuid
+  createdAt                    DateTime             @default(now()) @map("created_at") @db.Timestamptz(3)
+  createdBy                    String               @map("created_by") @db.Uuid
+  updatedAt                    DateTime             @updatedAt @map("updated_at") @db.Timestamptz(3)
+  updatedBy                    String               @map("updated_by") @db.Uuid
+  version                      Int                  @default(1)
+  status                       TransportOrderStatus @default(OPEN)
+  orderNo                      String               @map("order_no") @db.VarChar(100)
+  type                         TransportOrderType
+  sourceType                   String               @map("source_type") @db.VarChar(100)
+  sourceRef                    String               @map("source_ref") @db.VarChar(200)
+  sourceVersion                String               @default("1") @map("source_version") @db.VarChar(100)
+  externalOrderNo              String?              @map("external_order_no") @db.VarChar(200)
+  sourceSnapshot               Json                 @map("source_snapshot") @db.JsonB
+  customerRef                  String?              @map("customer_ref") @db.VarChar(200)
+  customerSnapshot             Json                 @default("{}") @map("customer_snapshot") @db.JsonB
+  originAddressRef             String?              @map("origin_address_ref") @db.VarChar(200)
+  originAddressSnapshot        Json                 @map("origin_address_snapshot") @db.JsonB
+  destinationAddressRef        String?              @map("destination_address_ref") @db.VarChar(200)
+  destinationAddressSnapshot   Json                 @map("destination_address_snapshot") @db.JsonB
+  pickupWindowFrom             DateTime             @map("pickup_window_from") @db.Timestamptz(3)
+  pickupWindowTo               DateTime             @map("pickup_window_to") @db.Timestamptz(3)
+  deliveryWindowFrom           DateTime             @map("delivery_window_from") @db.Timestamptz(3)
+  deliveryWindowTo             DateTime             @map("delivery_window_to") @db.Timestamptz(3)
+  packagingSnapshot            Json                 @map("packaging_snapshot") @db.JsonB
+  weight                       Decimal              @db.Decimal(24, 12)
+  weightUom                    String               @map("weight_uom") @db.VarChar(20)
+  weightBase                   Decimal              @map("weight_base") @db.Decimal(24, 12)
+  weightBaseUom                String               @default("KG") @map("weight_base_uom") @db.VarChar(20)
+  volume                       Decimal              @db.Decimal(24, 12)
+  volumeUom                    String               @map("volume_uom") @db.VarChar(20)
+  volumeBase                   Decimal              @map("volume_base") @db.Decimal(24, 12)
+  volumeBaseUom                String               @default("M3") @map("volume_base_uom") @db.VarChar(20)
+  temperatureMin               Decimal?             @map("temperature_min") @db.Decimal(8, 3)
+  temperatureMax               Decimal?             @map("temperature_max") @db.Decimal(8, 3)
+  temperatureUom               String?              @map("temperature_uom") @db.VarChar(20)
+  serviceLevel                 String               @map("service_level") @db.VarChar(100)
+  priority                     Int                  @default(100)
+  prohibitedGoodsSnapshot      Json                 @default("{}") @map("prohibited_goods_snapshot") @db.JsonB
+  vehicleRequirementSnapshot   Json                 @default("{}") @map("vehicle_requirement_snapshot") @db.JsonB
+  carrierRequirementSnapshot   Json                 @default("{}") @map("carrier_requirement_snapshot") @db.JsonB
+  chargeResponsibilitySnapshot Json                 @map("charge_responsibility_snapshot") @db.JsonB
+  reviewedAt                   DateTime?            @map("reviewed_at") @db.Timestamptz(3)
+  reviewedBy                   String?              @map("reviewed_by") @db.Uuid
+  @@unique([tenantId, orderNo], map: "transport_order_tenant_no_key")
+  @@unique([tenantId, sourceType, sourceRef, sourceVersion], map: "transport_order_tenant_source_version_key")
+  @@index([tenantId, status, pickupWindowFrom, priority], map: "transport_order_tenant_status_pickup_priority_idx")
+  @@index([tenantId, externalOrderNo], map: "transport_order_tenant_external_idx")
+  @@map("transport_order")
+  @@schema("tms")
+}
+
+model TransportOrderApproval {
+  id               String                  @id @default(uuid()) @db.Uuid
+  tenantId         String                  @map("tenant_id") @db.Uuid
+  createdAt        DateTime                @default(now()) @map("created_at") @db.Timestamptz(3)
+  createdBy        String                  @map("created_by") @db.Uuid
+  updatedAt        DateTime                @default(now()) @map("updated_at") @db.Timestamptz(3)
+  updatedBy        String                  @map("updated_by") @db.Uuid
+  version          Int                     @default(1)
+  status           TmsRecordStatus         @default(ACTIVE)
+  transportOrderId String                  @map("transport_order_id") @db.Uuid
+  orderVersion     Int                     @map("order_version")
+  decision         TransportReviewDecision
+  reason           String                  @db.VarChar(500)
+  findings         Json                    @db.JsonB
+  inputSnapshot    Json                    @map("input_snapshot") @db.JsonB
+  decidedAt        DateTime                @default(now()) @map("decided_at") @db.Timestamptz(3)
+  decidedBy        String                  @map("decided_by") @db.Uuid
+  @@index([tenantId, transportOrderId, decidedAt], map: "transport_approval_tenant_order_decided_idx")
+  @@map("transport_order_approval")
+  @@schema("tms")
+}

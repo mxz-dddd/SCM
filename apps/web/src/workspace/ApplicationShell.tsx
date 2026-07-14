@@ -31,6 +31,7 @@ import { PartnerWorkbench } from '../mdm/PartnerWorkbench';
 import { WarehouseFleetWorkbench } from '../mdm/WarehouseFleetWorkbench';
 import { MdmGovernanceWorkbench } from '../mdm/MdmGovernanceWorkbench';
 import { OrderIntakeWorkbench } from '../oms/OrderIntakeWorkbench';
+import { TransportOrderWorkbench } from '../tms/TransportOrderWorkbench';
 import { InboundWorkbench } from '../wms/InboundWorkbench';
 import { InventoryWorkbench } from '../wms/InventoryWorkbench';
 import { OutboundWorkbench } from '../wms/OutboundWorkbench';
@@ -325,6 +326,7 @@ export function ApplicationShell() {
     if (tabId === 'inventory') return <InventoryWorkbench />;
     if (tabId === 'outbound') return <OutboundWorkbench />;
     if (tabId === 'operations') return <MobileOperationsWorkbench />;
+    if (tabId === 'transport') return <TransportOrderWorkbench />;
     return (
       <section className="workspace-placeholder">
         <Typography.Title level={2}>

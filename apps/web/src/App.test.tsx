@@ -256,7 +256,9 @@ describe('App', () => {
     expect(screen.getByRole('button', { name: '接收出库单' })).toBeDisabled();
     expect(screen.getByRole('button', { name: 'RF 扫描确认' })).toBeDisabled();
     expect(screen.getByRole('button', { name: '复核拣选' })).toBeDisabled();
-    expect(screen.getByRole('button', { name: '称重量方与封箱' })).toBeDisabled();
+    expect(
+      screen.getByRole('button', { name: '称重量方与封箱' }),
+    ).toBeDisabled();
     expect(screen.getByRole('button', { name: '确认发运' })).toBeDisabled();
     expect(screen.getByRole('button', { name: '配置波次模板' })).toBeDisabled();
     expect(
@@ -371,5 +373,20 @@ describe('App', () => {
     ).toBeDisabled();
     expect(screen.getByRole('button', { name: '批量逐单冻结' })).toBeDisabled();
     expect(screen.getByRole('button', { name: '客户门户预览' })).toBeDisabled();
+  });
+  it('opens transport order intake and supervisor review', () => {
+    render(<App />);
+    fireEvent.click(screen.getByRole('button', { name: '运输' }));
+    expect(
+      screen.getByRole('heading', { name: '运输订单接入与审核' }),
+    ).toBeInTheDocument();
+    expect(screen.getByRole('form', { name: '查询条件' })).toBeInTheDocument();
+    expect(screen.getByText('运输订单池')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: '接收运输订单' })).toBeDisabled();
+    expect(
+      screen.getByRole('button', { name: '审核通过并进入计划' }),
+    ).toBeDisabled();
+    expect(screen.getByRole('button', { name: '冻结异常订单' })).toBeDisabled();
+    expect(screen.getByRole('button', { name: '退回来源方' })).toBeDisabled();
   });
 });
