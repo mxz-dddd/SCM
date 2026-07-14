@@ -297,6 +297,19 @@ describe('App', () => {
     expect(screen.getByText('质量评估与履约资格')).toBeInTheDocument();
     expect(screen.getByRole('button', { name: '发布费率版本' })).toBeDisabled();
   });
+  it('opens mobile warehouse operations with large offline controls', () => {
+    render(<App />);
+    fireEvent.click(screen.getByRole('button', { name: '作业' }));
+    expect(
+      screen.getByRole('heading', { name: '移动仓库作业与运营看板' }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByPlaceholderText('扫描商品、LPN、库位或容器后回车'),
+    ).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: '确认扫描' })).toBeDisabled();
+    expect(screen.getByRole('button', { name: '新建增值作业' })).toBeDisabled();
+    expect(screen.getByRole('button', { name: '发送打印指令' })).toBeDisabled();
+  });
   it('opens multi-channel order intake and version validation', () => {
     render(<App />);
     fireEvent.click(screen.getByRole('button', { name: '订单' }));

@@ -34,6 +34,7 @@ import { OrderIntakeWorkbench } from '../oms/OrderIntakeWorkbench';
 import { InboundWorkbench } from '../wms/InboundWorkbench';
 import { InventoryWorkbench } from '../wms/InventoryWorkbench';
 import { OutboundWorkbench } from '../wms/OutboundWorkbench';
+import { MobileOperationsWorkbench } from '../wms/MobileOperationsWorkbench';
 import { useSessionStore } from '../platform/session-store';
 import { ComponentGallery } from '../ui/ComponentGallery';
 import { useWorkspaceStore } from './workspace-store';
@@ -138,6 +139,12 @@ const pageRegistry: readonly WorkspaceTab[] = [
     route: '/wms/outbounds',
     title: '出库与波次',
   },
+  {
+    dirty: false,
+    id: 'operations',
+    route: '/wms/operations',
+    title: '移动作业与看板',
+  },
   { dirty: false, id: 'transport', route: '/tms/shipments', title: '运输执行' },
 ];
 
@@ -163,6 +170,7 @@ const modules = [
   ['入库', 'inbound'],
   ['仓储', 'inventory'],
   ['出库', 'outbound'],
+  ['作业', 'operations'],
   ['运输', 'transport'],
 ] as const;
 
@@ -316,6 +324,7 @@ export function ApplicationShell() {
     if (tabId === 'inbound') return <InboundWorkbench />;
     if (tabId === 'inventory') return <InventoryWorkbench />;
     if (tabId === 'outbound') return <OutboundWorkbench />;
+    if (tabId === 'operations') return <MobileOperationsWorkbench />;
     return (
       <section className="workspace-placeholder">
         <Typography.Title level={2}>
