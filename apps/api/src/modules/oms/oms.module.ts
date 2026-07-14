@@ -9,16 +9,20 @@ import { OrderGovernanceController } from './order-governance.controller';
 import { OrderGovernanceService } from './order-governance.service';
 import { AtpAllocationController } from './atp-allocation.controller';
 import { AtpAllocationService } from './atp-allocation.service';
+import { FulfillmentReleaseController } from './fulfillment-release.controller';
+import { FulfillmentReleaseService } from './fulfillment-release.service';
 
 @Module({
   controllers: [
     AtpAllocationController,
+    FulfillmentReleaseController,
     OrderGovernanceController,
     OrderIntakeController,
   ],
   imports: [MdmModule, PlatformModule],
   providers: [
     AtpAllocationService,
+    FulfillmentReleaseService,
     OrderGovernanceService,
     OrderIntakeService,
     PermissionGuard,

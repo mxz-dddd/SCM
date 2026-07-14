@@ -15,7 +15,7 @@ interface OrderRow {
   id: string;
   orderNo: string;
   priority: number;
-  status: 'DRAFT' | 'INVALID' | 'OPEN' | 'APPROVED' | 'REJECTED' | 'HOLD' | 'ALLOCATED';
+  status: 'DRAFT' | 'INVALID' | 'OPEN' | 'APPROVED' | 'REJECTED' | 'HOLD' | 'ALLOCATED' | 'RELEASED';
   type: string;
   validationErrors: readonly { field: string; message: string }[];
   version: number;
@@ -49,15 +49,20 @@ interface OrderDetail extends OrderRow {
   allocations: AllocationRow[];
   customerId: string | null;
   duplicateCases: DuplicateCaseRow[];
+  fulfillmentOrders: FulfillmentRow[];
   holds: GovernanceRow[];
   lines: OrderLineRow[];
   mergeMemberships: GovernanceRow[];
   priorityDecisions: GovernanceRow[];
   reviews: GovernanceRow[];
+  shipmentRequests: ShipmentRequestRow[];
   sourcingDecisions: SourcingDecisionRow[];
   splitRelations: GovernanceRow[];
   versions: OrderVersionRow[];
 }
+
+interface FulfillmentRow extends GovernanceRow { fulfillmentNo: string; progressSnapshot: unknown; type: string; warehouseId: string }
+interface ShipmentRequestRow extends GovernanceRow { mode: string; requestNo: string; serviceLevel: string | null }
 
 interface AllocationRow extends GovernanceRow {
   baseUom: string;
@@ -96,7 +101,7 @@ interface ListResponse {
 
 const actions = createActionRegistry<OrderRow['status'] | 'NONE'>([
   {
-    allowedStatuses: ['DRAFT', 'INVALID', 'OPEN', 'APPROVED', 'REJECTED', 'HOLD', 'ALLOCATED', 'NONE'],
+    allowedStatuses: ['DRAFT', 'INVALID', 'OPEN', 'APPROVED', 'REJECTED', 'HOLD', 'ALLOCATED', 'RELEASED', 'NONE'],
     id: 'create-manual',
     label: '新建人工草稿',
     requiredPermissions: ['oms.order.write'],
@@ -114,6 +119,26 @@ const actions = createActionRegistry<OrderRow['status'] | 'NONE'>([
     id: 'release-allocation',
     label: '释放预占',
     requiredPermissions: ['oms.allocation.release'],
+  },
+  {
+    allowedStatuses: ['ALLOCATED'],
+    confirmMessage: '将校验营业日与截单时间，生成履约单和运输需求后释放订单。',
+    id: 'release-order',
+    label: '释放履约',
+    requiredPermissions: ['oms.order.release'],
+  },
+  {
+    allowedStatuses: ['ALLOCATED'],
+    confirmMessage: '将分别校验所选订单，失败成员保留原因且不回滚成功成员。',
+    id: 'release-batch',
+    label: '批量释放',
+    requiredPermissions: ['oms.order.release.batch'],
+  },
+  {
+    allowedStatuses: ['DRAFT', 'INVALID', 'OPEN', 'APPROVED', 'REJECTED', 'HOLD', 'ALLOCATED', 'RELEASED', 'NONE'],
+    id: 'release-auto',
+    label: '日历自动释放',
+    requiredPermissions: ['oms.order.release.auto'],
   },
   {
     allowedStatuses: ['DRAFT', 'INVALID'],
@@ -179,6 +204,7 @@ export function OrderIntakeWorkbench() {
   const [error, setError] = useState<string>();
   const [notice, setNotice] = useState<string>();
   const [ruleSetCode, setRuleSetCode] = useState('ORDER_ALLOCATION_DEFAULT');
+  const [releaseCalendarCode, setReleaseCalendarCode] = useState('DEFAULT_OPERATIONS');
   const permissions = useMemo(
     () =>
       new Set(
@@ -197,6 +223,9 @@ export function OrderIntakeWorkbench() {
               'oms.availability.read',
               'oms.order.allocate',
               'oms.allocation.release',
+              'oms.order.release',
+              'oms.order.release.batch',
+              'oms.order.release.auto',
             ]
           : [],
       ),
@@ -342,6 +371,16 @@ export function OrderIntakeWorkbench() {
         if (!allocation) throw new Error('未找到可释放的预占');
         await request(`/api/v1/oms/allocations/${allocation.id}/release`, { body: JSON.stringify({ expectedVersion: allocation.version }), method: 'POST' });
         setNotice('预占已释放，可用量已归还');
+      } else if (selected && actionId === 'release-order') {
+        await request(`/api/v1/oms/orders/${selected.id}/release`, { body: JSON.stringify({ calendarCode: releaseCalendarCode, expectedVersion: selected.version, mode: 'DIRECT' }), method: 'POST' });
+        setNotice('订单已释放，履约单与运输需求已提交');
+      } else if (selected && actionId === 'release-batch') {
+        const members = response.items.filter(({ id }) => selectedIds.includes(id)).map(({ id, version }) => ({ expectedVersion: version, orderId: id }));
+        const result = (await request('/api/v1/oms/order-release-batches', { body: JSON.stringify({ calendarCode: releaseCalendarCode, members }), method: 'POST' })) as unknown as { failedCount: number; processedCount: number };
+        setNotice(`批量释放完成：成功 ${result.processedCount}，失败 ${result.failedCount}`);
+      } else if (actionId === 'release-auto') {
+        const result = (await request('/api/v1/oms/order-release-batches/automatic', { body: JSON.stringify({ calendarCode: releaseCalendarCode, limit: 100 }), method: 'POST' })) as unknown as { failedCount: number; processedCount: number };
+        setNotice(`日历自动释放完成：成功 ${result.processedCount}，失败 ${result.failedCount}`);
       }
       await refresh(1);
       if (selected) await loadDetail(selected.id);
@@ -370,6 +409,7 @@ export function OrderIntakeWorkbench() {
         />
         <CommandBar actions={decisions} onAction={({ id }) => void execute(id)} />
         <Input aria-label="分配规则集代码" onChange={(event) => setRuleSetCode(event.target.value.toUpperCase())} value={ruleSetCode} />
+        <Input aria-label="释放营业日历代码" onChange={(event) => setReleaseCalendarCode(event.target.value.toUpperCase())} value={releaseCalendarCode} />
         <DataGrid
           columns={[
             { key: 'orderNo', label: '订单号' },
@@ -485,6 +525,16 @@ export function OrderIntakeWorkbench() {
         <Col span={12}>
           <Card title="候选排除与规则版本">
             <DataGrid columns={[{ key: 'ruleSetCode', label: '规则集' }, { key: 'ruleSetVersionNumber', label: '规则版本' }, { key: 'selectedCandidateId', label: '选中候选' }, { key: 'exclusions', label: '排除原因' }, { key: 'evaluationTraceId', label: '评估轨迹' }]} onPageChange={() => undefined} onSelectionChange={() => undefined} page={1} pageSize={300} rows={detail?.sourcingDecisions ?? []} selectedIds={[]} total={detail?.sourcingDecisions.length ?? 0} />
+          </Card>
+        </Col>
+        <Col span={12}>
+          <Card title="独立履约单状态机">
+            <DataGrid columns={[{ key: 'fulfillmentNo', label: '履约单号' }, { key: 'warehouseId', label: '仓库' }, { key: 'type', label: '类型' }, { key: 'status', label: '状态' }, { key: 'progressSnapshot', label: '进度快照' }]} onPageChange={() => undefined} onSelectionChange={() => undefined} page={1} pageSize={300} rows={detail?.fulfillmentOrders ?? []} selectedIds={[]} total={detail?.fulfillmentOrders.length ?? 0} />
+          </Card>
+        </Col>
+        <Col span={12}>
+          <Card title="直运与多段运输需求">
+            <DataGrid columns={[{ key: 'requestNo', label: '运输需求号' }, { key: 'mode', label: '运输模式' }, { key: 'serviceLevel', label: '服务等级' }, { key: 'status', label: '状态' }, { key: 'createdAt', label: '生成时间' }]} onPageChange={() => undefined} onSelectionChange={() => undefined} page={1} pageSize={300} rows={detail?.shipmentRequests ?? []} selectedIds={[]} total={detail?.shipmentRequests.length ?? 0} />
           </Card>
         </Col>
       </Row>

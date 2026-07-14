@@ -187,7 +187,7 @@ export class OrderIntakeService {
       where: { id: orderId, tenantId: context.tenantId },
     });
     if (!order) throw new AppError('ORDER_NOT_FOUND', 'Order was not found', 404);
-    const [lines, versions, changeSets, duplicateCases, rawMessages, reviews, holds, priorityDecisions, mergeMemberships, splitRelations, allocations, sourcingDecisions] = await Promise.all([
+    const [lines, versions, changeSets, duplicateCases, rawMessages, reviews, holds, priorityDecisions, mergeMemberships, splitRelations, allocations, sourcingDecisions, fulfillmentOrders, shipmentRequests] = await Promise.all([
       this.prisma.businessOrderLine.findMany({
         orderBy: { lineNo: 'asc' },
         where: { orderId, status: 'ACTIVE', tenantId: context.tenantId },
@@ -235,8 +235,10 @@ export class OrderIntakeService {
       }),
       this.prisma.orderAllocation.findMany({ orderBy: { createdAt: 'desc' }, where: { businessOrderId: orderId, tenantId: context.tenantId } }),
       this.prisma.sourcingDecision.findMany({ orderBy: { createdAt: 'desc' }, where: { businessOrderId: orderId, tenantId: context.tenantId } }),
+      this.prisma.fulfillmentOrder.findMany({ orderBy: { createdAt: 'desc' }, where: { businessOrderId: orderId, tenantId: context.tenantId } }),
+      this.prisma.shipmentRequest.findMany({ orderBy: { createdAt: 'desc' }, where: { businessOrderId: orderId, tenantId: context.tenantId } }),
     ]);
-    return { ...order, allocations, changeSets, duplicateCases, holds, lines, mergeMemberships, priorityDecisions, rawMessages, reviews, sourcingDecisions, splitRelations, versions };
+    return { ...order, allocations, changeSets, duplicateCases, fulfillmentOrders, holds, lines, mergeMemberships, priorityDecisions, rawMessages, reviews, shipmentRequests, sourcingDecisions, splitRelations, versions };
   }
 
   async create(

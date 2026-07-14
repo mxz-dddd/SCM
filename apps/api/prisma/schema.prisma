@@ -746,6 +746,7 @@ enum OrderStatus {
   REJECTED
   HOLD
   ALLOCATED
+  RELEASED
 
   @@schema("oms")
 }
@@ -754,6 +755,54 @@ enum AllocationStatus {
   PROPOSED
   RESERVED
   RELEASED
+  FAILED
+
+  @@schema("oms")
+}
+
+enum FulfillmentStatus {
+  DRAFT
+  RELEASED
+  ACCEPTED
+  EXECUTING
+  COMPLETED
+  FAILED
+  CANCELLED
+
+  @@schema("oms")
+}
+
+enum FulfillmentType {
+  INBOUND
+  OUTBOUND
+  TRANSFER
+
+  @@schema("oms")
+}
+
+enum ShipmentRequestStatus {
+  OPEN
+  SUBMITTED
+  ACCEPTED
+  EXECUTING
+  COMPLETED
+  FAILED
+  CANCELLED
+
+  @@schema("oms")
+}
+
+enum ShipmentMode {
+  DIRECT
+  MULTI_LEG
+
+  @@schema("oms")
+}
+
+enum ReleaseBatchStatus {
+  PROCESSING
+  COMPLETED
+  PARTIAL
   FAILED
 
   @@schema("oms")
@@ -1985,6 +2034,145 @@ model OrderAllocation {
   @@index([tenantId, businessOrderId, status], map: "order_allocation_order_idx")
   @@index([tenantId, projectionId, status], map: "order_allocation_projection_idx")
   @@map("order_allocation")
+  @@schema("oms")
+}
+
+model FulfillmentOrder {
+  id                  String            @id @default(uuid()) @db.Uuid
+  tenantId            String            @map("tenant_id") @db.Uuid
+  createdAt           DateTime          @default(now()) @map("created_at") @db.Timestamptz(3)
+  createdBy           String            @map("created_by") @db.Uuid
+  updatedAt           DateTime          @updatedAt @map("updated_at") @db.Timestamptz(3)
+  updatedBy           String            @map("updated_by") @db.Uuid
+  version             Int               @default(1)
+  status              FulfillmentStatus @default(DRAFT)
+  fulfillmentNo       String            @map("fulfillment_no") @db.VarChar(100)
+  businessOrderId     String            @map("business_order_id") @db.Uuid
+  orderVersion        Int               @map("order_version")
+  warehouseId         String            @map("warehouse_id") @db.Uuid
+  ownerId             String            @map("owner_id") @db.Uuid
+  type                FulfillmentType
+  plannedDate         DateTime?          @map("planned_date") @db.Date
+  releaseBatchId      String?            @map("release_batch_id") @db.Uuid
+  sourceVersion       Int                @default(0) @map("source_version")
+  externalReference   String?            @map("external_reference") @db.VarChar(200)
+  progressSnapshot    Json               @default("{}") @map("progress_snapshot") @db.JsonB
+
+  @@unique([tenantId, fulfillmentNo], map: "fulfillment_order_tenant_no_key")
+  @@index([tenantId, businessOrderId, status], map: "fulfillment_order_order_idx")
+  @@index([tenantId, warehouseId, status, plannedDate], map: "fulfillment_order_warehouse_idx")
+  @@map("fulfillment_order")
+  @@schema("oms")
+}
+
+model FulfillmentLine {
+  id                 String          @id @default(uuid()) @db.Uuid
+  tenantId           String          @map("tenant_id") @db.Uuid
+  createdAt          DateTime        @default(now()) @map("created_at") @db.Timestamptz(3)
+  createdBy          String          @map("created_by") @db.Uuid
+  updatedAt          DateTime        @updatedAt @map("updated_at") @db.Timestamptz(3)
+  updatedBy          String          @map("updated_by") @db.Uuid
+  version            Int             @default(1)
+  status             OmsRecordStatus @default(ACTIVE)
+  fulfillmentOrderId String          @map("fulfillment_order_id") @db.Uuid
+  sourceOrderLineId  String          @map("source_order_line_id") @db.Uuid
+  allocationId       String          @map("allocation_id") @db.Uuid
+  lineNo             Int             @map("line_no")
+  productId          String          @map("product_id") @db.Uuid
+  productSnapshot    Json            @map("product_snapshot") @db.JsonB
+  quantityOriginal   Decimal         @map("quantity_original") @db.Decimal(24, 12)
+  originalUom        String          @map("original_uom") @db.VarChar(20)
+  quantityBase       Decimal         @map("quantity_base") @db.Decimal(24, 12)
+  baseUom            String          @map("base_uom") @db.VarChar(20)
+  executedBase       Decimal         @default(0) @map("executed_base") @db.Decimal(24, 12)
+
+  @@unique([tenantId, fulfillmentOrderId, lineNo], map: "fulfillment_line_order_line_no_key")
+  @@index([tenantId, sourceOrderLineId, status], map: "fulfillment_line_source_idx")
+  @@map("fulfillment_line")
+  @@schema("oms")
+}
+
+model ShipmentRequest {
+  id                        String                @id @default(uuid()) @db.Uuid
+  tenantId                  String                @map("tenant_id") @db.Uuid
+  createdAt                 DateTime              @default(now()) @map("created_at") @db.Timestamptz(3)
+  createdBy                 String                @map("created_by") @db.Uuid
+  updatedAt                 DateTime              @updatedAt @map("updated_at") @db.Timestamptz(3)
+  updatedBy                 String                @map("updated_by") @db.Uuid
+  version                   Int                   @default(1)
+  status                    ShipmentRequestStatus @default(OPEN)
+  requestNo                 String                @map("request_no") @db.VarChar(100)
+  businessOrderId           String                @map("business_order_id") @db.Uuid
+  fulfillmentOrderId        String?               @map("fulfillment_order_id") @db.Uuid
+  mode                      ShipmentMode
+  originAddressId           String?               @map("origin_address_id") @db.Uuid
+  originAddressSnapshot     Json                  @map("origin_address_snapshot") @db.JsonB
+  destinationAddressId      String?               @map("destination_address_id") @db.Uuid
+  destinationAddressSnapshot Json                 @map("destination_address_snapshot") @db.JsonB
+  pickupFrom                DateTime?             @map("pickup_from") @db.Timestamptz(3)
+  pickupUntil               DateTime?             @map("pickup_until") @db.Timestamptz(3)
+  deliveryFrom              DateTime?             @map("delivery_from") @db.Timestamptz(3)
+  deliveryUntil             DateTime?             @map("delivery_until") @db.Timestamptz(3)
+  weight                    Decimal?              @db.Decimal(24, 12)
+  weightUom                 String?               @map("weight_uom") @db.VarChar(20)
+  volume                    Decimal?              @db.Decimal(24, 12)
+  volumeUom                 String?               @map("volume_uom") @db.VarChar(20)
+  temperatureMin            Decimal?              @map("temperature_min") @db.Decimal(8, 3)
+  temperatureMax            Decimal?              @map("temperature_max") @db.Decimal(8, 3)
+  serviceLevel              String?               @map("service_level") @db.VarChar(100)
+  releaseBatchId            String?               @map("release_batch_id") @db.Uuid
+  requestSnapshot           Json                  @map("request_snapshot") @db.JsonB
+
+  @@unique([tenantId, requestNo], map: "shipment_request_tenant_no_key")
+  @@index([tenantId, businessOrderId, status], map: "shipment_request_order_idx")
+  @@map("shipment_request")
+  @@schema("oms")
+}
+
+model ShipmentLeg {
+  id                  String          @id @default(uuid()) @db.Uuid
+  tenantId            String          @map("tenant_id") @db.Uuid
+  createdAt           DateTime        @default(now()) @map("created_at") @db.Timestamptz(3)
+  createdBy           String          @map("created_by") @db.Uuid
+  updatedAt           DateTime        @updatedAt @map("updated_at") @db.Timestamptz(3)
+  updatedBy           String          @map("updated_by") @db.Uuid
+  version             Int             @default(1)
+  status              OmsRecordStatus @default(ACTIVE)
+  shipmentRequestId   String          @map("shipment_request_id") @db.Uuid
+  sequence            Int
+  fromAddressId       String?         @map("from_address_id") @db.Uuid
+  fromAddressSnapshot Json            @map("from_address_snapshot") @db.JsonB
+  toAddressId         String?         @map("to_address_id") @db.Uuid
+  toAddressSnapshot   Json            @map("to_address_snapshot") @db.JsonB
+  windowFrom          DateTime?       @map("window_from") @db.Timestamptz(3)
+  windowUntil         DateTime?       @map("window_until") @db.Timestamptz(3)
+
+  @@unique([tenantId, shipmentRequestId, sequence], map: "shipment_leg_request_sequence_key")
+  @@index([tenantId, shipmentRequestId, status], map: "shipment_leg_request_idx")
+  @@map("shipment_leg")
+  @@schema("oms")
+}
+
+model OrderReleaseBatch {
+  id              String             @id @default(uuid()) @db.Uuid
+  tenantId        String             @map("tenant_id") @db.Uuid
+  createdAt       DateTime           @default(now()) @map("created_at") @db.Timestamptz(3)
+  createdBy       String             @map("created_by") @db.Uuid
+  updatedAt       DateTime           @updatedAt @map("updated_at") @db.Timestamptz(3)
+  updatedBy       String             @map("updated_by") @db.Uuid
+  version         Int                @default(1)
+  status          ReleaseBatchStatus @default(PROCESSING)
+  batchNo         String             @map("batch_no") @db.VarChar(100)
+  mode            String             @db.VarChar(20)
+  calendarCode    String             @map("calendar_code") @db.VarChar(100)
+  requestedCount  Int                @map("requested_count")
+  processedCount  Int                @default(0) @map("processed_count")
+  failedCount     Int                @default(0) @map("failed_count")
+  results         Json               @default("[]") @db.JsonB
+
+  @@unique([tenantId, batchNo], map: "order_release_batch_tenant_no_key")
+  @@index([tenantId, status, createdAt], map: "order_release_batch_status_idx")
+  @@map("order_release_batch")
   @@schema("oms")
 }
 

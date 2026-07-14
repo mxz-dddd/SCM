@@ -26,3 +26,4 @@
 - 2026-07-14 P2-05：完成 API/EDI/文件/门户/人工多渠道统一订单草稿、原始报文与映射版本、外部编号内容冲突 DuplicateCase、字段级校验与授权警告强制、Decimal 双单位及主数据快照、不可变 OrderVersion/ChangeSet、乐观锁和订单接入工作台；新增基于 IdempotencyRecord 的通用写请求拦截器，同键同内容重放原状态码/响应、异内容返回 409。
 - 2026-07-14 P2-06：完成金额/信用/禁限/风险标记驱动的自动审核与统一审批人工决策、关键商业字段冻结、合单组与拆单双单位/金额守恒映射、订单及行级优先级和已执行数量保护、订单/行冻结与独立权限解冻，以及审核、合拆、优先级和冻结工作台视图。
 - 2026-07-14 P2-07：完成 WMS 事件驱动的 OMS 可用量投影、带 snapshotAt/uncertainty 和库存/在途/预计入库/安全库存分解的 ATP 承诺快照；通过 P1-14 公共规则门面保存候选、硬约束排除、规则版本与评估轨迹，实现 Proposed→Reserved→Released/Failed 显式状态机、订单 APPROVED→ALLOCATED、条件更新防超卖、跨域预占/释放 Outbox，以及 ATP 分配工作台与双事务并发测试。
+- 2026-07-14 P2-08：完成按仓库/货主/订单类型生成 FulfillmentOrder/FulfillmentLine 双单位履约请求、独立履约状态机与 sourceVersion 进度聚合；完成直运/多段 ShipmentRequest/ShipmentLeg、地址时间窗及重量体积温层快照；通过 MDM 公共日历门面实现营业日/截单校验、单笔/批量/自动释放、部分失败回执，订单 ALLOCATED→RELEASED 与 order.released.v1 跨域 Outbox，并补齐履约释放工作台和状态/权限/幂等/截单数据库测试。

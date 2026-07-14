@@ -11,10 +11,11 @@ import { WarehouseFleetService } from './warehouse-fleet.service';
 import { ContractCalendarQualityController } from './contract-calendar-quality.controller';
 import { ContractCalendarQualityService } from './contract-calendar-quality.service';
 import { MdmReferenceService } from './public/mdm-reference.service';
+import { CalendarReleaseFacade } from './public/calendar-release.facade';
 
 @Module({
   controllers: [ContractCalendarQualityController, PartnerController, ProductController, WarehouseFleetController],
-  exports: [MdmReferenceService],
-  providers: [ContractCalendarQualityService, IdempotencyService, MdmReferenceService, PartnerService, PermissionGuard, PermissionService, ProductService, WarehouseFleetService],
+  exports: [CalendarReleaseFacade, MdmReferenceService],
+  providers: [CalendarReleaseFacade, ContractCalendarQualityService, IdempotencyService, MdmReferenceService, PartnerService, PermissionGuard, PermissionService, ProductService, WarehouseFleetService],
 })
 export class MdmModule {}

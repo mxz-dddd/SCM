@@ -226,5 +226,11 @@ describe('App', () => {
     expect(screen.getByRole('button', { name: '执行 ATP 分配' })).toBeDisabled();
     expect(screen.getByRole('button', { name: '释放预占' })).toBeDisabled();
     expect(screen.getByRole('textbox', { name: '分配规则集代码' })).toHaveValue('ORDER_ALLOCATION_DEFAULT');
+    expect(screen.getByText('独立履约单状态机')).toBeInTheDocument();
+    expect(screen.getByText('直运与多段运输需求')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: '释放履约' })).toBeDisabled();
+    expect(screen.getByRole('button', { name: '批量释放' })).toBeDisabled();
+    expect(screen.getByRole('button', { name: '日历自动释放' })).toBeDisabled();
+    expect(screen.getByRole('textbox', { name: '释放营业日历代码' })).toHaveValue('DEFAULT_OPERATIONS');
   });
 });
