@@ -78,6 +78,20 @@ describe('RBAC resolution', () => {
     ).toEqual(new Set(['MENU', 'PAGE', 'API', 'BUTTON', 'FIELD', 'EXPORT']));
   });
 
+  it('grants the administrator the P3 AMS and TMS execution surface', () => {
+    const codes = new Set(ADMIN_PERMISSIONS.map(({ code }) => code));
+    expect(
+      [
+        'ams.appointment.create',
+        'ams.gate.verify',
+        'ams.operation.manage',
+        'tms.tender.respond',
+        'tms.pod.review',
+        'tms.billing.settle',
+      ].every((code) => codes.has(code)),
+    ).toBe(true);
+  });
+
   it('keeps the security auditor role read-only', () => {
     expect(READ_ONLY_AUDITOR_PERMISSION_CODES).toEqual([
       'platform.audit.read',

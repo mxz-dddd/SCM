@@ -10,7 +10,95 @@ export const PERMISSION_RESOURCE_TYPES = [
 export type PermissionEffect = 'ALLOW' | 'DENY';
 export type PermissionResourceType = (typeof PERMISSION_RESOURCE_TYPES)[number];
 
+const P3_ADMIN_PERMISSION_CODES = [
+  'ams.appointment.approve',
+  'ams.appointment.change',
+  'ams.appointment.create',
+  'ams.appointment.read',
+  'ams.appointment.recurring',
+  'ams.appointment.remind',
+  'ams.capacity.manage',
+  'ams.capacity.read',
+  'ams.dashboard.read',
+  'ams.dock.assign',
+  'ams.gate.access',
+  'ams.gate.checkout',
+  'ams.gate.verify',
+  'ams.noshow.appeal',
+  'ams.noshow.manage',
+  'ams.noshow.waive',
+  'ams.onsite.read',
+  'ams.operation.manage',
+  'ams.operation.read',
+  'ams.queue.manage',
+  'ams.workload.adjust',
+  'ams.workload.calculate',
+  'ams.workload.manage',
+  'tms.billing.accrual',
+  'tms.billing.calculate',
+  'tms.billing.read',
+  'tms.billing.settle',
+  'tms.billing.statement',
+  'tms.capacity-tender.read',
+  'tms.capacity.manage',
+  'tms.capacity.reserve',
+  'tms.claim.manage',
+  'tms.delivery.confirm',
+  'tms.delivery.read',
+  'tms.dispatch.assign',
+  'tms.dispatch.compliance',
+  'tms.dispatch.confirm',
+  'tms.dispatch.read',
+  'tms.driver.execute',
+  'tms.fleet.maintenance',
+  'tms.fleet.read',
+  'tms.iot.ingest',
+  'tms.iot.resolve',
+  'tms.metrics.generate',
+  'tms.operations.appointment.integrate',
+  'tms.operations.appointment.manage',
+  'tms.operations.exception.detect',
+  'tms.operations.exception.escalate',
+  'tms.operations.exception.manage',
+  'tms.operations.map.precise',
+  'tms.operations.map.refresh',
+  'tms.operations.read',
+  'tms.plan.approve',
+  'tms.pod.review',
+  'tms.pod.submit',
+  'tms.quote.award',
+  'tms.quote.bid',
+  'tms.quote.manage',
+  'tms.return.manage',
+  'tms.subcontract.manage',
+  'tms.subcontract.respond',
+  'tms.tender.manage',
+  'tms.tender.respond',
+  'tms.tender.revoke',
+  'tms.tracking.ingest',
+  'tms.tracking.plan',
+  'tms.tracking.predict',
+  'tms.tracking.read',
+  'tms.tracking.share',
+] as const;
+
+function p3AdminPermission(code: (typeof P3_ADMIN_PERMISSION_CODES)[number]): {
+  code: string;
+  name: string;
+  resourceRef: string;
+  resourceType: PermissionResourceType;
+} {
+  const domain = code.startsWith('ams.') ? 'ams' : 'tms';
+  return {
+    code,
+    name: `P3 模块权限（${code}）`,
+    resourceRef: `/api/v1/${domain}/*`,
+    resourceType: code.endsWith('.read') ? 'PAGE' : 'BUTTON',
+  };
+}
+
 export const ADMIN_PERMISSIONS = [
+  ...P3_ADMIN_PERMISSION_CODES.map(p3AdminPermission),
   {
     code: 'tms.transport.read',
     name: '查看运输订单',
