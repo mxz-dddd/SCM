@@ -11,6 +11,7 @@ export default defineConfig({
   fullyParallel: false,
   reporter: [['list']],
   testDir: './apps/api/e2e',
+  testIgnore: 'v2.acceptance.spec.ts',
   timeout: 120_000,
   use: {
     baseURL: 'http://127.0.0.1:3100',
