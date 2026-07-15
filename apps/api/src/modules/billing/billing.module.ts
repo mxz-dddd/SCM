@@ -5,6 +5,8 @@ import { PermissionService } from '../platform/auth/permission.service';
 import { PlatformModule } from '../platform/platform.module';
 import { ChargeFactRateController } from './charge-fact-rate.controller';
 import { ChargeFactRateService } from './charge-fact-rate.service';
+import { ReconciliationController } from './reconciliation.controller';
+import { ReconciliationService } from './reconciliation.service';
 import { SettlementVoucherController } from './settlement-voucher.controller';
 import { SettlementVoucherService } from './settlement-voucher.service';
 import { ChargeCalculationController } from './charge-calculation.controller';
@@ -14,12 +16,14 @@ import { ChargeCalculationService } from './charge-calculation.service';
   controllers: [
     ChargeCalculationController,
     ChargeFactRateController,
+    ReconciliationController,
     SettlementVoucherController,
   ],
   imports: [MdmModule, PlatformModule],
   providers: [
     ChargeCalculationService,
     ChargeFactRateService,
+    ReconciliationService,
     SettlementVoucherService,
     PermissionGuard,
     PermissionService,

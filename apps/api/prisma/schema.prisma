@@ -10236,6 +10236,7 @@ enum SettlementVoucherStatus {
   CALCULATED
   VALIDATED
   APPROVED
+  RECONCILED
   VOIDED
   @@schema("billing")
 }
@@ -10493,5 +10494,313 @@ model BillingReversalLine {
   @@unique([tenantId,accrualLineId,actualVoucherLineId],map:"billing_reversal_line_link_key")
   @@index([tenantId,reversalVoucherId,createdAt],map:"billing_reversal_line_idx")
   @@map("billing_reversal_line")
+  @@schema("billing")
+}
+
+enum ReconciliationStatementStatus {
+  DRAFT
+  PUBLISHED
+  DISPUTED
+  ADJUSTED
+  RECONCILED
+  @@schema("billing")
+}
+
+enum ReconciliationRecordStatus {
+  ACTIVE
+  @@schema("billing")
+}
+
+enum ReconciliationDisputeCategory {
+  MISSING
+  RATE
+  QUANTITY
+  SERVICE
+  TAX
+  DUPLICATE
+  @@schema("billing")
+}
+
+enum ReconciliationDisputeStatus {
+  OPEN
+  EVIDENCE_REQUESTED
+  ACCEPTED
+  REJECTED
+  ADJUSTED
+  @@schema("billing")
+}
+
+enum BillingAdjustmentType {
+  ADJUSTMENT
+  CLAIM_DEDUCTION
+  @@schema("billing")
+}
+
+enum BillingAdjustmentDirection {
+  INCREASE
+  DECREASE
+  @@schema("billing")
+}
+
+enum BillingAdjustmentStatus {
+  DRAFT
+  PENDING_APPROVAL
+  APPROVED
+  REJECTED
+  POSTED
+  @@schema("billing")
+}
+
+enum BillingAdjustmentApprovalStatus {
+  PENDING
+  APPROVED
+  REJECTED
+  @@schema("billing")
+}
+
+model ReconciliationStatement {
+  id String @id @default(uuid()) @db.Uuid
+  tenantId String @map("tenant_id") @db.Uuid
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  createdBy String @map("created_by") @db.Uuid
+  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
+  updatedBy String @map("updated_by") @db.Uuid
+  version Int @default(1)
+  status ReconciliationStatementStatus @default(DRAFT)
+  statementNo String @map("statement_no") @db.VarChar(100)
+  direction BillingDirection
+  partnerRef String @map("partner_ref") @db.Uuid
+  partnerSnapshot Json @map("partner_snapshot") @db.JsonB
+  contractRef String @map("contract_ref") @db.VarChar(200)
+  periodFrom DateTime @map("period_from") @db.Date
+  periodTo DateTime @map("period_to") @db.Date
+  currency String @db.Char(3)
+  subtotalAmount Decimal @map("subtotal_amount") @db.Decimal(24,6)
+  taxAmount Decimal @map("tax_amount") @db.Decimal(24,6)
+  totalAmount Decimal @map("total_amount") @db.Decimal(24,6)
+  voucherCount Int @map("voucher_count")
+  lineCount Int @map("line_count")
+  publishedAt DateTime? @map("published_at") @db.Timestamptz(3)
+  publishedBy String? @map("published_by") @db.Uuid
+  reconciledAt DateTime? @map("reconciled_at") @db.Timestamptz(3)
+  reconciledBy String? @map("reconciled_by") @db.Uuid
+  @@unique([tenantId,statementNo],map:"reconciliation_statement_tenant_no_key")
+  @@index([tenantId,status,periodFrom,periodTo],map:"reconciliation_statement_workbench_idx")
+  @@index([tenantId,partnerRef,contractRef,status],map:"reconciliation_statement_partner_idx")
+  @@map("reconciliation_statement")
+  @@schema("billing")
+}
+
+model ReconciliationStatementLine {
+  id String @id @default(uuid()) @db.Uuid
+  tenantId String @map("tenant_id") @db.Uuid
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  createdBy String @map("created_by") @db.Uuid
+  updatedAt DateTime @default(now()) @map("updated_at") @db.Timestamptz(3)
+  updatedBy String @map("updated_by") @db.Uuid
+  version Int @default(1)
+  status ReconciliationRecordStatus @default(ACTIVE)
+  statementId String @map("statement_id") @db.Uuid
+  voucherId String @map("voucher_id") @db.Uuid
+  voucherLineId String @map("voucher_line_id") @db.Uuid
+  lineNo Int @map("line_no")
+  businessRef String @map("business_ref") @db.VarChar(200)
+  sourceType String @map("source_type") @db.VarChar(40)
+  sourceLineRef String @map("source_line_ref") @db.Uuid
+  amount Decimal @db.Decimal(24,6)
+  currency String @db.Char(3)
+  taxComponent Boolean @default(false) @map("tax_component")
+  voucherSnapshot Json @map("voucher_snapshot") @db.JsonB
+  businessSnapshot Json @map("business_snapshot") @db.JsonB
+  @@unique([tenantId,statementId,lineNo],map:"reconciliation_statement_line_no_key")
+  @@unique([tenantId,voucherLineId],map:"reconciliation_voucher_line_once_key")
+  @@index([tenantId,statementId,voucherId],map:"reconciliation_statement_line_idx")
+  @@map("reconciliation_statement_line")
+  @@schema("billing")
+}
+
+model ReconciliationStatementAttachment {
+  id String @id @default(uuid()) @db.Uuid
+  tenantId String @map("tenant_id") @db.Uuid
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  createdBy String @map("created_by") @db.Uuid
+  updatedAt DateTime @default(now()) @map("updated_at") @db.Timestamptz(3)
+  updatedBy String @map("updated_by") @db.Uuid
+  version Int @default(1)
+  status ReconciliationRecordStatus @default(ACTIVE)
+  statementId String @map("statement_id") @db.Uuid
+  attachmentRef String @map("attachment_ref") @db.VarChar(500)
+  attachmentSnapshot Json @map("attachment_snapshot") @db.JsonB
+  @@unique([tenantId,statementId,attachmentRef],map:"reconciliation_statement_attachment_key")
+  @@index([tenantId,statementId,createdAt],map:"reconciliation_statement_attachment_idx")
+  @@map("reconciliation_statement_attachment")
+  @@schema("billing")
+}
+
+model ReconciliationStatementVersion {
+  id String @id @default(uuid()) @db.Uuid
+  tenantId String @map("tenant_id") @db.Uuid
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  createdBy String @map("created_by") @db.Uuid
+  updatedAt DateTime @default(now()) @map("updated_at") @db.Timestamptz(3)
+  updatedBy String @map("updated_by") @db.Uuid
+  version Int @default(1)
+  status ReconciliationRecordStatus @default(ACTIVE)
+  statementId String @map("statement_id") @db.Uuid
+  versionNo Int @map("version_no")
+  statementStatus ReconciliationStatementStatus @map("statement_status")
+  reason String @db.VarChar(500)
+  snapshot Json @db.JsonB
+  @@unique([tenantId,statementId,versionNo],map:"reconciliation_statement_version_key")
+  @@index([tenantId,statementId,createdAt],map:"reconciliation_statement_version_idx")
+  @@map("reconciliation_statement_version")
+  @@schema("billing")
+}
+
+model ReconciliationDispute {
+  id String @id @default(uuid()) @db.Uuid
+  tenantId String @map("tenant_id") @db.Uuid
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  createdBy String @map("created_by") @db.Uuid
+  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
+  updatedBy String @map("updated_by") @db.Uuid
+  version Int @default(1)
+  status ReconciliationDisputeStatus @default(OPEN)
+  disputeNo String @map("dispute_no") @db.VarChar(100)
+  statementId String @map("statement_id") @db.Uuid
+  statementLineId String? @map("statement_line_id") @db.Uuid
+  category ReconciliationDisputeCategory
+  disputedAmount Decimal @map("disputed_amount") @db.Decimal(24,6)
+  currency String @db.Char(3)
+  description String @db.VarChar(2000)
+  raisedByType String @map("raised_by_type") @db.VarChar(30)
+  resolutionNote String? @map("resolution_note") @db.VarChar(2000)
+  resolvedAt DateTime? @map("resolved_at") @db.Timestamptz(3)
+  resolvedBy String? @map("resolved_by") @db.Uuid
+  @@unique([tenantId,disputeNo],map:"reconciliation_dispute_tenant_no_key")
+  @@index([tenantId,statementId,status,createdAt],map:"reconciliation_dispute_statement_idx")
+  @@index([tenantId,statementLineId,status],map:"reconciliation_dispute_line_idx")
+  @@map("reconciliation_dispute")
+  @@schema("billing")
+}
+
+model ReconciliationCommunication {
+  id String @id @default(uuid()) @db.Uuid
+  tenantId String @map("tenant_id") @db.Uuid
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  createdBy String @map("created_by") @db.Uuid
+  updatedAt DateTime @default(now()) @map("updated_at") @db.Timestamptz(3)
+  updatedBy String @map("updated_by") @db.Uuid
+  version Int @default(1)
+  status ReconciliationRecordStatus @default(ACTIVE)
+  disputeId String @map("dispute_id") @db.Uuid
+  sequence Int
+  action String @db.VarChar(50)
+  actorType String @map("actor_type") @db.VarChar(30)
+  message String @db.VarChar(2000)
+  evidenceSnapshot Json @map("evidence_snapshot") @db.JsonB
+  @@unique([tenantId,disputeId,sequence],map:"reconciliation_communication_sequence_key")
+  @@index([tenantId,disputeId,createdAt],map:"reconciliation_communication_idx")
+  @@map("reconciliation_communication")
+  @@schema("billing")
+}
+
+model BillingAdjustmentVoucher {
+  id String @id @default(uuid()) @db.Uuid
+  tenantId String @map("tenant_id") @db.Uuid
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  createdBy String @map("created_by") @db.Uuid
+  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
+  updatedBy String @map("updated_by") @db.Uuid
+  version Int @default(1)
+  status BillingAdjustmentStatus @default(DRAFT)
+  adjustmentNo String @map("adjustment_no") @db.VarChar(100)
+  adjustmentType BillingAdjustmentType @map("adjustment_type")
+  direction BillingAdjustmentDirection
+  sourceVoucherId String @map("source_voucher_id") @db.Uuid
+  statementId String? @map("statement_id") @db.Uuid
+  disputeId String? @map("dispute_id") @db.Uuid
+  reason String @db.VarChar(2000)
+  amount Decimal @db.Decimal(24,6)
+  currency String @db.Char(3)
+  sourceSnapshot Json @map("source_snapshot") @db.JsonB
+  submittedAt DateTime? @map("submitted_at") @db.Timestamptz(3)
+  submittedBy String? @map("submitted_by") @db.Uuid
+  approvedAt DateTime? @map("approved_at") @db.Timestamptz(3)
+  approvedBy String? @map("approved_by") @db.Uuid
+  rejectedAt DateTime? @map("rejected_at") @db.Timestamptz(3)
+  rejectedBy String? @map("rejected_by") @db.Uuid
+  postedAt DateTime? @map("posted_at") @db.Timestamptz(3)
+  postedBy String? @map("posted_by") @db.Uuid
+  @@unique([tenantId,adjustmentNo],map:"billing_adjustment_tenant_no_key")
+  @@index([tenantId,status,createdAt],map:"billing_adjustment_workbench_idx")
+  @@index([tenantId,sourceVoucherId,status],map:"billing_adjustment_source_idx")
+  @@index([tenantId,statementId,disputeId],map:"billing_adjustment_dispute_idx")
+  @@map("billing_adjustment_voucher")
+  @@schema("billing")
+}
+
+model BillingAllocationDetail {
+  id String @id @default(uuid()) @db.Uuid
+  tenantId String @map("tenant_id") @db.Uuid
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  createdBy String @map("created_by") @db.Uuid
+  updatedAt DateTime @default(now()) @map("updated_at") @db.Timestamptz(3)
+  updatedBy String @map("updated_by") @db.Uuid
+  version Int @default(1)
+  status ReconciliationRecordStatus @default(ACTIVE)
+  adjustmentId String @map("adjustment_id") @db.Uuid
+  lineNo Int @map("line_no")
+  targetType String @map("target_type") @db.VarChar(30)
+  targetRef String @map("target_ref") @db.VarChar(200)
+  amount Decimal @db.Decimal(24,6)
+  currency String @db.Char(3)
+  targetSnapshot Json @map("target_snapshot") @db.JsonB
+  @@unique([tenantId,adjustmentId,lineNo],map:"billing_allocation_line_no_key")
+  @@index([tenantId,adjustmentId,targetType,targetRef],map:"billing_allocation_target_idx")
+  @@map("billing_allocation_detail")
+  @@schema("billing")
+}
+
+model BillingAdjustmentApprovalTask {
+  id String @id @default(uuid()) @db.Uuid
+  tenantId String @map("tenant_id") @db.Uuid
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  createdBy String @map("created_by") @db.Uuid
+  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
+  updatedBy String @map("updated_by") @db.Uuid
+  version Int @default(1)
+  status BillingAdjustmentApprovalStatus @default(PENDING)
+  adjustmentId String @map("adjustment_id") @db.Uuid
+  attempt Int @default(1)
+  candidateRole String @map("candidate_role") @db.VarChar(100)
+  routeSnapshot Json @map("route_snapshot") @db.JsonB
+  decidedAt DateTime? @map("decided_at") @db.Timestamptz(3)
+  decidedBy String? @map("decided_by") @db.Uuid
+  decisionReason String? @map("decision_reason") @db.VarChar(2000)
+  @@unique([tenantId,adjustmentId,attempt],map:"billing_adjustment_approval_attempt_key")
+  @@index([tenantId,status,createdAt],map:"billing_adjustment_approval_inbox_idx")
+  @@map("billing_adjustment_approval_task")
+  @@schema("billing")
+}
+
+model BillingAdjustmentStatusHistory {
+  id String @id @default(uuid()) @db.Uuid
+  tenantId String @map("tenant_id") @db.Uuid
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  createdBy String @map("created_by") @db.Uuid
+  updatedAt DateTime @default(now()) @map("updated_at") @db.Timestamptz(3)
+  updatedBy String @map("updated_by") @db.Uuid
+  version Int @default(1)
+  status ReconciliationRecordStatus @default(ACTIVE)
+  adjustmentId String @map("adjustment_id") @db.Uuid
+  sequence Int
+  fromStatus BillingAdjustmentStatus? @map("from_status")
+  toStatus BillingAdjustmentStatus @map("to_status")
+  command String @db.VarChar(50)
+  snapshot Json @db.JsonB
+  @@unique([tenantId,adjustmentId,sequence],map:"billing_adjustment_history_sequence_key")
+  @@index([tenantId,adjustmentId,createdAt],map:"billing_adjustment_history_idx")
+  @@map("billing_adjustment_status_history")
   @@schema("billing")
 }

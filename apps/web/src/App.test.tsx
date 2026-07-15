@@ -512,6 +512,12 @@ describe('App', () => {
     expect(
       screen.getByText('AR/AP 凭证、校验审批与预提冲销'),
     ).toBeInTheDocument();
+    expect(
+      screen.getByText('对账单、逐行差异与全程留痕'),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText('调整、索赔扣款与跨订单 / 成本中心分摊'),
+    ).toBeInTheDocument();
     expect(screen.getByText('零命中计费异常')).toBeInTheDocument();
     expect(screen.getByRole('button', { name: '接收计费事实' })).toBeDisabled();
     expect(screen.getByRole('button', { name: '追加事实更正' })).toBeDisabled();
@@ -520,5 +526,10 @@ describe('App', () => {
     expect(screen.getByRole('button', { name: '预提并过账' })).toBeDisabled();
     expect(screen.getByRole('button', { name: '凭证计算' })).toBeDisabled();
     expect(screen.getByRole('button', { name: '凭证校验' })).toBeDisabled();
+    expect(screen.getByRole('button', { name: '生成对账单' })).toBeDisabled();
+    expect(screen.getByRole('button', { name: '发布对账单' })).toBeDisabled();
+    expect(screen.getByRole('button', { name: '逐行提出差异' })).toBeDisabled();
+    expect(screen.getByRole('button', { name: '创建调整分摊' })).toBeDisabled();
+    expect(screen.getByRole('button', { name: '提交调整审批' })).toBeDisabled();
   });
 });

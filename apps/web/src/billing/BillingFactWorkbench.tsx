@@ -67,11 +67,48 @@ interface VoucherRow {
   direction: 'PAYABLE' | 'RECEIVABLE';
   id: string;
   partnerRef: string;
-  status: 'APPROVED' | 'CALCULATED' | 'DRAFT' | 'VALIDATED' | 'VOIDED';
+  contractSnapshot: readonly { contractRef?: string }[];
+  periodFrom: string;
+  periodTo: string;
+  status:
+    | 'APPROVED'
+    | 'CALCULATED'
+    | 'DRAFT'
+    | 'RECONCILED'
+    | 'VALIDATED'
+    | 'VOIDED';
   taxAmount: string;
   totalAmount: string;
   version: number;
   voucherNo: string;
+}
+
+interface ReconciliationRow {
+  contractRef: string;
+  currency: string;
+  direction: 'PAYABLE' | 'RECEIVABLE';
+  id: string;
+  lineCount: number;
+  partnerRef: string;
+  periodFrom: string;
+  periodTo: string;
+  statementNo: string;
+  status: 'ADJUSTED' | 'DISPUTED' | 'DRAFT' | 'PUBLISHED' | 'RECONCILED';
+  totalAmount: string;
+  version: number;
+  voucherCount: number;
+}
+
+interface AdjustmentRow {
+  adjustmentNo: string;
+  adjustmentType: 'ADJUSTMENT' | 'CLAIM_DEDUCTION';
+  amount: string;
+  currency: string;
+  direction: 'DECREASE' | 'INCREASE';
+  id: string;
+  sourceVoucherId: string;
+  status: 'APPROVED' | 'DRAFT' | 'PENDING_APPROVAL' | 'POSTED' | 'REJECTED';
+  version: number;
 }
 
 interface BillingView {
@@ -122,6 +159,44 @@ interface BillingView {
     reversalNo: string;
     status: 'POSTED';
   }[];
+  adjustmentApprovals: readonly {
+    adjustmentId: string;
+    id: string;
+    status: 'APPROVED' | 'PENDING' | 'REJECTED';
+    version: number;
+  }[];
+  adjustmentHistories: readonly { adjustmentId: string; id: string }[];
+  adjustmentVouchers: readonly AdjustmentRow[];
+  allocationDetails: readonly {
+    adjustmentId: string;
+    amount: string;
+    id: string;
+    targetRef: string;
+    targetType: string;
+  }[];
+  reconciliationAttachments: readonly { id: string; statementId: string }[];
+  reconciliationCommunications: readonly {
+    disputeId: string;
+    id: string;
+  }[];
+  reconciliationDisputes: readonly {
+    category: string;
+    disputedAmount: string;
+    id: string;
+    statementId: string;
+    statementLineId: string | null;
+    status: 'ACCEPTED' | 'ADJUSTED' | 'EVIDENCE_REQUESTED' | 'OPEN' | 'REJECTED';
+    version: number;
+  }[];
+  reconciliationLines: readonly {
+    amount: string;
+    businessRef: string;
+    id: string;
+    statementId: string;
+    voucherId: string;
+  }[];
+  reconciliationStatements: readonly ReconciliationRow[];
+  reconciliationVersions: readonly { id: string; statementId: string }[];
 }
 
 const actions = createActionRegistry<'ACTIVE' | 'NONE'>([
@@ -160,6 +235,12 @@ const actions = createActionRegistry<'ACTIVE' | 'NONE'>([
 
 const voucherActions = createActionRegistry<VoucherRow['status'] | 'NONE'>([
   {
+    allowedStatuses: ['APPROVED'],
+    id: 'createStatement',
+    label: '生成对账单',
+    requiredPermissions: ['billing.reconciliation.manage'],
+  },
+  {
     allowedStatuses: ['DRAFT'],
     id: 'voucherCalculate',
     label: '凭证计算',
@@ -185,6 +266,68 @@ const voucherActions = createActionRegistry<VoucherRow['status'] | 'NONE'>([
   },
 ]);
 
+const reconciliationActions = createActionRegistry<
+  ReconciliationRow['status'] | 'NONE'
+>([
+  {
+    allowedStatuses: ['DRAFT'],
+    id: 'publishStatement',
+    label: '发布对账单',
+    requiredPermissions: ['billing.reconciliation.manage'],
+  },
+  {
+    allowedStatuses: ['PUBLISHED', 'DISPUTED'],
+    id: 'raiseDispute',
+    label: '逐行提出差异',
+    requiredPermissions: ['billing.reconciliation.respond'],
+  },
+  {
+    allowedStatuses: ['DISPUTED'],
+    id: 'acceptDispute',
+    label: '接受差异',
+    requiredPermissions: ['billing.reconciliation.respond'],
+  },
+  {
+    allowedStatuses: ['DISPUTED'],
+    id: 'createAdjustment',
+    label: '创建调整分摊',
+    requiredPermissions: ['billing.adjustment.manage'],
+  },
+  {
+    allowedStatuses: ['PUBLISHED', 'DISPUTED', 'ADJUSTED'],
+    id: 'reconcileStatement',
+    label: '确认对账',
+    requiredPermissions: ['billing.reconciliation.manage'],
+  },
+]);
+
+const adjustmentActions = createActionRegistry<AdjustmentRow['status'] | 'NONE'>([
+  {
+    allowedStatuses: ['DRAFT'],
+    id: 'submitAdjustment',
+    label: '提交调整审批',
+    requiredPermissions: ['billing.adjustment.manage'],
+  },
+  {
+    allowedStatuses: ['PENDING_APPROVAL'],
+    id: 'approveAdjustment',
+    label: '批准调整',
+    requiredPermissions: ['billing.adjustment.approve'],
+  },
+  {
+    allowedStatuses: ['PENDING_APPROVAL'],
+    id: 'rejectAdjustment',
+    label: '驳回调整',
+    requiredPermissions: ['billing.adjustment.approve'],
+  },
+  {
+    allowedStatuses: ['APPROVED'],
+    id: 'postAdjustment',
+    label: '过账调整',
+    requiredPermissions: ['billing.adjustment.manage'],
+  },
+]);
+
 export function BillingFactWorkbench() {
   const accessToken = useSessionStore((state) => state.accessToken);
   const claims = useSessionStore((state) => state.claims);
@@ -192,6 +335,10 @@ export function BillingFactWorkbench() {
     accessorialCharges: [],
     accrualLines: [],
     accrualVouchers: [],
+    adjustmentApprovals: [],
+    adjustmentHistories: [],
+    adjustmentVouchers: [],
+    allocationDetails: [],
     calculationLines: [],
     calculations: [],
     calculationTraces: [],
@@ -199,6 +346,12 @@ export function BillingFactWorkbench() {
     exceptions: [],
     facts: [],
     matches: [],
+    reconciliationAttachments: [],
+    reconciliationCommunications: [],
+    reconciliationDisputes: [],
+    reconciliationLines: [],
+    reconciliationStatements: [],
+    reconciliationVersions: [],
     reversalLines: [],
     reversalVouchers: [],
     fxConversions: [],
@@ -213,12 +366,24 @@ export function BillingFactWorkbench() {
   const [selectedVoucherIds, setSelectedVoucherIds] = useState<
     readonly string[]
   >([]);
+  const [selectedStatementIds, setSelectedStatementIds] = useState<
+    readonly string[]
+  >([]);
+  const [selectedAdjustmentIds, setSelectedAdjustmentIds] = useState<
+    readonly string[]
+  >([]);
   const [query, setQuery] = useState('');
   const [error, setError] = useState<string>();
   const [notice, setNotice] = useState<string>();
   const selected = view.facts.find(({ id }) => id === selectedIds[0]);
   const selectedVoucher = view.vouchers.find(
     ({ id }) => id === selectedVoucherIds[0],
+  );
+  const selectedStatement = view.reconciliationStatements.find(
+    ({ id }) => id === selectedStatementIds[0],
+  );
+  const selectedAdjustment = view.adjustmentVouchers.find(
+    ({ id }) => id === selectedAdjustmentIds[0],
   );
   const permissions = useMemo(
     () =>
@@ -233,6 +398,10 @@ export function BillingFactWorkbench() {
               'billing.voucher.validate',
               'billing.voucher.approve',
               'billing.accrual.manage',
+              'billing.adjustment.approve',
+              'billing.adjustment.manage',
+              'billing.reconciliation.manage',
+              'billing.reconciliation.respond',
             ]
           : [],
       ),
@@ -250,6 +419,20 @@ export function BillingFactWorkbench() {
       dataScopeAllowed: true,
       permissions,
       status: selectedVoucher?.status ?? 'NONE',
+    }),
+  );
+  const reconciliationDecisions = reconciliationActions.list().map(({ id }) =>
+    reconciliationActions.decide(id, {
+      dataScopeAllowed: true,
+      permissions,
+      status: selectedStatement?.status ?? 'NONE',
+    }),
+  );
+  const adjustmentDecisions = adjustmentActions.list().map(({ id }) =>
+    adjustmentActions.decide(id, {
+      dataScopeAllowed: true,
+      permissions,
+      status: selectedAdjustment?.status ?? 'NONE',
     }),
   );
   const facts = useMemo(() => {
@@ -419,7 +602,22 @@ export function BillingFactWorkbench() {
     const decision = voucherDecisions.find(({ id }) => id === actionId);
     if (!decision?.enabled || !selectedVoucher) return;
     try {
-      if (actionId === 'voucherCalculate')
+      if (actionId === 'createStatement') {
+        const contractRef = selectedVoucher.contractSnapshot.find(
+          (item) => item.contractRef,
+        )?.contractRef;
+        if (!contractRef) throw new Error('凭证缺少可用于对账的合同快照');
+        await request('/api/v1/billing/reconciliation-statements', {
+          body: JSON.stringify({
+            contractRef,
+            partnerSnapshot: { partnerRef: selectedVoucher.partnerRef },
+            periodFrom: selectedVoucher.periodFrom.slice(0, 10),
+            periodTo: selectedVoucher.periodTo.slice(0, 10),
+            voucherIds: [selectedVoucher.id],
+          }),
+          method: 'POST',
+        });
+      } else if (actionId === 'voucherCalculate')
         await request(
           `/api/v1/billing/vouchers/${selectedVoucher.id}/calculate`,
           {
@@ -459,6 +657,153 @@ export function BillingFactWorkbench() {
       await refresh();
     } catch (caught) {
       setError(caught instanceof Error ? caught.message : '凭证动作失败');
+    }
+  }
+
+  async function executeReconciliation(actionId: string) {
+    const decision = reconciliationDecisions.find(({ id }) => id === actionId);
+    if (!decision?.enabled || !selectedStatement) return;
+    try {
+      if (actionId === 'publishStatement')
+        await request(
+          `/api/v1/billing/reconciliation-statements/${selectedStatement.id}/publish`,
+          {
+            body: JSON.stringify({ expectedVersion: selectedStatement.version }),
+            method: 'POST',
+          },
+        );
+      else if (actionId === 'raiseDispute') {
+        const line = view.reconciliationLines.find(
+          (item) => item.statementId === selectedStatement.id,
+        );
+        if (!line) throw new Error('对账单没有可提出差异的明细行');
+        await request(
+          `/api/v1/billing/reconciliation-statements/${selectedStatement.id}/disputes`,
+          {
+            body: JSON.stringify({
+              category: 'RATE',
+              description: '伙伴复核费率存在差异，请财务确认',
+              disputedAmount: line.amount,
+              evidenceRefs: [`workbench-evidence-${crypto.randomUUID()}`],
+              expectedStatementVersion: selectedStatement.version,
+              raisedByType: 'PARTNER',
+              statementLineId: line.id,
+            }),
+            method: 'POST',
+          },
+        );
+      } else if (actionId === 'acceptDispute') {
+        const dispute = view.reconciliationDisputes.find(
+          (item) =>
+            item.statementId === selectedStatement.id &&
+            ['OPEN', 'EVIDENCE_REQUESTED'].includes(item.status),
+        );
+        if (!dispute) throw new Error('没有待处理的对账差异');
+        await request(
+          `/api/v1/billing/reconciliation-disputes/${dispute.id}/respond`,
+          {
+            body: JSON.stringify({
+              action: 'ACCEPT',
+              expectedVersion: dispute.version,
+              message: '财务复核后接受该差异，进入调整审批',
+            }),
+            method: 'POST',
+          },
+        );
+      } else if (actionId === 'createAdjustment') {
+        const dispute = view.reconciliationDisputes.find(
+          (item) =>
+            item.statementId === selectedStatement.id &&
+            item.status === 'ACCEPTED',
+        );
+        const line = dispute
+          ? view.reconciliationLines.find(
+              (item) => item.id === dispute.statementLineId,
+            )
+          : undefined;
+        if (!dispute || !line)
+          throw new Error('请先接受一条有原凭证行的对账差异');
+        await request('/api/v1/billing/adjustments', {
+          body: JSON.stringify({
+            adjustmentType: 'ADJUSTMENT',
+            allocations: [
+              {
+                amount: dispute.disputedAmount,
+                targetRef: line.businessRef,
+                targetSnapshot: { statementLineId: line.id },
+                targetType: 'ORDER',
+              },
+            ],
+            amount: dispute.disputedAmount,
+            direction: 'DECREASE',
+            disputeId: dispute.id,
+            reason: '对账费率差异调整',
+            sourceVoucherId: line.voucherId,
+            statementId: selectedStatement.id,
+          }),
+          method: 'POST',
+        });
+      } else
+        await request(
+          `/api/v1/billing/reconciliation-statements/${selectedStatement.id}/reconcile`,
+          {
+            body: JSON.stringify({ expectedVersion: selectedStatement.version }),
+            method: 'POST',
+          },
+        );
+      setNotice('对账单、差异沟通与版本轨迹已按领域命令更新');
+      setSelectedStatementIds([]);
+      await refresh();
+    } catch (caught) {
+      setError(caught instanceof Error ? caught.message : '对账动作失败');
+    }
+  }
+
+  async function executeAdjustment(actionId: string) {
+    const decision = adjustmentDecisions.find(({ id }) => id === actionId);
+    if (!decision?.enabled || !selectedAdjustment) return;
+    try {
+      if (actionId === 'submitAdjustment')
+        await request(
+          `/api/v1/billing/adjustments/${selectedAdjustment.id}/submit`,
+          {
+            body: JSON.stringify({ expectedVersion: selectedAdjustment.version }),
+            method: 'POST',
+          },
+        );
+      else if (actionId === 'postAdjustment')
+        await request(
+          `/api/v1/billing/adjustments/${selectedAdjustment.id}/post`,
+          {
+            body: JSON.stringify({ expectedVersion: selectedAdjustment.version }),
+            method: 'POST',
+          },
+        );
+      else {
+        const task = view.adjustmentApprovals.find(
+          (item) =>
+            item.adjustmentId === selectedAdjustment.id &&
+            item.status === 'PENDING',
+        );
+        if (!task) throw new Error('该调整单没有待处理审批任务');
+        await request(`/api/v1/billing/adjustment-approvals/${task.id}/decide`, {
+          body: JSON.stringify({
+            decision: actionId === 'approveAdjustment' ? 'APPROVE' : 'REJECT',
+            expectedAdjustmentVersion: selectedAdjustment.version,
+            expectedTaskVersion: task.version,
+            reason:
+              actionId === 'approveAdjustment'
+                ? '调整分摊复核通过'
+                : '调整分摊需重新提交',
+          }),
+          method: 'POST',
+        });
+      }
+      setNotice('调整单状态已推进，原凭证金额与历史明细未被覆盖');
+      setSelectedAdjustmentIds([]);
+      await refresh();
+    } catch (caught) {
+      setError(caught instanceof Error ? caught.message : '调整动作失败');
     }
   }
 
@@ -574,6 +919,74 @@ export function BillingFactWorkbench() {
           {view.reversalVouchers.length} 笔；审批任务{' '}
           {view.voucherApprovals.length}{' '}
           笔。每条计算来源只允许进入一个有效凭证。
+        </Typography.Paragraph>
+      </Card>
+      <Card title="对账单、逐行差异与全程留痕">
+        <CommandBar
+          actions={reconciliationDecisions}
+          onAction={(action) => void executeReconciliation(action.id)}
+        />
+        <DataGrid
+          columns={[
+            { key: 'statementNo', label: '对账单号' },
+            { key: 'direction', label: 'AR/AP' },
+            { key: 'partnerRef', label: '伙伴' },
+            { key: 'contractRef', label: '合同引用' },
+            { key: 'periodFrom', label: '期间起' },
+            { key: 'periodTo', label: '期间止' },
+            { key: 'voucherCount', label: '凭证数' },
+            { key: 'lineCount', label: '明细数' },
+            { key: 'totalAmount', label: '对账金额' },
+            { key: 'currency', label: '币种' },
+            {
+              key: 'status',
+              label: '状态',
+              render: (value) => <StatusBadge status={String(value)} />,
+            },
+          ]}
+          onPageChange={() => undefined}
+          onSelectionChange={(ids) => setSelectedStatementIds(ids.slice(-1))}
+          page={1}
+          pageSize={50}
+          rows={view.reconciliationStatements}
+          selectedIds={selectedStatementIds}
+          total={view.reconciliationStatements.length}
+        />
+        <Typography.Paragraph>
+          已记录差异 {view.reconciliationDisputes.length} 条、沟通与证据版本{' '}
+          {view.reconciliationCommunications.length} 条；发布后的明细与附件只追加留痕。
+        </Typography.Paragraph>
+      </Card>
+      <Card title="调整、索赔扣款与跨订单 / 成本中心分摊">
+        <CommandBar
+          actions={adjustmentDecisions}
+          onAction={(action) => void executeAdjustment(action.id)}
+        />
+        <DataGrid
+          columns={[
+            { key: 'adjustmentNo', label: '调整单号' },
+            { key: 'adjustmentType', label: '调整类型' },
+            { key: 'direction', label: '增减方向' },
+            { key: 'sourceVoucherId', label: '原凭证' },
+            { key: 'amount', label: '调整金额' },
+            { key: 'currency', label: '币种' },
+            {
+              key: 'status',
+              label: '状态',
+              render: (value) => <StatusBadge status={String(value)} />,
+            },
+          ]}
+          onPageChange={() => undefined}
+          onSelectionChange={(ids) => setSelectedAdjustmentIds(ids.slice(-1))}
+          page={1}
+          pageSize={50}
+          rows={view.adjustmentVouchers}
+          selectedIds={selectedAdjustmentIds}
+          total={view.adjustmentVouchers.length}
+        />
+        <Typography.Paragraph>
+          分摊明细 {view.allocationDetails.length} 条、审批任务{' '}
+          {view.adjustmentApprovals.length} 条；调整始终引用原凭证并保持分摊金额守恒。
         </Typography.Paragraph>
       </Card>
       <Card title="RateMatch 与 MatchTrace">

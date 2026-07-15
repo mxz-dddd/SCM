@@ -11,7 +11,12 @@ import type { CommandMetadata } from '../platform/tenant.service';
 
 type Direction = 'PAYABLE' | 'RECEIVABLE';
 type VoucherStatus =
-  'APPROVED' | 'CALCULATED' | 'DRAFT' | 'VALIDATED' | 'VOIDED';
+  | 'APPROVED'
+  | 'CALCULATED'
+  | 'DRAFT'
+  | 'RECONCILED'
+  | 'VALIDATED'
+  | 'VOIDED';
 
 export type CreateSettlementVoucherInput = {
   approvalThreshold: string;
