@@ -1,6 +1,7 @@
 import { readdir, readFile, writeFile } from 'node:fs/promises';
 import { dirname, join, relative, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import ts from 'typescript';
 import {
   EVENT_SUBSCRIPTIONS,
   subscriptionsForEvent,
@@ -10,6 +11,93 @@ const root = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const sourceRoot = join(root, 'apps/api/src');
 const output = join(root, 'docs/design/V2_EVENT_CATALOG.md');
 const eventNamePattern = /^[a-z][a-z0-9.-]{2,149}\.v\d+$/;
+const eventParameterNames = new Set(['event', 'eventName', 'eventType']);
+
+function declarationName(
+  node: ts.FunctionDeclaration | ts.MethodDeclaration,
+): string | undefined {
+  return node.name && ts.isIdentifier(node.name) ? node.name.text : undefined;
+}
+
+function calledName(expression: ts.Expression): string | undefined {
+  if (ts.isIdentifier(expression)) return expression.text;
+  if (ts.isPropertyAccessExpression(expression)) return expression.name.text;
+  return undefined;
+}
+
+function staticEvents(expression: ts.Expression): ReadonlySet<string> {
+  const events = new Set<string>();
+  function collect(node: ts.Node) {
+    if (ts.isStringLiteralLike(node) && eventNamePattern.test(node.text)) {
+      events.add(node.text);
+    }
+    ts.forEachChild(node, collect);
+  }
+  collect(expression);
+  return events;
+}
+
+function eventsInSource(source: string, file: string): ReadonlySet<string> {
+  const parsed = ts.createSourceFile(
+    file,
+    source,
+    ts.ScriptTarget.Latest,
+    true,
+    ts.ScriptKind.TS,
+  );
+  const parameterIndexes = new Map<string, Set<number>>();
+  const events = new Set<string>();
+
+  function indexDeclarations(node: ts.Node) {
+    if (ts.isFunctionDeclaration(node) || ts.isMethodDeclaration(node)) {
+      const name = declarationName(node);
+      if (name) {
+        node.parameters.forEach((parameter, index) => {
+          if (
+            ts.isIdentifier(parameter.name) &&
+            eventParameterNames.has(parameter.name.text)
+          ) {
+            const indexes = parameterIndexes.get(name) ?? new Set<number>();
+            indexes.add(index);
+            parameterIndexes.set(name, indexes);
+          }
+        });
+      }
+    }
+    ts.forEachChild(node, indexDeclarations);
+  }
+
+  function collect(node: ts.Node) {
+    if (
+      ts.isPropertyAssignment(node) &&
+      ((ts.isIdentifier(node.name) && node.name.text === 'eventName') ||
+        (ts.isStringLiteralLike(node.name) && node.name.text === 'eventName'))
+    ) {
+      for (const event of staticEvents(node.initializer)) events.add(event);
+    }
+    if (ts.isCallExpression(node)) {
+      const name = calledName(node.expression);
+      const indexes = name ? parameterIndexes.get(name) : undefined;
+      if (indexes) {
+        for (const index of indexes) {
+          const argument = node.arguments[index];
+          if (argument) {
+            for (const event of staticEvents(argument)) events.add(event);
+          }
+        }
+      } else if (name === 'emit' || name === 'record') {
+        for (const argument of node.arguments) {
+          for (const event of staticEvents(argument)) events.add(event);
+        }
+      }
+    }
+    ts.forEachChild(node, collect);
+  }
+
+  indexDeclarations(parsed);
+  collect(parsed);
+  return events;
+}
 
 async function sourceFiles(directory: string): Promise<string[]> {
   const entries = await readdir(directory, { withFileTypes: true });
@@ -31,17 +119,7 @@ export async function discoverEmittedEvents() {
   const discovered = new Map<string, Set<string>>();
   for (const file of await sourceFiles(sourceRoot)) {
     const source = await readFile(file, 'utf8');
-    const candidates = [
-      ...source.matchAll(
-        /eventName\s*:\s*['"`]([a-z][a-z0-9.-]{2,149}\.v\d+)['"`]/g,
-      ),
-      ...source.matchAll(
-        /(?:this\.)?(?:emit|record)\s*\([\s\S]{0,500}?['"`]([a-z][a-z0-9.-]{2,149}\.v\d+)['"`]/g,
-      ),
-    ];
-    for (const candidate of candidates) {
-      const event = candidate[1];
-      if (!event || !eventNamePattern.test(event)) continue;
+    for (const event of eventsInSource(source, file)) {
       const locations = discovered.get(event) ?? new Set<string>();
       locations.add(relative(root, file));
       discovered.set(event, locations);
