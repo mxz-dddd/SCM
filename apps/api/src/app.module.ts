@@ -8,6 +8,7 @@ import { APP_FILTER, APP_INTERCEPTOR } from '@nestjs/core';
 import { ApiExceptionFilter } from './common/api-exception.filter';
 import { DatabaseModule } from './database/database.module';
 import { HealthController } from './health.controller';
+import { AmsModule } from './modules/ams/ams.module';
 import { MdmModule } from './modules/mdm/mdm.module';
 import { OmsModule } from './modules/oms/oms.module';
 import { AuthModule } from './modules/platform/auth/auth.module';
@@ -19,6 +20,7 @@ import { WmsModule } from './modules/wms/wms.module';
 
 @Module({
   imports: [
+    AmsModule,
     DatabaseModule,
     AuthModule,
     MdmModule,

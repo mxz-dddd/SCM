@@ -15,6 +15,7 @@ import {
 } from 'antd';
 import type { WorkspaceContextSelection, WorkspaceTab } from '@scm/shared';
 import { AuthWorkbench } from '../platform/AuthWorkbench';
+import { AppointmentCapacityWorkbench } from '../ams/AppointmentCapacityWorkbench';
 import { AuditWorkbench } from '../platform/AuditWorkbench';
 import { AttachmentWorkbench } from '../platform/AttachmentWorkbench';
 import { ConfigurationWorkbench } from '../platform/ConfigurationWorkbench';
@@ -147,6 +148,7 @@ const pageRegistry: readonly WorkspaceTab[] = [
     title: '移动作业与看板',
   },
   { dirty: false, id: 'transport', route: '/tms/shipments', title: '运输执行' },
+  { dirty: false, id: 'appointments', route: '/ams/capacity', title: '预约容量' },
 ];
 
 const modules = [
@@ -173,6 +175,7 @@ const modules = [
   ['出库', 'outbound'],
   ['作业', 'operations'],
   ['运输', 'transport'],
+  ['预约', 'appointments'],
 ] as const;
 
 interface WorkspaceCatalogItem {
@@ -327,6 +330,7 @@ export function ApplicationShell() {
     if (tabId === 'outbound') return <OutboundWorkbench />;
     if (tabId === 'operations') return <MobileOperationsWorkbench />;
     if (tabId === 'transport') return <TransportOrderWorkbench />;
+    if (tabId === 'appointments') return <AppointmentCapacityWorkbench />;
     return (
       <section className="workspace-placeholder">
         <Typography.Title level={2}>

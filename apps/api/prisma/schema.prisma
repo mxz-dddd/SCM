@@ -9011,3 +9011,226 @@ model PublicTrackingAccessLog {
   @@map("public_tracking_access_log")
   @@schema("tms")
 }
+
+enum CapacityProfileStatus {
+  DRAFT
+  PUBLISHED
+  @@schema("ams")
+}
+enum CapacityCalendarStatus {
+  GENERATED
+  CLOSED
+  @@schema("ams")
+}
+enum TimeSlotStatus {
+  OPEN
+  CLOSED
+  @@schema("ams")
+}
+enum CapacityChangeType {
+  GENERATED
+  CLOSED
+  REOPENED
+  EXPANDED
+  RESERVED_INTERNAL
+  @@schema("ams")
+}
+enum WorkloadRuleStatus {
+  DRAFT
+  PUBLISHED
+  @@schema("ams")
+}
+enum WorkloadEstimateStatus {
+  CALCULATED
+  ADJUSTED
+  @@schema("ams")
+}
+enum AmsRecordStatus {
+  ACTIVE
+  @@schema("ams")
+}
+
+model CapacityProfile {
+  id String @id @default(uuid()) @db.Uuid
+  tenantId String @map("tenant_id") @db.Uuid
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  createdBy String @map("created_by") @db.Uuid
+  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
+  updatedBy String @map("updated_by") @db.Uuid
+  version Int @default(1)
+  status CapacityProfileStatus @default(DRAFT)
+  profileCode String @map("profile_code") @db.VarChar(100)
+  revision Int
+  warehouseRef String @map("warehouse_ref") @db.Uuid
+  resourceType String @map("resource_type") @db.VarChar(30)
+  resourceRef String @map("resource_ref") @db.Uuid
+  resourceSnapshot Json @map("resource_snapshot") @db.JsonB
+  serviceType String @map("service_type") @db.VarChar(50)
+  calendarCode String @map("calendar_code") @db.VarChar(100)
+  shiftCode String @map("shift_code") @db.VarChar(50)
+  shiftStartTime String @map("shift_start_time") @db.VarChar(5)
+  shiftEndTime String @map("shift_end_time") @db.VarChar(5)
+  slotMinutes Int @map("slot_minutes")
+  leadTimeMinutes Int @map("lead_time_minutes")
+  capacityQuantity Decimal @map("capacity_quantity") @db.Decimal(24,6)
+  capacityQuantityUom String @map("capacity_quantity_uom") @db.VarChar(20)
+  capacityPallets Decimal @map("capacity_pallets") @db.Decimal(24,6)
+  capacityVehicles Decimal @map("capacity_vehicles") @db.Decimal(24,6)
+  capacityLaborHours Decimal @map("capacity_labor_hours") @db.Decimal(24,6)
+  internalQuantity Decimal @default(0) @map("internal_quantity") @db.Decimal(24,6)
+  internalPallets Decimal @default(0) @map("internal_pallets") @db.Decimal(24,6)
+  internalVehicles Decimal @default(0) @map("internal_vehicles") @db.Decimal(24,6)
+  internalLaborHours Decimal @default(0) @map("internal_labor_hours") @db.Decimal(24,6)
+  effectiveFrom DateTime @map("effective_from") @db.Date
+  effectiveUntil DateTime? @map("effective_until") @db.Date
+  blacklistDates Json @default("[]") @map("blacklist_dates") @db.JsonB
+  publishedAt DateTime? @map("published_at") @db.Timestamptz(3)
+  @@unique([tenantId,profileCode,revision],map:"capacity_profile_tenant_code_revision_key")
+  @@index([tenantId,warehouseRef,resourceRef,serviceType,status],map:"capacity_profile_resource_status_idx")
+  @@map("capacity_profile")
+  @@schema("ams")
+}
+
+model CapacityCalendar {
+  id String @id @default(uuid()) @db.Uuid
+  tenantId String @map("tenant_id") @db.Uuid
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  createdBy String @map("created_by") @db.Uuid
+  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
+  updatedBy String @map("updated_by") @db.Uuid
+  version Int @default(1)
+  status CapacityCalendarStatus @default(GENERATED)
+  capacityProfileId String @map("capacity_profile_id") @db.Uuid
+  calendarDate DateTime @map("calendar_date") @db.Date
+  shiftCode String @map("shift_code") @db.VarChar(50)
+  calendarSnapshot Json @map("calendar_snapshot") @db.JsonB
+  @@unique([tenantId,capacityProfileId,calendarDate,shiftCode],map:"capacity_calendar_profile_date_shift_key")
+  @@index([tenantId,calendarDate,status,capacityProfileId],map:"capacity_calendar_date_status_idx")
+  @@map("capacity_calendar")
+  @@schema("ams")
+}
+
+model TimeSlot {
+  id String @id @default(uuid()) @db.Uuid
+  tenantId String @map("tenant_id") @db.Uuid
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  createdBy String @map("created_by") @db.Uuid
+  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
+  updatedBy String @map("updated_by") @db.Uuid
+  version Int @default(1)
+  status TimeSlotStatus @default(OPEN)
+  capacityCalendarId String @map("capacity_calendar_id") @db.Uuid
+  capacityProfileId String @map("capacity_profile_id") @db.Uuid
+  warehouseRef String @map("warehouse_ref") @db.Uuid
+  resourceType String @map("resource_type") @db.VarChar(30)
+  resourceRef String @map("resource_ref") @db.Uuid
+  serviceType String @map("service_type") @db.VarChar(50)
+  startsAt DateTime @map("starts_at") @db.Timestamptz(3)
+  endsAt DateTime @map("ends_at") @db.Timestamptz(3)
+  capacityQuantity Decimal @map("capacity_quantity") @db.Decimal(24,6)
+  capacityQuantityUom String @map("capacity_quantity_uom") @db.VarChar(20)
+  capacityPallets Decimal @map("capacity_pallets") @db.Decimal(24,6)
+  capacityVehicles Decimal @map("capacity_vehicles") @db.Decimal(24,6)
+  capacityLaborHours Decimal @map("capacity_labor_hours") @db.Decimal(24,6)
+  internalQuantity Decimal @default(0) @map("internal_quantity") @db.Decimal(24,6)
+  internalPallets Decimal @default(0) @map("internal_pallets") @db.Decimal(24,6)
+  internalVehicles Decimal @default(0) @map("internal_vehicles") @db.Decimal(24,6)
+  internalLaborHours Decimal @default(0) @map("internal_labor_hours") @db.Decimal(24,6)
+  usedQuantity Decimal @default(0) @map("used_quantity") @db.Decimal(24,6)
+  usedPallets Decimal @default(0) @map("used_pallets") @db.Decimal(24,6)
+  usedVehicles Decimal @default(0) @map("used_vehicles") @db.Decimal(24,6)
+  usedLaborHours Decimal @default(0) @map("used_labor_hours") @db.Decimal(24,6)
+  reservedQuantity Decimal @default(0) @map("reserved_quantity") @db.Decimal(24,6)
+  reservedPallets Decimal @default(0) @map("reserved_pallets") @db.Decimal(24,6)
+  reservedVehicles Decimal @default(0) @map("reserved_vehicles") @db.Decimal(24,6)
+  reservedLaborHours Decimal @default(0) @map("reserved_labor_hours") @db.Decimal(24,6)
+  calendarSnapshot Json @map("calendar_snapshot") @db.JsonB
+  closedAt DateTime? @map("closed_at") @db.Timestamptz(3)
+  closeReason String? @map("close_reason") @db.VarChar(1000)
+  @@unique([tenantId,capacityProfileId,startsAt],map:"time_slot_profile_start_key")
+  @@index([tenantId,warehouseRef,serviceType,startsAt,status],map:"time_slot_search_idx")
+  @@index([tenantId,resourceRef,startsAt,status],map:"time_slot_resource_idx")
+  @@map("time_slot")
+  @@schema("ams")
+}
+
+model CapacityChange {
+  id String @id @default(uuid()) @db.Uuid
+  tenantId String @map("tenant_id") @db.Uuid
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  createdBy String @map("created_by") @db.Uuid
+  updatedAt DateTime @default(now()) @map("updated_at") @db.Timestamptz(3)
+  updatedBy String @map("updated_by") @db.Uuid
+  version Int @default(1)
+  status AmsRecordStatus @default(ACTIVE)
+  timeSlotId String @map("time_slot_id") @db.Uuid
+  sequence Int
+  changeType CapacityChangeType @map("change_type")
+  beforeSnapshot Json @map("before_snapshot") @db.JsonB
+  afterSnapshot Json @map("after_snapshot") @db.JsonB
+  reason String @db.VarChar(1000)
+  occurredAt DateTime @default(now()) @map("occurred_at") @db.Timestamptz(3)
+  @@unique([tenantId,timeSlotId,sequence],map:"capacity_change_slot_sequence_key")
+  @@index([tenantId,timeSlotId,occurredAt],map:"capacity_change_slot_time_idx")
+  @@map("capacity_change")
+  @@schema("ams")
+}
+
+model WorkloadRule {
+  id String @id @default(uuid()) @db.Uuid
+  tenantId String @map("tenant_id") @db.Uuid
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  createdBy String @map("created_by") @db.Uuid
+  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
+  updatedBy String @map("updated_by") @db.Uuid
+  version Int @default(1)
+  status WorkloadRuleStatus @default(DRAFT)
+  ruleCode String @map("rule_code") @db.VarChar(100)
+  revision Int
+  serviceType String @map("service_type") @db.VarChar(50)
+  baseMinutes Decimal @map("base_minutes") @db.Decimal(18,6)
+  perOrderLineMinutes Decimal @map("per_order_line_minutes") @db.Decimal(18,6)
+  perQuantityMinutes Decimal @map("per_quantity_minutes") @db.Decimal(18,6)
+  perPalletMinutes Decimal @map("per_pallet_minutes") @db.Decimal(18,6)
+  perVehicleMinutes Decimal @map("per_vehicle_minutes") @db.Decimal(18,6)
+  packagingFactors Json @map("packaging_factors") @db.JsonB
+  loadingMethodFactors Json @map("loading_method_factors") @db.JsonB
+  historicalEfficiency Decimal @map("historical_efficiency") @db.Decimal(12,6)
+  effectiveFrom DateTime @map("effective_from") @db.Timestamptz(3)
+  effectiveUntil DateTime? @map("effective_until") @db.Timestamptz(3)
+  publishedAt DateTime? @map("published_at") @db.Timestamptz(3)
+  @@unique([tenantId,ruleCode,revision],map:"workload_rule_tenant_code_revision_key")
+  @@index([tenantId,serviceType,status,effectiveFrom],map:"workload_rule_service_status_idx")
+  @@map("workload_rule")
+  @@schema("ams")
+}
+
+model WorkloadEstimate {
+  id String @id @default(uuid()) @db.Uuid
+  tenantId String @map("tenant_id") @db.Uuid
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  createdBy String @map("created_by") @db.Uuid
+  updatedAt DateTime @default(now()) @map("updated_at") @db.Timestamptz(3)
+  updatedBy String @map("updated_by") @db.Uuid
+  version Int @default(1)
+  status WorkloadEstimateStatus @default(CALCULATED)
+  estimateNo String @map("estimate_no") @db.VarChar(100)
+  sourceRef String @map("source_ref") @db.VarChar(200)
+  workloadRuleId String @map("workload_rule_id") @db.Uuid
+  ruleCode String @map("rule_code") @db.VarChar(100)
+  ruleRevision Int @map("rule_revision")
+  originalEstimateId String? @map("original_estimate_id") @db.Uuid
+  inputSnapshot Json @map("input_snapshot") @db.JsonB
+  quantity Decimal @db.Decimal(24,6)
+  quantityUom String @map("quantity_uom") @db.VarChar(20)
+  pallets Decimal @db.Decimal(24,6)
+  vehicles Decimal @db.Decimal(24,6)
+  laborHours Decimal @map("labor_hours") @db.Decimal(24,6)
+  calculationTrace Json @map("calculation_trace") @db.JsonB
+  adjustmentReason String? @map("adjustment_reason") @db.VarChar(1000)
+  @@unique([tenantId,estimateNo],map:"workload_estimate_tenant_no_key")
+  @@index([tenantId,sourceRef,createdAt],map:"workload_estimate_source_idx")
+  @@index([tenantId,originalEstimateId,createdAt],map:"workload_estimate_original_idx")
+  @@map("workload_estimate")
+  @@schema("ams")
+}
