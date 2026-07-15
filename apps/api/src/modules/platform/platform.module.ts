@@ -37,6 +37,7 @@ import { RuleEvaluationFacade } from './public/rule-evaluation.facade';
 import { AttachmentReferenceFacade } from './public/attachment-reference.facade';
 import { EventConsumptionFacade } from './public/event-consumption.facade';
 import { PermissionDecisionFacade } from './public/permission-decision.facade';
+import { JobSchedulingFacade } from './public/job-scheduling.facade';
 import { SearchService } from './search.service';
 import { RoleService } from './role.service';
 import { ServiceAccountController } from './service-account.controller';
@@ -82,6 +83,7 @@ import { WorkflowService } from './workflow.service';
     IdempotencyService,
     ImportService,
     JobQueueService,
+    JobSchedulingFacade,
     JobService,
     LocaleUnitService,
     NotificationChannelService,
@@ -106,6 +108,7 @@ import { WorkflowService } from './workflow.service';
   exports: [
     AttachmentReferenceFacade,
     EventConsumptionFacade,
+    JobSchedulingFacade,
     PermissionDecisionFacade,
     RuleEvaluationFacade,
   ],

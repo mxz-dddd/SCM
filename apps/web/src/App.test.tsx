@@ -97,6 +97,27 @@ describe('App', () => {
     ).toBeDisabled();
   });
 
+  it('opens P4 acceptance and daily reconciliation governance', () => {
+    render(<App />);
+
+    fireEvent.click(screen.getByRole('button', { name: '验收' }));
+
+    expect(
+      screen.getByRole('heading', { name: 'P4 验收与跨域对账' }),
+    ).toBeInTheDocument();
+    expect(screen.getByText('费率历史与重算验收')).toBeInTheDocument();
+    expect(screen.getByText('四类每日对账任务')).toBeInTheDocument();
+    expect(screen.getByText('对账运行与不可变差异')).toBeInTheDocument();
+    expect(screen.getByText('例外工单与闭环')).toBeInTheDocument();
+    expect(
+      screen.getByRole('button', { name: '上线四类每日任务' }),
+    ).toBeDisabled();
+    expect(
+      screen.getByRole('button', { name: '运行计费-凭证对账' }),
+    ).toBeDisabled();
+    expect(screen.getByRole('button', { name: '关闭对账例外' })).toBeDisabled();
+  });
+
   it('opens the configuration, dictionary and number rule workbench', () => {
     render(<App />);
 

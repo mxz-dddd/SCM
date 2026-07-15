@@ -12021,3 +12021,134 @@ model ControlLakeRecomputeRun {
   @@map("lake_recompute_run")
   @@schema("control")
 }
+
+enum ControlReconciliationType {
+  ORDER_FULFILLMENT
+  INVENTORY_MOVEMENT
+  SHIPMENT_POD
+  BILLING_VOUCHER
+  @@schema("control")
+}
+
+enum ControlReconciliationSide {
+  SOURCE
+  TARGET
+  @@schema("control")
+}
+
+enum ControlReconciliationRunStatus {
+  RUNNING
+  COMPLETED
+  FAILED
+  @@schema("control")
+}
+
+enum ControlReconciliationOutcome {
+  MATCHED
+  MISMATCH
+  MISSING_SOURCE
+  MISSING_TARGET
+  @@schema("control")
+}
+
+enum ControlReconciliationCaseStatus {
+  OPEN
+  RESOLVED
+  @@schema("control")
+}
+
+model ControlReconciliationObservation {
+  id String @id @default(uuid()) @db.Uuid
+  tenantId String @map("tenant_id") @db.Uuid
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  createdBy String @map("created_by") @db.Uuid
+  updatedAt DateTime @default(now()) @map("updated_at") @db.Timestamptz(3)
+  updatedBy String @map("updated_by") @db.Uuid
+  version Int @default(1)
+  status ControlProjectionRecordStatus @default(ACTIVE)
+  reconciliationType ControlReconciliationType @map("reconciliation_type")
+  side ControlReconciliationSide
+  businessRef String @map("business_ref") @db.VarChar(200)
+  sourceDomain String @map("source_domain") @db.VarChar(30)
+  sourceVersion Int @map("source_version")
+  eventId String @map("event_id") @db.Uuid
+  occurredAt DateTime @map("occurred_at") @db.Timestamptz(3)
+  metricSnapshot Json @map("metric_snapshot") @db.JsonB
+  snapshotHash String @map("snapshot_hash") @db.Char(64)
+  @@unique([tenantId,reconciliationType,businessRef,side,sourceVersion],map:"control_reconciliation_observation_version_key")
+  @@index([tenantId,reconciliationType,occurredAt,businessRef],map:"control_reconciliation_observation_period_idx")
+  @@map("reconciliation_observation")
+  @@schema("control")
+}
+
+model ControlReconciliationRun {
+  id String @id @default(uuid()) @db.Uuid
+  tenantId String @map("tenant_id") @db.Uuid
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  createdBy String @map("created_by") @db.Uuid
+  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
+  updatedBy String @map("updated_by") @db.Uuid
+  version Int @default(1)
+  status ControlReconciliationRunStatus @default(RUNNING)
+  reconciliationType ControlReconciliationType @map("reconciliation_type")
+  triggerRef String @map("trigger_ref") @db.VarChar(200)
+  periodStart DateTime @map("period_start") @db.Timestamptz(3)
+  periodEnd DateTime @map("period_end") @db.Timestamptz(3)
+  observationCount Int @default(0) @map("observation_count")
+  matchedCount Int @default(0) @map("matched_count")
+  differenceCount Int @default(0) @map("difference_count")
+  completedAt DateTime? @map("completed_at") @db.Timestamptz(3)
+  failureReason String? @map("failure_reason") @db.VarChar(1000)
+  @@unique([tenantId,reconciliationType,triggerRef],map:"control_reconciliation_run_trigger_key")
+  @@index([tenantId,reconciliationType,periodStart,periodEnd],map:"control_reconciliation_run_period_idx")
+  @@map("reconciliation_run")
+  @@schema("control")
+}
+
+model ControlReconciliationItem {
+  id String @id @default(uuid()) @db.Uuid
+  tenantId String @map("tenant_id") @db.Uuid
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  createdBy String @map("created_by") @db.Uuid
+  updatedAt DateTime @default(now()) @map("updated_at") @db.Timestamptz(3)
+  updatedBy String @map("updated_by") @db.Uuid
+  version Int @default(1)
+  status ControlProjectionRecordStatus @default(ACTIVE)
+  reconciliationRunId String @map("reconciliation_run_id") @db.Uuid
+  businessRef String @map("business_ref") @db.VarChar(200)
+  outcome ControlReconciliationOutcome
+  sourceObservationId String? @map("source_observation_id") @db.Uuid
+  targetObservationId String? @map("target_observation_id") @db.Uuid
+  sourceSnapshot Json @map("source_snapshot") @db.JsonB
+  targetSnapshot Json @map("target_snapshot") @db.JsonB
+  differenceSnapshot Json @map("difference_snapshot") @db.JsonB
+  @@unique([tenantId,reconciliationRunId,businessRef],map:"control_reconciliation_item_business_key")
+  @@index([tenantId,outcome,createdAt],map:"control_reconciliation_item_outcome_idx")
+  @@map("reconciliation_item")
+  @@schema("control")
+}
+
+model ControlReconciliationCase {
+  id String @id @default(uuid()) @db.Uuid
+  tenantId String @map("tenant_id") @db.Uuid
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  createdBy String @map("created_by") @db.Uuid
+  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
+  updatedBy String @map("updated_by") @db.Uuid
+  version Int @default(1)
+  status ControlReconciliationCaseStatus @default(OPEN)
+  caseNo String @map("case_no") @db.VarChar(100)
+  reconciliationType ControlReconciliationType @map("reconciliation_type")
+  businessRef String @map("business_ref") @db.VarChar(200)
+  reconciliationRunId String @map("reconciliation_run_id") @db.Uuid
+  reconciliationItemId String @map("reconciliation_item_id") @db.Uuid
+  reasonCode String @map("reason_code") @db.VarChar(100)
+  differenceSnapshot Json @map("difference_snapshot") @db.JsonB
+  resolvedAt DateTime? @map("resolved_at") @db.Timestamptz(3)
+  resolvedBy String? @map("resolved_by") @db.Uuid
+  resolution String? @db.VarChar(1000)
+  @@unique([tenantId,caseNo],map:"control_reconciliation_case_no_key")
+  @@index([tenantId,reconciliationType,status,createdAt],map:"control_reconciliation_case_lookup_idx")
+  @@map("reconciliation_case")
+  @@schema("control")
+}

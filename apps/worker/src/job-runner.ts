@@ -22,11 +22,16 @@ export interface WorkerApi {
 
 export class HttpWorkerApi implements WorkerApi {
   constructor(
-    private readonly baseUrl = process.env.WORKER_API_URL ?? 'http://localhost:3000',
+    private readonly baseUrl = process.env.WORKER_API_URL ??
+      'http://localhost:3000',
     private readonly token = process.env.WORKER_API_TOKEN,
   ) {}
 
-  async request<T>(tenantId: string, path: string, init?: RequestInit): Promise<T> {
+  async request<T>(
+    tenantId: string,
+    path: string,
+    init?: RequestInit,
+  ): Promise<T> {
     if (!this.token) throw new Error('WORKER_API_TOKEN is required');
     const response = await fetch(`${this.baseUrl}${path}`, {
       ...init,
@@ -39,9 +44,14 @@ export class HttpWorkerApi implements WorkerApi {
         ...init?.headers,
       },
     });
-    const body = (await response.json()) as T & { code?: string; message?: string };
+    const body = (await response.json()) as T & {
+      code?: string;
+      message?: string;
+    };
     if (!response.ok) {
-      throw new Error(`${body.code ?? 'WORKER_API_FAILED'}: ${body.message ?? response.statusText}`);
+      throw new Error(
+        `${body.code ?? 'WORKER_API_FAILED'}: ${body.message ?? response.statusText}`,
+      );
     }
     return body;
   }
@@ -53,14 +63,21 @@ export async function processSystemJob(
 ) {
   if (job.name === 'SCHEDULE_TRIGGER') {
     const data = job.data as ScheduleTriggerData;
-    return api.request(data.tenantId, `/api/v1/platform/jobs/definitions/${data.jobDefinitionId}/runs`, {
-      body: JSON.stringify({ triggerRef: `bullmq:${job.id ?? 'scheduler'}` }),
-      method: 'POST',
-    });
+    return api.request(
+      data.tenantId,
+      `/api/v1/platform/jobs/definitions/${data.jobDefinitionId}/runs`,
+      {
+        body: JSON.stringify({ triggerRef: `bullmq:${job.id ?? 'scheduler'}` }),
+        method: 'POST',
+      },
+    );
   }
   const data = job.data as JobRunData;
   const owner = `worker:${process.pid}:${job.id ?? data.jobRunId}`;
-  const run = await api.request<RunState>(data.tenantId, `/api/v1/platform/jobs/runs/${data.jobRunId}`);
+  const run = await api.request<RunState>(
+    data.tenantId,
+    `/api/v1/platform/jobs/runs/${data.jobRunId}`,
+  );
   const claimed = await api.request<RunState & { timeoutSeconds: number }>(
     data.tenantId,
     `/api/v1/platform/jobs/runs/${data.jobRunId}/claim`,
@@ -71,7 +88,13 @@ export async function processSystemJob(
   );
   try {
     const result = await withTimeout(
-      routeHandler(job.name, claimed.payload),
+      executeRoutedHandler(
+        job.name,
+        claimed.payload,
+        data.tenantId,
+        data.jobRunId,
+        api,
+      ),
       claimed.timeoutSeconds * 1000,
     );
     const progressed = await api.request<RunState>(
@@ -87,17 +110,24 @@ export async function processSystemJob(
         method: 'POST',
       },
     );
-    return api.request(data.tenantId, `/api/v1/platform/jobs/runs/${data.jobRunId}/complete`, {
-      body: JSON.stringify({
-        expectedVersion: progressed.version,
-        leaseOwner: owner,
-        result,
-        success: true,
-      }),
-      method: 'POST',
-    });
+    return api.request(
+      data.tenantId,
+      `/api/v1/platform/jobs/runs/${data.jobRunId}/complete`,
+      {
+        body: JSON.stringify({
+          expectedVersion: progressed.version,
+          leaseOwner: owner,
+          result,
+          success: true,
+        }),
+        method: 'POST',
+      },
+    );
   } catch (error) {
-    const latest = await api.request<RunState>(data.tenantId, `/api/v1/platform/jobs/runs/${data.jobRunId}`);
+    const latest = await api.request<RunState>(
+      data.tenantId,
+      `/api/v1/platform/jobs/runs/${data.jobRunId}`,
+    );
     const timedOut = error instanceof Error && error.message === 'JOB_TIMEOUT';
     const completion = await api.request<{ retryScheduled?: boolean }>(
       data.tenantId,
@@ -118,6 +148,32 @@ export async function processSystemJob(
   }
 }
 
+export async function executeRoutedHandler(
+  handler: string,
+  payload: Record<string, unknown>,
+  tenantId: string,
+  jobRunId: string,
+  api: WorkerApi,
+): Promise<Record<string, unknown>> {
+  if (handler !== 'RECONCILIATION') return routeHandler(handler, payload);
+  const periodEnd = payload.periodEnd
+    ? new Date(String(payload.periodEnd))
+    : new Date();
+  if (!payload.periodEnd) periodEnd.setUTCHours(0, 0, 0, 0);
+  const periodStart = payload.periodStart
+    ? new Date(String(payload.periodStart))
+    : new Date(periodEnd.getTime() - 86_400_000);
+  return api.request(tenantId, '/api/v1/control/reconciliations/runs', {
+    body: JSON.stringify({
+      periodEnd: periodEnd.toISOString(),
+      periodStart: periodStart.toISOString(),
+      triggerRef: jobRunId,
+      type: payload.type,
+    }),
+    method: 'POST',
+  });
+}
+
 export async function routeHandler(
   handler: string,
   payload: Record<string, unknown>,
@@ -134,7 +190,10 @@ export async function routeHandler(
   return { accepted: true, handler, payload };
 }
 
-export async function withTimeout<T>(promise: Promise<T>, timeoutMs: number): Promise<T> {
+export async function withTimeout<T>(
+  promise: Promise<T>,
+  timeoutMs: number,
+): Promise<T> {
   let timer: ReturnType<typeof setTimeout> | undefined;
   try {
     return await Promise.race([

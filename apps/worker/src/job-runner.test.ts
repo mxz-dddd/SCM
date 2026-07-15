@@ -1,5 +1,5 @@
-import { describe, expect, it } from 'vitest';
-import { routeHandler, withTimeout } from './job-runner';
+import { describe, expect, it, vi } from 'vitest';
+import { executeRoutedHandler, routeHandler, withTimeout } from './job-runner';
 
 describe('system job runner', () => {
   it('routes whitelisted handlers and preserves payload', async () => {
@@ -11,10 +11,47 @@ describe('system job runner', () => {
   });
 
   it('rejects unknown handlers', async () => {
-    await expect(routeHandler('SHELL', {})).rejects.toThrow('JOB_HANDLER_UNKNOWN');
+    await expect(routeHandler('SHELL', {})).rejects.toThrow(
+      'JOB_HANDLER_UNKNOWN',
+    );
+  });
+
+  it('executes reconciliation jobs through the governed control API', async () => {
+    const request = vi.fn().mockResolvedValue({
+      reconciliationRunId: 'run-1',
+      status: 'COMPLETED',
+    });
+    await expect(
+      executeRoutedHandler(
+        'RECONCILIATION',
+        {
+          periodEnd: '2030-07-11T00:00:00.000Z',
+          periodStart: '2030-07-10T00:00:00.000Z',
+          type: 'ORDER_FULFILLMENT',
+        },
+        'tenant-1',
+        'job-run-1',
+        { request } as never,
+      ),
+    ).resolves.toMatchObject({ status: 'COMPLETED' });
+    expect(request).toHaveBeenCalledWith(
+      'tenant-1',
+      '/api/v1/control/reconciliations/runs',
+      expect.objectContaining({
+        body: JSON.stringify({
+          periodEnd: '2030-07-11T00:00:00.000Z',
+          periodStart: '2030-07-10T00:00:00.000Z',
+          triggerRef: 'job-run-1',
+          type: 'ORDER_FULFILLMENT',
+        }),
+        method: 'POST',
+      }),
+    );
   });
 
   it('fails work that exceeds its timeout', async () => {
-    await expect(withTimeout(new Promise(() => undefined), 1)).rejects.toThrow('JOB_TIMEOUT');
+    await expect(withTimeout(new Promise(() => undefined), 1)).rejects.toThrow(
+      'JOB_TIMEOUT',
+    );
   });
 });
