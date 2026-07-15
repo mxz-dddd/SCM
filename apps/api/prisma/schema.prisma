@@ -9241,6 +9241,7 @@ enum AppointmentStatus {
   PENDING
   CONFIRMED
   REJECTED
+  CANCELLED
   @@schema("ams")
 }
 enum AppointmentType {
@@ -9421,5 +9422,87 @@ model AppointmentOccurrence {
   @@unique([tenantId,recurringAppointmentId,occurrenceDate],map:"appointment_occurrence_date_key")
   @@index([tenantId,occurrenceDate,status,recurringAppointmentId],map:"appointment_occurrence_search_idx")
   @@map("appointment_occurrence")
+  @@schema("ams")
+}
+
+enum ReminderScheduleStatus {
+  SCHEDULED
+  SENT
+  CANCELLED
+  @@schema("ams")
+}
+
+model RescheduleRecord {
+  id String @id @default(uuid()) @db.Uuid
+  tenantId String @map("tenant_id") @db.Uuid
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  createdBy String @map("created_by") @db.Uuid
+  updatedAt DateTime @default(now()) @map("updated_at") @db.Timestamptz(3)
+  updatedBy String @map("updated_by") @db.Uuid
+  version Int @default(1)
+  status AmsRecordStatus @default(ACTIVE)
+  appointmentId String @map("appointment_id") @db.Uuid
+  sequence Int
+  oldTimeSlotId String @map("old_time_slot_id") @db.Uuid
+  newTimeSlotId String @map("new_time_slot_id") @db.Uuid
+  oldReservationId String @map("old_reservation_id") @db.Uuid
+  newReservationId String @map("new_reservation_id") @db.Uuid
+  oldSlotVersion Int @map("old_slot_version")
+  newSlotVersion Int @map("new_slot_version")
+  workloadSnapshot Json @map("workload_snapshot") @db.JsonB
+  reason String @db.VarChar(1000)
+  occurredAt DateTime @default(now()) @map("occurred_at") @db.Timestamptz(3)
+  @@unique([tenantId,appointmentId,sequence],map:"reschedule_record_sequence_key")
+  @@index([tenantId,appointmentId,occurredAt],map:"reschedule_record_time_idx")
+  @@map("reschedule_record")
+  @@schema("ams")
+}
+
+model AppointmentCancellation {
+  id String @id @default(uuid()) @db.Uuid
+  tenantId String @map("tenant_id") @db.Uuid
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  createdBy String @map("created_by") @db.Uuid
+  updatedAt DateTime @default(now()) @map("updated_at") @db.Timestamptz(3)
+  updatedBy String @map("updated_by") @db.Uuid
+  version Int @default(1)
+  status AmsRecordStatus @default(ACTIVE)
+  appointmentId String @map("appointment_id") @db.Uuid
+  reservationId String @map("reservation_id") @db.Uuid
+  reason String @db.VarChar(1000)
+  requestedAt DateTime @map("requested_at") @db.Timestamptz(3)
+  leadMinutes Int @map("lead_minutes")
+  policySnapshot Json @map("policy_snapshot") @db.JsonB
+  feeAmount Decimal @map("fee_amount") @db.Decimal(24,6)
+  feeCurrency String @map("fee_currency") @db.Char(3)
+  notificationSnapshot Json @map("notification_snapshot") @db.JsonB
+  occurredAt DateTime @default(now()) @map("occurred_at") @db.Timestamptz(3)
+  @@unique([tenantId,appointmentId],map:"appointment_cancellation_appointment_key")
+  @@index([tenantId,occurredAt,appointmentId],map:"appointment_cancellation_time_idx")
+  @@map("appointment_cancellation")
+  @@schema("ams")
+}
+
+model ReminderSchedule {
+  id String @id @default(uuid()) @db.Uuid
+  tenantId String @map("tenant_id") @db.Uuid
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  createdBy String @map("created_by") @db.Uuid
+  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
+  updatedBy String @map("updated_by") @db.Uuid
+  version Int @default(1)
+  status ReminderScheduleStatus @default(SCHEDULED)
+  appointmentId String @map("appointment_id") @db.Uuid
+  reminderType String @map("reminder_type") @db.VarChar(50)
+  channel String @db.VarChar(30)
+  scheduledAt DateTime @map("scheduled_at") @db.Timestamptz(3)
+  payloadSnapshot Json @map("payload_snapshot") @db.JsonB
+  dispatchKey String @map("dispatch_key") @db.VarChar(200)
+  sentAt DateTime? @map("sent_at") @db.Timestamptz(3)
+  cancelledAt DateTime? @map("cancelled_at") @db.Timestamptz(3)
+  cancelReason String? @map("cancel_reason") @db.VarChar(1000)
+  @@unique([tenantId,dispatchKey],map:"reminder_schedule_dispatch_key")
+  @@index([tenantId,status,scheduledAt,appointmentId],map:"reminder_schedule_due_idx")
+  @@map("reminder_schedule")
   @@schema("ams")
 }

@@ -133,4 +133,80 @@ export class AppointmentIntakeController {
       metadata(request, correlationId, key),
     );
   }
+
+  @Post('appointments/:id/reschedule')
+  @HttpCode(200)
+  @Idempotent('ams.appointment.reschedule.v1')
+  @RequirePermission('ams.appointment.change')
+  reschedule(
+    @Param('id') id: string,
+    @Body() input: Parameters<AppointmentIntakeService['reschedule']>[1],
+    @Headers('idempotency-key') key: string | undefined,
+    @Headers('x-correlation-id') correlationId: string,
+    @Req() request: TenantRequest,
+  ) {
+    return this.service.reschedule(
+      id,
+      input,
+      request.tenantContext,
+      metadata(request, correlationId, key),
+    );
+  }
+
+  @Post('appointments/:id/cancel')
+  @HttpCode(200)
+  @Idempotent('ams.appointment.cancel.v1')
+  @RequirePermission('ams.appointment.change')
+  cancel(
+    @Param('id') id: string,
+    @Body() input: Parameters<AppointmentIntakeService['cancel']>[1],
+    @Headers('idempotency-key') key: string | undefined,
+    @Headers('x-correlation-id') correlationId: string,
+    @Req() request: TenantRequest,
+  ) {
+    return this.service.cancel(
+      id,
+      input,
+      request.tenantContext,
+      metadata(request, correlationId, key),
+    );
+  }
+
+  @Post('appointments/:id/reminders')
+  @Idempotent('ams.appointment.reminder-schedule.v1')
+  @RequirePermission('ams.appointment.remind')
+  scheduleReminders(
+    @Param('id') id: string,
+    @Body()
+    input: Parameters<AppointmentIntakeService['scheduleReminders']>[1],
+    @Headers('idempotency-key') key: string | undefined,
+    @Headers('x-correlation-id') correlationId: string,
+    @Req() request: TenantRequest,
+  ) {
+    return this.service.scheduleReminders(
+      id,
+      input,
+      request.tenantContext,
+      metadata(request, correlationId, key),
+    );
+  }
+
+  @Post('reminders/:id/send')
+  @HttpCode(200)
+  @Idempotent('ams.appointment.reminder-send.v1')
+  @RequirePermission('ams.appointment.remind')
+  sendReminder(
+    @Param('id') id: string,
+    @Body() input: Parameters<AppointmentIntakeService['sendReminder']>[1],
+    @Headers('idempotency-key') key: string | undefined,
+    @Headers('x-correlation-id') correlationId: string,
+    @Req() request: TenantRequest,
+  ) {
+    return this.service.sendReminder(
+      id,
+      input,
+      request.tenantContext,
+      metadata(request, correlationId, key),
+    );
+  }
 }

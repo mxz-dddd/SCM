@@ -274,6 +274,160 @@ databaseDescribe('AMS appointment intake and atomic capacity persistence', () =>
     expect(JSON.stringify(availability)).not.toContain('appointmentNo');
     expect(JSON.stringify(availability)).not.toContain('PARTNER-1');
 
+    const originalBeforeFailure = await prisma.timeSlot.findUniqueOrThrow({
+      where: { id: slotA.id },
+    });
+    await expect(
+      service.reschedule(
+        first.appointmentId,
+        {
+          expectedVersion: first.version,
+          newRequestedWindowFrom: conflictSlot.startsAt.toISOString(),
+          newRequestedWindowTo: conflictSlot.endsAt.toISOString(),
+          newSlotVersion: raced.version,
+          newTimeSlotId: conflictSlot.id,
+          reason: '尝试改到已满时隙',
+        },
+        context,
+        command(),
+      ),
+    ).rejects.toMatchObject({ code: 'AMS_RESCHEDULE_CAPACITY_CONFLICT' });
+    const unchangedAppointment = await prisma.appointment.findUniqueOrThrow({
+      where: { id: first.appointmentId },
+    });
+    const originalAfterFailure = await prisma.timeSlot.findUniqueOrThrow({
+      where: { id: slotA.id },
+    });
+    expect(unchangedAppointment.timeSlotId).toBe(slotA.id);
+    expect(originalAfterFailure.usedQuantity.toString()).toBe(
+      originalBeforeFailure.usedQuantity.toString(),
+    );
+
+    const newSlot = await makeSlot('2035-01-04T08:00:00.000Z');
+    const moved = await service.reschedule(
+      first.appointmentId,
+      {
+        expectedVersion: first.version,
+        newRequestedWindowFrom: newSlot.startsAt.toISOString(),
+        newRequestedWindowTo: newSlot.endsAt.toISOString(),
+        newSlotVersion: newSlot.version,
+        newTimeSlotId: newSlot.id,
+        reason: '预约方调整到货日期',
+      },
+      context,
+      command(),
+    );
+    expect(moved).toMatchObject({ status: 'CONFIRMED', timeSlotId: newSlot.id });
+    expect(
+      (
+        await prisma.timeSlot.findUniqueOrThrow({ where: { id: slotA.id } })
+      ).usedQuantity.toString(),
+    ).toBe('0');
+    expect(
+      (
+        await prisma.timeSlot.findUniqueOrThrow({ where: { id: newSlot.id } })
+      ).usedQuantity.toString(),
+    ).toBe('60');
+
+    const scheduled = await service.scheduleReminders(
+      first.appointmentId,
+      {
+        expectedVersion: moved.version,
+        preparationSnapshot: {
+          address: '仓库地址快照',
+          credentials: ['驾驶证', '预约二维码'],
+          restrictions: ['园区禁行规则'],
+          tips: ['提前到达门岗'],
+        },
+        reminders: [
+          {
+            channel: 'IN_APP',
+            leadMinutes: 9_000_000,
+            reminderType: 'ARRIVAL_PREP',
+          },
+        ],
+      },
+      context,
+      command(),
+    );
+    const reminderId = scheduled.reminderScheduleIds[0]!;
+    const sent = await service.sendReminder(
+      reminderId,
+      { expectedVersion: 1 },
+      context,
+      command(),
+    );
+    expect(sent.status).toBe('SENT');
+    await expect(
+      service.sendReminder(
+        reminderId,
+        { expectedVersion: 1 },
+        context,
+        command(),
+      ),
+    ).rejects.toMatchObject({ code: 'AMS_REMINDER_VERSION_CONFLICT' });
+
+    await expect(
+      service.cancel(
+        first.appointmentId,
+        {
+          allowWithinLead: false,
+          cancellationLeadMinutes: 20_000_000,
+          expectedVersion: moved.version,
+          feeAmountWithinLead: '50',
+          feeCurrency: 'CNY',
+          notificationSnapshot: { recipients: ['OMS', 'TMS', 'GATE'] },
+          policySnapshot: { policyCode: 'CANCEL-V1' },
+          reason: '临近到场取消',
+        },
+        context,
+        command(),
+      ),
+    ).rejects.toMatchObject({ code: 'AMS_CANCELLATION_LEAD_TIME_BLOCKED' });
+    expect(
+      (
+        await prisma.timeSlot.findUniqueOrThrow({ where: { id: newSlot.id } })
+      ).usedQuantity.toString(),
+    ).toBe('60');
+    const cancelled = await service.cancel(
+      first.appointmentId,
+      {
+        allowWithinLead: true,
+        cancellationLeadMinutes: 20_000_000,
+        expectedVersion: moved.version,
+        feeAmountWithinLead: '50',
+        feeCurrency: 'CNY',
+        notificationSnapshot: { recipients: ['OMS', 'TMS', 'GATE'] },
+        policySnapshot: { policyCode: 'CANCEL-V1' },
+        reason: '合同允许付费取消',
+      },
+      context,
+      command(),
+    );
+    expect(cancelled).toMatchObject({ feeAmount: '50', status: 'CANCELLED' });
+    expect(
+      (
+        await prisma.timeSlot.findUniqueOrThrow({ where: { id: newSlot.id } })
+      ).usedQuantity.toString(),
+    ).toBe('0');
+    const rescheduleRecord = await prisma.rescheduleRecord.findFirstOrThrow({
+      where: { appointmentId: first.appointmentId },
+    });
+    await expect(
+      prisma.rescheduleRecord.delete({ where: { id: rescheduleRecord.id } }),
+    ).rejects.toThrow(/immutable/i);
+    const cancellation = await prisma.appointmentCancellation.findUniqueOrThrow({
+      where: {
+        tenantId_appointmentId: {
+          appointmentId: first.appointmentId,
+          tenantId,
+        },
+      },
+    });
+    await expect(
+      prisma.appointmentCancellation.delete({ where: { id: cancellation.id } }),
+    ).rejects.toThrow(/immutable/i);
+
     const link = await prisma.amsAppointmentOrderLink.findFirstOrThrow({
       where: { appointmentId: first.appointmentId },
     });

@@ -12,6 +12,10 @@ describe('AMS appointment intake HTTP contract', () => {
       'submit',
       'decide',
       'createRecurring',
+      'reschedule',
+      'cancel',
+      'scheduleReminders',
+      'sendReminder',
     ] as const)
       expect(
         Reflect.getMetadata(

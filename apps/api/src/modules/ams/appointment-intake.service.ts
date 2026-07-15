@@ -58,7 +58,7 @@ export class AppointmentIntakeService {
 
   async workbench(context: TenantContext) {
     const where = { tenantId: context.tenantId };
-    const [appointments, orderLinks, reservations, decisions, recurring, occurrences] =
+    const [appointments, orderLinks, reservations, decisions, recurring, occurrences, reschedules, cancellations, reminders] =
       await Promise.all([
         this.prisma.appointment.findMany({ orderBy: [{ createdAt: 'desc' }, { id: 'desc' }], take: 300, where }),
         this.prisma.amsAppointmentOrderLink.findMany({ orderBy: [{ createdAt: 'desc' }, { id: 'desc' }], take: 500, where }),
@@ -66,8 +66,11 @@ export class AppointmentIntakeService {
         this.prisma.appointmentDecision.findMany({ orderBy: [{ occurredAt: 'desc' }, { id: 'desc' }], take: 500, where }),
         this.prisma.recurringAppointment.findMany({ orderBy: [{ createdAt: 'desc' }, { id: 'desc' }], take: 100, where }),
         this.prisma.appointmentOccurrence.findMany({ orderBy: [{ occurrenceDate: 'asc' }, { id: 'asc' }], take: 500, where }),
+        this.prisma.rescheduleRecord.findMany({ orderBy: [{ occurredAt: 'desc' }, { id: 'desc' }], take: 300, where }),
+        this.prisma.appointmentCancellation.findMany({ orderBy: [{ occurredAt: 'desc' }, { id: 'desc' }], take: 300, where }),
+        this.prisma.reminderSchedule.findMany({ orderBy: [{ scheduledAt: 'asc' }, { id: 'asc' }], take: 300, where }),
       ]);
-    return toHttpJson({ appointments, decisions, occurrences, orderLinks, recurring, reservations });
+    return toHttpJson({ appointments, cancellations, decisions, occurrences, orderLinks, recurring, reminders, reschedules, reservations });
   }
 
   async availability(
@@ -238,6 +241,163 @@ export class AppointmentIntakeService {
     });
   }
 
+  reschedule(
+    id: string,
+    input: {
+      expectedVersion: number;
+      newRequestedWindowFrom: string;
+      newRequestedWindowTo: string;
+      newSlotVersion: number;
+      newTimeSlotId: string;
+      reason: string;
+    },
+    context: TenantContext,
+    metadata: CommandMetadata,
+  ) {
+    this.uuid(id, 'appointmentId');
+    this.uuid(input.newTimeSlotId, 'newTimeSlotId');
+    if (!input.reason?.trim()) this.invalid('Reschedule reason is required');
+    const newWindowFrom = this.date(input.newRequestedWindowFrom);
+    const newWindowTo = this.date(input.newRequestedWindowTo);
+    if (newWindowTo <= newWindowFrom) this.invalid('New requested window is invalid');
+    return this.prisma.$transaction(async (tx) => {
+      await this.lock(tx, `${context.tenantId}:${id}:appointment`);
+      const appointment = await tx.appointment.findFirst({ where: { id, tenantId: context.tenantId } });
+      if (!appointment || appointment.status !== 'CONFIRMED' || appointment.version !== input.expectedVersion)
+        throw this.conflict('AMS_APPOINTMENT_VERSION_CONFLICT');
+      if (appointment.timeSlotId === input.newTimeSlotId)
+        this.invalid('New slot must differ from current slot');
+      const oldReservation = await tx.appointmentCapacityReservation.findFirst({ where: { allocationType: 'USED', appointmentId: id, status: 'ACTIVE', tenantId: context.tenantId } });
+      if (!oldReservation) throw this.conflict('AMS_APPOINTMENT_RESERVATION_CONFLICT');
+      const newSlot = await tx.timeSlot.findFirst({ where: { id: input.newTimeSlotId, serviceType: appointment.serviceType, status: 'OPEN', tenantId: context.tenantId, warehouseRef: appointment.warehouseRef } });
+      if (!newSlot || newSlot.startsAt < newWindowFrom || newSlot.endsAt > newWindowTo)
+        throw new AppError('AMS_RESCHEDULE_SLOT_INVALID', 'New slot does not match appointment constraints', 409);
+      const workload = { laborHours: oldReservation.laborHours, pallets: oldReservation.pallets, quantity: oldReservation.quantity, vehicles: oldReservation.vehicles };
+      const newClaim = await this.claimCapacity(tx, newSlot.id, input.newSlotVersion, workload, 'USED', context);
+      if (!newClaim) {
+        const candidates = await this.candidates(tx, { ...appointment, requestedWindowFrom: newWindowFrom, requestedWindowTo: newWindowTo, timeSlotId: input.newTimeSlotId }, context);
+        throw new AppError('AMS_RESCHEDULE_CAPACITY_CONFLICT', 'New slot could not be reserved; original appointment remains unchanged', 409, { fieldErrors: candidates.map((candidate) => ({ field: 'newTimeSlotId', message: JSON.stringify(candidate) })), retryable: true });
+      }
+      const oldSlot = await tx.timeSlot.findFirst({ where: { id: appointment.timeSlotId, tenantId: context.tenantId } });
+      if (!oldSlot) throw this.conflict('AMS_RESCHEDULE_OLD_SLOT_CONFLICT');
+      const released = await tx.timeSlot.updateMany({
+        data: { updatedBy: context.accountId, usedLaborHours: { decrement: oldReservation.laborHours }, usedPallets: { decrement: oldReservation.pallets }, usedQuantity: { decrement: oldReservation.quantity }, usedVehicles: { decrement: oldReservation.vehicles }, version: { increment: 1 } },
+        where: { id: oldSlot.id, tenantId: context.tenantId, usedLaborHours: { gte: oldReservation.laborHours }, usedPallets: { gte: oldReservation.pallets }, usedQuantity: { gte: oldReservation.quantity }, usedVehicles: { gte: oldReservation.vehicles }, version: oldSlot.version },
+      });
+      if (released.count !== 1) throw this.conflict('AMS_RESCHEDULE_OLD_SLOT_CONFLICT');
+      await tx.appointmentCapacityReservation.update({ data: { releaseReason: `RESCHEDULE: ${input.reason.trim()}`, releasedAt: new Date(), status: 'RELEASED', updatedBy: context.accountId, version: { increment: 1 } }, where: { id: oldReservation.id } });
+      const newReservation = await tx.appointmentCapacityReservation.create({ data: { allocationType: 'USED', appointmentId: id, createdBy: context.accountId, laborHours: workload.laborHours, pallets: workload.pallets, quantity: workload.quantity, slotVersionAtReserve: newClaim.version, tenantId: context.tenantId, timeSlotId: newSlot.id, updatedBy: context.accountId, vehicles: workload.vehicles } });
+      const changed = await tx.appointment.update({ data: { requestedWindowFrom: newWindowFrom, requestedWindowTo: newWindowTo, timeSlotId: newSlot.id, updatedBy: context.accountId, version: { increment: 1 } }, where: { id } });
+      const sequence = await tx.rescheduleRecord.count({ where: { appointmentId: id, tenantId: context.tenantId } }) + 1;
+      const record = await tx.rescheduleRecord.create({ data: { appointmentId: id, createdBy: context.accountId, newReservationId: newReservation.id, newSlotVersion: newClaim.version, newTimeSlotId: newSlot.id, oldReservationId: oldReservation.id, oldSlotVersion: oldSlot.version, oldTimeSlotId: oldSlot.id, reason: input.reason.trim(), sequence, tenantId: context.tenantId, updatedBy: context.accountId, workloadSnapshot: json({ laborHours: workload.laborHours.toString(), pallets: workload.pallets.toString(), quantity: workload.quantity.toString(), vehicles: workload.vehicles.toString() }) } });
+      await this.emit(tx, id, changed.version, 'appointment.rescheduled.v1', context, metadata, { appointmentId: id, newTimeSlotId: newSlot.id, oldTimeSlotId: oldSlot.id, rescheduleRecordId: record.id }, 'Appointment');
+      return { appointmentId: id, rescheduleRecordId: record.id, status: changed.status, timeSlotId: changed.timeSlotId, version: changed.version };
+    });
+  }
+
+  cancel(
+    id: string,
+    input: {
+      allowWithinLead: boolean;
+      cancellationLeadMinutes: number;
+      expectedVersion: number;
+      feeAmountWithinLead: string;
+      feeCurrency: string;
+      notificationSnapshot: Readonly<Record<string, unknown>>;
+      policySnapshot: Readonly<Record<string, unknown>>;
+      reason: string;
+    },
+    context: TenantContext,
+    metadata: CommandMetadata,
+  ) {
+    this.uuid(id, 'appointmentId');
+    if (!input.reason?.trim() || !Number.isInteger(input.cancellationLeadMinutes) || input.cancellationLeadMinutes < 0 || !/^[A-Z]{3}$/.test(input.feeCurrency))
+      this.invalid('Cancellation reason, lead time or currency is invalid');
+    const feeWithinLead = this.decimal(input.feeAmountWithinLead);
+    return this.prisma.$transaction(async (tx) => {
+      await this.lock(tx, `${context.tenantId}:${id}:appointment`);
+      const appointment = await tx.appointment.findFirst({ where: { id, tenantId: context.tenantId } });
+      if (!appointment || appointment.status !== 'CONFIRMED' || appointment.version !== input.expectedVersion)
+        throw this.conflict('AMS_APPOINTMENT_VERSION_CONFLICT');
+      const now = new Date();
+      const minutesUntil = Math.floor((appointment.requestedWindowFrom.getTime() - now.getTime()) / 60_000);
+      const withinLead = minutesUntil < input.cancellationLeadMinutes;
+      if (withinLead && !input.allowWithinLead)
+        throw new AppError('AMS_CANCELLATION_LEAD_TIME_BLOCKED', 'Cancellation is not allowed inside the policy lead time', 409);
+      const reservation = await tx.appointmentCapacityReservation.findFirst({ where: { appointmentId: id, status: 'ACTIVE', tenantId: context.tenantId } });
+      if (!reservation) throw this.conflict('AMS_APPOINTMENT_RESERVATION_CONFLICT');
+      const slot = await tx.timeSlot.findFirst({ where: { id: reservation.timeSlotId, tenantId: context.tenantId } });
+      if (!slot) throw this.conflict('AMS_TIME_SLOT_VERSION_CONFLICT');
+      const used = reservation.allocationType === 'USED';
+      const released = await tx.timeSlot.updateMany({
+        data: used
+          ? { updatedBy: context.accountId, usedLaborHours: { decrement: reservation.laborHours }, usedPallets: { decrement: reservation.pallets }, usedQuantity: { decrement: reservation.quantity }, usedVehicles: { decrement: reservation.vehicles }, version: { increment: 1 } }
+          : { reservedLaborHours: { decrement: reservation.laborHours }, reservedPallets: { decrement: reservation.pallets }, reservedQuantity: { decrement: reservation.quantity }, reservedVehicles: { decrement: reservation.vehicles }, updatedBy: context.accountId, version: { increment: 1 } },
+        where: { id: slot.id, tenantId: context.tenantId, version: slot.version },
+      });
+      if (released.count !== 1) throw this.conflict('AMS_TIME_SLOT_VERSION_CONFLICT');
+      await tx.appointmentCapacityReservation.update({ data: { releaseReason: `CANCEL: ${input.reason.trim()}`, releasedAt: now, status: 'RELEASED', updatedBy: context.accountId, version: { increment: 1 } }, where: { id: reservation.id } });
+      await tx.reminderSchedule.updateMany({ data: { cancelReason: 'Appointment cancelled', cancelledAt: now, status: 'CANCELLED', updatedBy: context.accountId, version: { increment: 1 } }, where: { appointmentId: id, status: 'SCHEDULED', tenantId: context.tenantId } });
+      const changed = await tx.appointment.update({ data: { status: 'CANCELLED', updatedBy: context.accountId, version: { increment: 1 } }, where: { id } });
+      await this.recordDecision(tx, appointment, 'CANCELLED', 'CANCEL', input.reason, context);
+      const cancellation = await tx.appointmentCancellation.create({ data: { appointmentId: id, createdBy: context.accountId, feeAmount: withinLead ? feeWithinLead : 0, feeCurrency: input.feeCurrency, leadMinutes: input.cancellationLeadMinutes, notificationSnapshot: json(input.notificationSnapshot), policySnapshot: json({ ...input.policySnapshot, allowWithinLead: input.allowWithinLead, withinLead }), reason: input.reason.trim(), requestedAt: now, reservationId: reservation.id, tenantId: context.tenantId, updatedBy: context.accountId } });
+      await this.emit(tx, id, changed.version, 'appointment.cancelled.v1', context, metadata, { appointmentId: id, cancellationId: cancellation.id, fee: { amount: cancellation.feeAmount.toString(), currency: cancellation.feeCurrency }, notify: ['OMS', 'TMS', 'GATE'], timeSlotId: slot.id }, 'Appointment');
+      return toHttpJson({ appointmentId: id, cancellationId: cancellation.id, feeAmount: cancellation.feeAmount, feeCurrency: cancellation.feeCurrency, status: changed.status, version: changed.version });
+    });
+  }
+
+  scheduleReminders(
+    id: string,
+    input: {
+      expectedVersion: number;
+      preparationSnapshot: Readonly<Record<string, unknown>>;
+      reminders: readonly { channel: string; leadMinutes: number; reminderType: string }[];
+    },
+    context: TenantContext,
+    metadata: CommandMetadata,
+  ) {
+    this.uuid(id, 'appointmentId');
+    if (!input.reminders.length || input.reminders.some(({ channel, leadMinutes, reminderType }) => !channel?.trim() || !reminderType?.trim() || !Number.isInteger(leadMinutes) || leadMinutes < 0))
+      this.invalid('Reminder rules are invalid');
+    return this.prisma.$transaction(async (tx) => {
+      const appointment = await tx.appointment.findFirst({ where: { id, tenantId: context.tenantId } });
+      if (!appointment || appointment.status !== 'CONFIRMED' || appointment.version !== input.expectedVersion)
+        throw this.conflict('AMS_APPOINTMENT_VERSION_CONFLICT');
+      const schedules = [];
+      for (const reminder of input.reminders) {
+        const scheduledAt = new Date(appointment.requestedWindowFrom.getTime() - reminder.leadMinutes * 60_000);
+        const dispatchKey = `${id}:${reminder.reminderType.trim().toUpperCase()}:${scheduledAt.toISOString()}`;
+        const schedule = await tx.reminderSchedule.upsert({
+          create: { appointmentId: id, channel: reminder.channel.trim().toUpperCase(), createdBy: context.accountId, dispatchKey, payloadSnapshot: json({ appointmentNo: appointment.appointmentNo, preparation: input.preparationSnapshot, qrCode: `APT:${id}:${randomUUID()}`, requestedWindow: { from: appointment.requestedWindowFrom, to: appointment.requestedWindowTo }, serviceType: appointment.serviceType, vehicle: appointment.vehicleSnapshot, warehouseRef: appointment.warehouseRef }), reminderType: reminder.reminderType.trim().toUpperCase(), scheduledAt, tenantId: context.tenantId, updatedBy: context.accountId },
+          update: {},
+          where: { tenantId_dispatchKey: { dispatchKey, tenantId: context.tenantId } },
+        });
+        schedules.push(schedule);
+      }
+      await this.emit(tx, id, appointment.version, 'appointment.reminders-scheduled.v1', context, metadata, { appointmentId: id, reminderScheduleIds: schedules.map(({ id: scheduleId }) => scheduleId) }, 'Appointment');
+      return { appointmentId: id, reminderScheduleIds: schedules.map(({ id: scheduleId }) => scheduleId), status: 'SCHEDULED' as const, version: appointment.version };
+    });
+  }
+
+  sendReminder(
+    id: string,
+    input: { expectedVersion: number },
+    context: TenantContext,
+    metadata: CommandMetadata,
+  ) {
+    this.uuid(id, 'reminderScheduleId');
+    return this.prisma.$transaction(async (tx) => {
+      const schedule = await tx.reminderSchedule.findFirst({ where: { id, tenantId: context.tenantId } });
+      if (!schedule || schedule.status !== 'SCHEDULED' || schedule.version !== input.expectedVersion)
+        throw this.conflict('AMS_REMINDER_VERSION_CONFLICT');
+      if (schedule.scheduledAt > new Date())
+        throw new AppError('AMS_REMINDER_NOT_DUE', 'Reminder is not due yet', 409);
+      const changed = await tx.reminderSchedule.update({ data: { sentAt: new Date(), status: 'SENT', updatedBy: context.accountId, version: { increment: 1 } }, where: { id } });
+      await this.emit(tx, id, changed.version, 'notification.requested.v1', context, metadata, { appointmentId: schedule.appointmentId, channel: schedule.channel, dispatchKey: schedule.dispatchKey, payload: schedule.payloadSnapshot, reminderScheduleId: id }, 'ReminderSchedule');
+      return { appointmentId: schedule.appointmentId, reminderScheduleId: id, status: changed.status, version: changed.version };
+    });
+  }
+
   async createRecurring(
     input: {
       effectiveFrom: string;
@@ -375,7 +535,7 @@ export class AppointmentIntakeService {
     return slots.filter((slot) => slot.capacityQuantity.sub(slot.internalQuantity).sub(slot.usedQuantity).sub(slot.reservedQuantity).gte(appointment.workloadQuantity) && slot.capacityPallets.sub(slot.internalPallets).sub(slot.usedPallets).sub(slot.reservedPallets).gte(appointment.workloadPallets) && slot.capacityVehicles.sub(slot.internalVehicles).sub(slot.usedVehicles).sub(slot.reservedVehicles).gte(appointment.workloadVehicles) && slot.capacityLaborHours.sub(slot.internalLaborHours).sub(slot.usedLaborHours).sub(slot.reservedLaborHours).gte(appointment.workloadLaborHours)).map((slot) => ({ endsAt: slot.endsAt.toISOString(), slotId: slot.id, slotVersion: slot.version, startsAt: slot.startsAt.toISOString() }));
   }
 
-  private async recordDecision(tx: Prisma.TransactionClient, appointment: { id: string; status: 'DRAFT' | 'SUBMITTED' | 'PENDING' | 'CONFIRMED' | 'REJECTED'; approvalPolicySnapshot: Prisma.JsonValue }, toStatus: 'SUBMITTED' | 'PENDING' | 'CONFIRMED' | 'REJECTED', decision: string, reason: string, context: TenantContext, suggestedTimeSlotId?: string) {
+  private async recordDecision(tx: Prisma.TransactionClient, appointment: { id: string; status: 'DRAFT' | 'SUBMITTED' | 'PENDING' | 'CONFIRMED' | 'REJECTED' | 'CANCELLED'; approvalPolicySnapshot: Prisma.JsonValue }, toStatus: 'SUBMITTED' | 'PENDING' | 'CONFIRMED' | 'REJECTED' | 'CANCELLED', decision: string, reason: string, context: TenantContext, suggestedTimeSlotId?: string) {
     const sequence = await tx.appointmentDecision.count({ where: { appointmentId: appointment.id, tenantId: context.tenantId } }) + 1;
     await tx.appointmentDecision.create({ data: { appointmentId: appointment.id, createdBy: context.accountId, decision, fromStatus: appointment.status, policySnapshot: json(appointment.approvalPolicySnapshot), reason, sequence, ...(suggestedTimeSlotId ? { suggestedTimeSlotId } : {}), tenantId: context.tenantId, toStatus, updatedBy: context.accountId } });
   }

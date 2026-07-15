@@ -15,6 +15,7 @@ interface AppointmentRow {
   serviceType: string;
   status: string;
   type: string;
+  timeSlotId: string;
   version: number;
 }
 interface OccurrenceRow {
@@ -60,6 +61,26 @@ const actions = createActionRegistry<string>([
     requiredPermissions: ['ams.appointment.approve'],
   },
   {
+    allowedStatuses: ['CONFIRMED'],
+    confirmMessage: '系统将先占用新时隙，再释放原时隙；失败时原预约保持不变。',
+    id: 'reschedule',
+    label: '改期',
+    requiredPermissions: ['ams.appointment.change'],
+  },
+  {
+    allowedStatuses: ['CONFIRMED'],
+    confirmMessage: '取消将按提前期策略计算费用并释放预约容量。',
+    id: 'cancel',
+    label: '取消预约',
+    requiredPermissions: ['ams.appointment.change'],
+  },
+  {
+    allowedStatuses: ['CONFIRMED'],
+    id: 'scheduleReminders',
+    label: '安排到场提醒',
+    requiredPermissions: ['ams.appointment.remind'],
+  },
+  {
     allowedStatuses: ['PENDING'],
     confirmMessage: '拒绝预约将释放其待审批容量。',
     id: 'reject',
@@ -89,6 +110,8 @@ export function AppointmentIntakePanel() {
               'ams.appointment.create',
               'ams.appointment.recurring',
               'ams.appointment.approve',
+              'ams.appointment.change',
+              'ams.appointment.remind',
             ]
           : [],
       ),
@@ -165,6 +188,52 @@ export function AppointmentIntakePanel() {
             decision: id === 'approve' ? 'APPROVE' : 'REJECT',
             expectedVersion: selected.version,
             reason: id === 'approve' ? '预约主管审核通过' : '预约资料不完整',
+          }),
+          method: 'POST',
+        });
+      if (id === 'reschedule' && selected) {
+        const candidate = slots.find(({ id: slotId }) => slotId !== selected.timeSlotId);
+        if (!candidate) throw new Error('没有可用于改期的新时隙');
+        await request(`/api/v1/ams/appointments/${selected.id}/reschedule`, {
+          body: JSON.stringify({
+            expectedVersion: selected.version,
+            newRequestedWindowFrom: candidate.startsAt,
+            newRequestedWindowTo: candidate.endsAt,
+            newSlotVersion: candidate.version,
+            newTimeSlotId: candidate.id,
+            reason: '预约方在工作台申请改期',
+          }),
+          method: 'POST',
+        });
+      }
+      if (id === 'cancel' && selected)
+        await request(`/api/v1/ams/appointments/${selected.id}/cancel`, {
+          body: JSON.stringify({
+            allowWithinLead: true,
+            cancellationLeadMinutes: 240,
+            expectedVersion: selected.version,
+            feeAmountWithinLead: '50',
+            feeCurrency: 'CNY',
+            notificationSnapshot: { recipients: ['OMS', 'TMS', 'GATE'] },
+            policySnapshot: { policyCode: 'DEMO-CANCEL-V1' },
+            reason: '预约方取消到场计划',
+          }),
+          method: 'POST',
+        });
+      if (id === 'scheduleReminders' && selected)
+        await request(`/api/v1/ams/appointments/${selected.id}/reminders`, {
+          body: JSON.stringify({
+            expectedVersion: selected.version,
+            preparationSnapshot: {
+              address: '仓库预约地址快照',
+              credentials: ['驾驶证', '预约二维码'],
+              restrictions: ['遵守园区限速与禁行时段'],
+              tips: ['提前 15 分钟到达门岗'],
+            },
+            reminders: [
+              { channel: 'IN_APP', leadMinutes: 1440, reminderType: 'DAY_BEFORE' },
+              { channel: 'SMS', leadMinutes: 120, reminderType: 'ARRIVAL_PREP' },
+            ],
           }),
           method: 'POST',
         });
@@ -250,11 +319,12 @@ export function AppointmentIntakePanel() {
   return (
     <Card title="预约受理、并发占用与审批">
       <Typography.Paragraph>
-        照单预约按来源行校验剩余可预约量；无单预约强制人工审批；循环规则逐实例占容量，节假日或冲突实例保持待确认。查询仅展示剩余容量和时隙版本，最终提交再次原子校验。
+        照单预约按来源行校验剩余可预约量；无单预约强制人工审批；循环规则逐实例占容量，节假日或冲突实例保持待确认。改期先占新再释旧，取消按提前期释放容量并通知上下游，到场提醒固化地址、证件、二维码与注意事项快照。
       </Typography.Paragraph>
       <Tag color="blue">版本条件占用</Tag>
       <Tag color="orange">无单严格审批</Tag>
       <Tag color="purple">循环逐实例</Tag>
+      <Tag color="green">改期失败不丢原容量</Tag>
       {notice ? <Alert message={notice} showIcon type="success" /> : null}
       {error ? <Alert message={error} showIcon type="error" /> : null}
       <CommandBar actions={decisions} onAction={({ id }) => void execute(id)} />
