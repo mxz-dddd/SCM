@@ -6,6 +6,7 @@ import { toHttpJson } from '../../common/http-json';
 import { PrismaService } from '../../database/prisma.service';
 import type { BusinessEventInput } from '../platform/event.service';
 import { EventConsumptionFacade } from '../platform/public/event-consumption.facade';
+import { businessNumber } from '../platform/public/numbering.facade';
 import type { CommandMetadata } from '../platform/tenant.service';
 
 const object = (value: unknown): Record<string, unknown> =>
@@ -133,7 +134,13 @@ export class ControlTowerService {
             await tx.controlAlertCase.create({
               data: {
                 businessRef,
-                caseNo: `FP-${message.aggregateId.replaceAll('-', '').slice(0, 20)}`,
+                caseNo: await businessNumber(
+                  this.prisma,
+                  'CONTROL_FULFILLMENT_FAILURE_CASE',
+                  context,
+                  metadata,
+                  `fulfillment-failure:${message.aggregateId}`,
+                ),
                 createdBy: context.accountId,
                 dedupeKey,
                 description:

@@ -12,6 +12,7 @@ import { AppError } from '../../common/app-error';
 import { isUuid } from '../../common/validation';
 import { PrismaService } from '../../database/prisma.service';
 import { MdmReferenceService } from '../mdm/public/mdm-reference.service';
+import { businessNumber } from '../platform/public/numbering.facade';
 import type { CommandMetadata } from '../platform/tenant.service';
 
 interface QuantityInput {
@@ -754,6 +755,7 @@ export class ReceivingDetailService {
               type: variance.type,
             },
             context,
+            metadata,
           );
           varianceIds.push(varianceId);
         }
@@ -794,7 +796,14 @@ export class ReceivingDetailService {
         400,
       );
     const lpn = normalize(
-      input.lpn ?? `HU-${randomUUID().slice(0, 12)}`,
+      input.lpn ??
+        (await businessNumber(
+          this.prisma,
+          'WMS_HANDLING_UNIT',
+          context,
+          metadata,
+          `handling-unit:${inboundId}`,
+        )),
       'lpn',
     );
     return this.prisma.$transaction(async (tx) => {
@@ -881,6 +890,7 @@ export class ReceivingDetailService {
         'INITIAL_LABEL',
         1,
         context,
+        metadata,
       );
       await this.record(
         tx,
@@ -1025,7 +1035,14 @@ export class ReceivingDetailService {
       });
       const targetId = randomUUID();
       const targetLpn = normalize(
-        input.targetLpn ?? `HU-${randomUUID().slice(0, 12)}`,
+        input.targetLpn ??
+          (await businessNumber(
+            this.prisma,
+            'WMS_HANDLING_UNIT',
+            context,
+            metadata,
+            `handling-unit-split:${sourceId}:${source.version}`,
+          )),
         'targetLpn',
       );
       const target = await tx.handlingUnit.create({
@@ -1136,6 +1153,7 @@ export class ReceivingDetailService {
         'SPLIT_LABEL',
         1,
         context,
+        metadata,
       );
       await this.record(
         tx,
@@ -1337,6 +1355,7 @@ export class ReceivingDetailService {
         input.reason.trim(),
         copies,
         context,
+        metadata,
       );
       await this.record(
         tx,
@@ -1392,7 +1411,7 @@ export class ReceivingDetailService {
           'Receipt line does not belong to inbound',
           400,
         );
-      const id = await this.createVariance(tx, input, context);
+      const id = await this.createVariance(tx, input, context, metadata);
       await this.record(
         tx,
         id,
@@ -1485,6 +1504,7 @@ export class ReceivingDetailService {
     tx: Prisma.TransactionClient,
     input: VarianceInput,
     context: TenantContext,
+    metadata: CommandMetadata,
   ) {
     if (!input.reason?.trim())
       throw new AppError(
@@ -1536,7 +1556,13 @@ export class ReceivingDetailService {
         tenantId: context.tenantId,
         type: input.type,
         updatedBy: context.accountId,
-        varianceNo: `VAR-${Date.now()}-${id.slice(0, 6)}`,
+        varianceNo: await businessNumber(
+          this.prisma,
+          'WMS_RECEIVING_VARIANCE',
+          context,
+          metadata,
+          `receiving-variance:${id}`,
+        ),
       },
     });
     return id;
@@ -1697,13 +1723,14 @@ export class ReceivingDetailService {
     return row;
   }
 
-  private labelJob(
+  private async labelJob(
     tx: Prisma.TransactionClient,
     unit: { id: string; labelNumber: string },
     originalId: string | null,
     reason: string,
     copies: number,
     context: TenantContext,
+    metadata: CommandMetadata,
   ) {
     const id = randomUUID();
     return tx.labelJob.create({
@@ -1712,7 +1739,13 @@ export class ReceivingDetailService {
         createdBy: context.accountId,
         handlingUnitId: unit.id,
         id,
-        jobNo: `LBL-${Date.now()}-${id.slice(0, 6)}`,
+        jobNo: await businessNumber(
+          this.prisma,
+          'WMS_LABEL_JOB',
+          context,
+          metadata,
+          `label-job:${id}`,
+        ),
         labelNumber: unit.labelNumber,
         reason,
         reprintOfJobId: originalId,

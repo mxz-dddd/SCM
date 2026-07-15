@@ -7,6 +7,7 @@ import { toHttpJson } from '../../common/http-json';
 import { isUuid } from '../../common/validation';
 import { PrismaService } from '../../database/prisma.service';
 import { MdmReferenceService } from '../mdm/public/mdm-reference.service';
+import { businessNumber } from '../platform/public/numbering.facade';
 import type { CommandMetadata } from '../platform/tenant.service';
 
 const json = (value: unknown) =>
@@ -409,7 +410,7 @@ export class PickService {
       const caseId = randomUUID();
       const row = await tx.shortPickCase.create({
         data: {
-          caseNo: `SPK-${Date.now()}-${caseId.slice(0, 6)}`,
+          caseNo: await businessNumber(this.prisma, 'WMS_SHORT_PICK_CASE', context, metadata, `short-pick:${task.id}:${line.id}`),
           createdBy: context.accountId,
           id: caseId,
           optionsSnapshot: json({ allowed: ['REVIEW', 'FREEZE', 'CYCLE_COUNT', 'REALLOCATE', 'SHORT_SHIP'] }),

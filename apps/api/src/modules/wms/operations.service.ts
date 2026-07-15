@@ -7,6 +7,7 @@ import { toHttpJson } from '../../common/http-json';
 import { isUuid } from '../../common/validation';
 import { PrismaService } from '../../database/prisma.service';
 import { MdmReferenceService } from '../mdm/public/mdm-reference.service';
+import { businessNumber } from '../platform/public/numbering.facade';
 import type { CommandMetadata } from '../platform/tenant.service';
 
 const json = (value: unknown) =>
@@ -118,7 +119,7 @@ export class OperationsService {
           id,
           inputSnapshot: json(input.inputSnapshot),
           instructionSnapshot: json(input.instructionSnapshot),
-          orderNo: `VAS-${Date.now()}-${id.slice(0, 6)}`,
+          orderNo: await businessNumber(this.prisma, 'WMS_VALUE_ADDED_ORDER', context, metadata, `value-added-order:${input.sourceRef}`),
           processVersion: input.processVersion.trim(),
           sourceRef: input.sourceRef.trim(),
           tenantId: context.tenantId,
@@ -217,7 +218,7 @@ export class OperationsService {
       const standard = await tx.laborStandard.findFirst({ where: { id: input.standardId, status: 'ACTIVE', taskType: input.taskType.trim(), tenantId: context.tenantId } });
       if (!standard) throw new AppError('LABOR_STANDARD_INVALID', 'Active matching labor standard is required', 400);
       const id = randomUUID();
-      const row = await tx.laborWorkAssignment.create({ data: { assigneeRef: input.assigneeRef.trim(), assigneeType: input.assigneeType, assignmentNo: `LAB-${Date.now()}-${id.slice(0, 6)}`, businessRef: input.businessRef.trim(), createdBy: context.accountId, id, quantityBase: quantity, standardId: standard.id, taskType: input.taskType.trim(), tenantId: context.tenantId, updatedBy: context.accountId } });
+      const row = await tx.laborWorkAssignment.create({ data: { assigneeRef: input.assigneeRef.trim(), assigneeType: input.assigneeType, assignmentNo: await businessNumber(this.prisma, 'WMS_LABOR_ASSIGNMENT', context, metadata, `labor-assignment:${input.businessRef}:${input.assigneeRef}`), businessRef: input.businessRef.trim(), createdBy: context.accountId, id, quantityBase: quantity, standardId: standard.id, taskType: input.taskType.trim(), tenantId: context.tenantId, updatedBy: context.accountId } });
       await this.emit(tx, id, row.version, 'wms.labor-assigned.v1', context, metadata, { laborAssignmentId: id });
       return { laborAssignmentId: id, status: row.status, version: row.version };
     });
@@ -315,7 +316,7 @@ export class OperationsService {
     if (!adapters.includes(input.adapterType) || !input.businessRef?.trim() || !input.commandType?.trim() || !input.deviceRef?.trim() || Number.isNaN(timeoutAt.getTime()) || timeoutAt <= new Date()) this.invalid('Device command adapter, references or timeout are invalid');
     const id = randomUUID();
     return this.prisma.$transaction(async (tx) => {
-      const row = await tx.deviceCommand.create({ data: { adapterType: input.adapterType, businessRef: input.businessRef.trim(), commandNo: `DEV-${Date.now()}-${id.slice(0, 6)}`, commandType: input.commandType.trim(), createdBy: context.accountId, deviceRef: input.deviceRef.trim(), id, payload: json(input.payload), sentAt: new Date(), status: 'SENT', tenantId: context.tenantId, timeoutAt, updatedBy: context.accountId } });
+      const row = await tx.deviceCommand.create({ data: { adapterType: input.adapterType, businessRef: input.businessRef.trim(), commandNo: await businessNumber(this.prisma, 'WMS_DEVICE_COMMAND', context, metadata, `device-command:${input.businessRef}:${input.deviceRef}:${input.commandType}`), commandType: input.commandType.trim(), createdBy: context.accountId, deviceRef: input.deviceRef.trim(), id, payload: json(input.payload), sentAt: new Date(), status: 'SENT', tenantId: context.tenantId, timeoutAt, updatedBy: context.accountId } });
       await this.emit(tx, id, row.version, 'wms.device-command-sent.v1', context, metadata, { adapterType: row.adapterType, deviceCommandId: id, deviceRef: row.deviceRef });
       return { deviceCommandId: id, status: row.status, version: row.version };
     });

@@ -1,4 +1,3 @@
-import { randomUUID } from 'node:crypto';
 import { Inject, Injectable } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 import type { TenantContext } from '@scm/shared';
@@ -7,6 +6,7 @@ import { toHttpJson } from '../../common/http-json';
 import { isUuid } from '../../common/validation';
 import { PrismaService } from '../../database/prisma.service';
 import { RateMatchingFacade } from '../mdm/public/rate-matching.facade';
+import { businessNumber } from '../platform/public/numbering.facade';
 import type { CommandMetadata } from '../platform/tenant.service';
 
 type Direction = 'PAYABLE' | 'RECEIVABLE';
@@ -191,7 +191,13 @@ export class ChargeCalculationService {
           accessorialAmount: settlementAccessorial,
           businessRef: fact.businessRef,
           calculatedAt: new Date(),
-          calculationNo: `CAL-${new Date().toISOString().replace(/\D/g, '').slice(0, 14)}-${randomUUID().slice(0, 8).toUpperCase()}`,
+          calculationNo: await businessNumber(
+            this.prisma,
+            'BILLING_CHARGE_CALCULATION',
+            context,
+            metadata,
+            `billing-charge-calculation:${fact.id}:${input.direction}:${calculationVersion}`,
+          ),
           calculationVersion,
           chargeFactId: fact.id,
           chargeType: fact.chargeType,

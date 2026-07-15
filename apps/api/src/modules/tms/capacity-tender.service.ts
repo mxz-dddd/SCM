@@ -11,6 +11,7 @@ import { AppError } from '../../common/app-error';
 import { toHttpJson } from '../../common/http-json';
 import { isUuid } from '../../common/validation';
 import { PrismaService } from '../../database/prisma.service';
+import { businessNumber } from '../platform/public/numbering.facade';
 import type { CommandMetadata } from '../platform/tenant.service';
 
 const json = (value: unknown) =>
@@ -143,7 +144,13 @@ export class CapacityTenderService {
           carrierSnapshot: json(input.carrierSnapshot),
           createdBy: context.accountId,
           id,
-          poolNo: `CAP-${Date.now()}-${id.slice(0, 6)}`,
+          poolNo: await businessNumber(
+            this.prisma,
+            'TMS_CAPACITY_POOL',
+            context,
+            metadata,
+            'capacity-pool',
+          ),
           qualificationSnapshot: json(input.qualificationSnapshot),
           regionCode: input.regionCode.trim().toUpperCase(),
           serviceDate,
@@ -180,7 +187,7 @@ export class CapacityTenderService {
     metadata: CommandMetadata,
   ) {
     return this.prisma.$transaction(async (tx) => {
-      const reservation = await this.reserve(tx, input, context);
+      const reservation = await this.reserve(tx, input, context, metadata);
       await this.emit(
         tx,
         reservation.id,
@@ -362,7 +369,10 @@ export class CapacityTenderService {
               'Capacity reservation shipment is outside the plan',
               409,
             );
-          else await this.reserve(tx, reserveInput, context, ['PLANNED']);
+          else
+            await this.reserve(tx, reserveInput, context, metadata, [
+              'PLANNED',
+            ]);
       }
       const approval = await tx.transportPlanApproval.create({
         data: {
@@ -440,6 +450,7 @@ export class CapacityTenderService {
         reservationId,
         input,
         context,
+        metadata,
       );
       await this.emit(
         tx,
@@ -800,7 +811,13 @@ export class CapacityTenderService {
           createdBy: context.accountId,
           deadlineAt,
           id,
-          requestNo: `RFQ-${Date.now()}-${id.slice(0, 6)}`,
+          requestNo: await businessNumber(
+            this.prisma,
+            'TMS_SPOT_RFQ',
+            context,
+            metadata,
+            'spot-rfq',
+          ),
           requestType: input.requestType,
           requirementSnapshot: json(input.requirementSnapshot),
           shipmentId,
@@ -1078,6 +1095,7 @@ export class CapacityTenderService {
           shipmentId: request.shipmentId,
         },
         context,
+        metadata,
       );
       const result = await this.tender(
         tx,
@@ -1091,6 +1109,7 @@ export class CapacityTenderService {
           requirementSnapshot: record(request.requirementSnapshot),
         },
         context,
+        metadata,
       );
       const approved = await tx.awardDecision.update({
         data: {
@@ -1175,13 +1194,14 @@ export class CapacityTenderService {
           'Replacement shipment must match the retender case',
           409,
         );
-      const reservation = await this.reserve(tx, input, context);
+      const reservation = await this.reserve(tx, input, context, metadata);
       const result = await this.tender(
         tx,
         target.shipmentId,
         reservation.id,
         { ...input, previousTenderId: target.originalTenderId },
         context,
+        metadata,
       );
       const price = this.nonNegative(input.priceAmount);
       const changed = await tx.retenderCase.update({
@@ -1348,6 +1368,7 @@ export class CapacityTenderService {
     tx: Prisma.TransactionClient,
     input: ReserveInput,
     context: TenantContext,
+    metadata: CommandMetadata,
     allowedShipmentStatuses: readonly ('APPROVED' | 'PLANNED')[] = ['APPROVED'],
   ) {
     this.uuid(input.capacityPoolId, 'capacityPoolId');
@@ -1386,7 +1407,13 @@ export class CapacityTenderService {
         expiresAt,
         id,
         pallets: shipment.totalPallets,
-        reservationNo: `CR-${Date.now()}-${id.slice(0, 6)}`,
+        reservationNo: await businessNumber(
+          this.prisma,
+          'TMS_CAPACITY_RESERVATION',
+          context,
+          metadata,
+          'capacity-reservation',
+        ),
         shipmentId: shipment.id,
         tenantId: context.tenantId,
         updatedBy: context.accountId,
@@ -1467,6 +1494,7 @@ export class CapacityTenderService {
     reservationId: string,
     input: TenderInput & { previousTenderId?: string },
     context: TenantContext,
+    metadata: CommandMetadata,
   ) {
     const expiresAt = this.date(input.expiresAt);
     if (expiresAt <= new Date())
@@ -1532,7 +1560,13 @@ export class CapacityTenderService {
         requirementSnapshot: json(input.requirementSnapshot),
         shipmentId,
         tenantId: context.tenantId,
-        tenderNo: `CT-${Date.now()}-${id.slice(0, 6)}`,
+        tenderNo: await businessNumber(
+          this.prisma,
+          'TMS_CARRIER_TENDER',
+          context,
+          metadata,
+          'carrier-tender',
+        ),
         updatedBy: context.accountId,
       },
     });

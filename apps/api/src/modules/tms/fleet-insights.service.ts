@@ -7,6 +7,7 @@ import { toHttpJson } from '../../common/http-json';
 import { isUuid } from '../../common/validation';
 import { PrismaService } from '../../database/prisma.service';
 import { FleetAssignmentFacade } from '../mdm/public/fleet-assignment.facade';
+import { businessNumber } from '../platform/public/numbering.facade';
 import type { CommandMetadata } from '../platform/tenant.service';
 
 const json = (value: unknown) =>
@@ -185,7 +186,13 @@ export class FleetInsightsService {
           odometer,
           plannedFrom,
           plannedTo,
-          planNo: `MNT-${Date.now()}-${id.slice(0, 6)}`,
+          planNo: await businessNumber(
+            this.prisma,
+            'TMS_MAINTENANCE_PLAN',
+            context,
+            metadata,
+            `maintenance-plan:${input.vehicleRef}:${plannedFrom.toISOString()}`,
+          ),
           tenantId: context.tenantId,
           updatedBy: context.accountId,
           vehicleRef: input.vehicleRef,
@@ -385,7 +392,13 @@ export class FleetInsightsService {
         data: {
           createdBy: context.accountId,
           detailSnapshot: json(input.detailSnapshot),
-          factNo: `VOF-${Date.now()}-${id.slice(0, 6)}`,
+          factNo: await businessNumber(
+            this.prisma,
+            'TMS_VEHICLE_OPERATING_FACT',
+            context,
+            metadata,
+            `vehicle-operating-fact:${input.vehicleRef}:${input.sourceRef}`,
+          ),
           factType: input.factType,
           id,
           occurredAt: this.date(input.occurredAt),
@@ -536,7 +549,13 @@ export class FleetInsightsService {
                 threshold,
                 value: value?.toString() ?? null,
               }),
-              exceptionNo: `EXC-${Date.now()}-${exceptionId.slice(0, 6)}`,
+              exceptionNo: await businessNumber(
+                this.prisma,
+                'TMS_TELEMETRY_EXCEPTION',
+                context,
+                metadata,
+                `telemetry-exception:${dedupeKey}`,
+              ),
               financialHold: true,
               id: exceptionId,
               reassignRequested: false,
@@ -555,7 +574,13 @@ export class FleetInsightsService {
         }
         const alert = await tx.conditionAlert.create({
           data: {
-            alertNo: `CAL-${Date.now()}-${telemetry.id.slice(0, 6)}`,
+            alertNo: await businessNumber(
+              this.prisma,
+              'TMS_CONDITION_ALERT',
+              context,
+              metadata,
+              `condition-alert:${telemetry.id}`,
+            ),
             alertType: input.metricType,
             createdBy: context.accountId,
             evidenceSnapshot: json({

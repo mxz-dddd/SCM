@@ -6,6 +6,7 @@ import { AppError } from '../../common/app-error';
 import { toHttpJson } from '../../common/http-json';
 import { isUuid } from '../../common/validation';
 import { PrismaService } from '../../database/prisma.service';
+import { businessNumber } from '../platform/public/numbering.facade';
 import type { CommandMetadata } from '../platform/tenant.service';
 
 const json = (value: unknown) =>
@@ -143,7 +144,7 @@ export class AppointmentIntakeService {
   ) {
     return this.prisma.$transaction(async (tx) => {
       const validated = await this.validateDraft(tx, input, context);
-      const appointment = await this.createDraftRecord(tx, input, validated, context);
+      const appointment = await this.createDraftRecord(tx, input, validated, context, metadata);
       await this.emit(tx, appointment.id, appointment.version, 'appointment.draft-saved.v1', context, metadata, { appointmentId: appointment.id, appointmentNo: appointment.appointmentNo, type: appointment.type }, 'Appointment');
       return { appointmentId: appointment.id, status: appointment.status, version: appointment.version };
     });
@@ -156,7 +157,7 @@ export class AppointmentIntakeService {
   ) {
     return this.prisma.$transaction(async (tx) => {
       const validated = await this.validateDraft(tx, input, context);
-      const appointment = await this.createDraftRecord(tx, input, validated, context);
+      const appointment = await this.createDraftRecord(tx, input, validated, context, metadata);
       return this.submitInTransaction(tx, appointment.id, { expectedVersion: appointment.version, slotVersion: input.slotVersion }, context, metadata);
     });
   }
@@ -424,7 +425,7 @@ export class AppointmentIntakeService {
     const workload = this.workload(input.workload);
     const recurringId = randomUUID();
     const recurring = await this.prisma.recurringAppointment.create({
-      data: { createdBy: context.accountId, effectiveFrom, effectiveUntil, id: recurringId, intervalWeeks: input.intervalWeeks, recurringNo: `REC-${Date.now()}-${recurringId.slice(0, 6)}`, requesterPartyRef: input.requesterPartyRef.trim(), requesterSnapshot: json(input.requesterSnapshot), serviceType: input.serviceType.trim().toUpperCase(), slotStartTime: input.slotStartTime, tenantId: context.tenantId, updatedBy: context.accountId, vehicleSnapshot: json(input.vehicleSnapshot), warehouseRef: input.warehouseRef, weekdays, workloadSnapshot: json({ laborHours: workload.laborHours.toString(), pallets: workload.pallets.toString(), quantity: workload.quantity.toString(), quantityUom: input.workload.quantityUom, vehicles: workload.vehicles.toString() }) },
+      data: { createdBy: context.accountId, effectiveFrom, effectiveUntil, id: recurringId, intervalWeeks: input.intervalWeeks, recurringNo: await businessNumber(this.prisma, 'AMS_RECURRING_APPOINTMENT', context, metadata, `recurring-appointment:${input.warehouseRef}:${input.requesterPartyRef}:${effectiveFrom.toISOString()}`), requesterPartyRef: input.requesterPartyRef.trim(), requesterSnapshot: json(input.requesterSnapshot), serviceType: input.serviceType.trim().toUpperCase(), slotStartTime: input.slotStartTime, tenantId: context.tenantId, updatedBy: context.accountId, vehicleSnapshot: json(input.vehicleSnapshot), warehouseRef: input.warehouseRef, weekdays, workloadSnapshot: json({ laborHours: workload.laborHours.toString(), pallets: workload.pallets.toString(), quantity: workload.quantity.toString(), quantityUom: input.workload.quantityUom, vehicles: workload.vehicles.toString() }) },
     });
     let reserved = 0;
     let pending = 0;
@@ -440,7 +441,7 @@ export class AppointmentIntakeService {
           const appointmentId = randomUUID();
           const claimed = await this.claimCapacity(tx, slot.id, slot.version, workload, 'USED', context);
           if (!claimed) throw new AppError('AMS_RECURRING_CAPACITY_CONFLICT', 'Recurring occurrence capacity conflict', 409);
-          const appointment = await tx.appointment.create({ data: { appointmentNo: `APT-${Date.now()}-${appointmentId.slice(0, 6)}`, approvalPolicySnapshot: { recurringAutoConfirm: true }, createdBy: context.accountId, decidedAt: new Date(), id: appointmentId, recurringAppointmentId: recurring.id, requestedWindowFrom: slot.startsAt, requestedWindowTo: slot.endsAt, requesterPartyRef: recurring.requesterPartyRef, requesterSnapshot: json(recurring.requesterSnapshot), serviceType: recurring.serviceType, status: 'CONFIRMED', submittedAt: new Date(), tenantId: context.tenantId, timeSlotId: slot.id, type: 'RECURRING', updatedBy: context.accountId, urgent: false, vehicleSnapshot: json(recurring.vehicleSnapshot), warehouseRef: recurring.warehouseRef, ...(input.workload.workloadEstimateId ? { workloadEstimateId: input.workload.workloadEstimateId } : {}), workloadLaborHours: workload.laborHours, workloadPallets: workload.pallets, workloadQuantity: workload.quantity, workloadQuantityUom: input.workload.quantityUom.trim().toUpperCase(), workloadVehicles: workload.vehicles } });
+          const appointment = await tx.appointment.create({ data: { appointmentNo: await businessNumber(this.prisma, 'AMS_APPOINTMENT', context, metadata, `recurring-appointment-instance:${recurring.id}:${slot.startsAt.toISOString()}`), approvalPolicySnapshot: { recurringAutoConfirm: true }, createdBy: context.accountId, decidedAt: new Date(), id: appointmentId, recurringAppointmentId: recurring.id, requestedWindowFrom: slot.startsAt, requestedWindowTo: slot.endsAt, requesterPartyRef: recurring.requesterPartyRef, requesterSnapshot: json(recurring.requesterSnapshot), serviceType: recurring.serviceType, status: 'CONFIRMED', submittedAt: new Date(), tenantId: context.tenantId, timeSlotId: slot.id, type: 'RECURRING', updatedBy: context.accountId, urgent: false, vehicleSnapshot: json(recurring.vehicleSnapshot), warehouseRef: recurring.warehouseRef, ...(input.workload.workloadEstimateId ? { workloadEstimateId: input.workload.workloadEstimateId } : {}), workloadLaborHours: workload.laborHours, workloadPallets: workload.pallets, workloadQuantity: workload.quantity, workloadQuantityUom: input.workload.quantityUom.trim().toUpperCase(), workloadVehicles: workload.vehicles } });
           await tx.appointmentCapacityReservation.create({ data: { allocationType: 'USED', appointmentId, createdBy: context.accountId, laborHours: workload.laborHours, pallets: workload.pallets, quantity: workload.quantity, slotVersionAtReserve: claimed.version, tenantId: context.tenantId, timeSlotId: slot.id, updatedBy: context.accountId, vehicles: workload.vehicles } });
           await tx.appointmentOccurrence.create({ data: { appointmentId, createdBy: context.accountId, occurrenceDate, recurringAppointmentId: recurring.id, status: 'RESERVED', tenantId: context.tenantId, timeSlotId: slot.id, updatedBy: context.accountId } });
           await this.recordDecision(tx, appointment, 'CONFIRMED', 'RECURRING_AUTO_CONFIRM', 'Recurring occurrence reserved', context);
@@ -478,9 +479,9 @@ export class AppointmentIntakeService {
     return { requestedWindowFrom, requestedWindowTo, slot, workload };
   }
 
-  private async createDraftRecord(tx: Prisma.TransactionClient, input: AppointmentDraftInput, validated: Awaited<ReturnType<AppointmentIntakeService['validateDraft']>>, context: TenantContext) {
+  private async createDraftRecord(tx: Prisma.TransactionClient, input: AppointmentDraftInput, validated: Awaited<ReturnType<AppointmentIntakeService['validateDraft']>>, context: TenantContext, metadata: CommandMetadata) {
     const id = randomUUID();
-    const appointment = await tx.appointment.create({ data: { appointmentNo: `APT-${Date.now()}-${id.slice(0, 6)}`, approvalPolicySnapshot: json(input.approvalPolicy), createdBy: context.accountId, id, requestedWindowFrom: validated.requestedWindowFrom, requestedWindowTo: validated.requestedWindowTo, requesterPartyRef: input.requesterPartyRef.trim(), requesterSnapshot: json(input.requesterSnapshot), serviceType: input.serviceType.trim().toUpperCase(), tenantId: context.tenantId, timeSlotId: validated.slot.id, type: input.type, updatedBy: context.accountId, urgent: input.urgent, vehicleSnapshot: json(input.vehicleSnapshot), warehouseRef: input.warehouseRef, ...(input.workload.workloadEstimateId ? { workloadEstimateId: input.workload.workloadEstimateId } : {}), workloadLaborHours: validated.workload.laborHours, workloadPallets: validated.workload.pallets, workloadQuantity: validated.workload.quantity, workloadQuantityUom: input.workload.quantityUom.trim().toUpperCase(), workloadVehicles: validated.workload.vehicles } });
+    const appointment = await tx.appointment.create({ data: { appointmentNo: await businessNumber(this.prisma, 'AMS_APPOINTMENT', context, metadata, `appointment:${input.warehouseRef}:${input.requesterPartyRef}:${validated.requestedWindowFrom.toISOString()}`), approvalPolicySnapshot: json(input.approvalPolicy), createdBy: context.accountId, id, requestedWindowFrom: validated.requestedWindowFrom, requestedWindowTo: validated.requestedWindowTo, requesterPartyRef: input.requesterPartyRef.trim(), requesterSnapshot: json(input.requesterSnapshot), serviceType: input.serviceType.trim().toUpperCase(), tenantId: context.tenantId, timeSlotId: validated.slot.id, type: input.type, updatedBy: context.accountId, urgent: input.urgent, vehicleSnapshot: json(input.vehicleSnapshot), warehouseRef: input.warehouseRef, ...(input.workload.workloadEstimateId ? { workloadEstimateId: input.workload.workloadEstimateId } : {}), workloadLaborHours: validated.workload.laborHours, workloadPallets: validated.workload.pallets, workloadQuantity: validated.workload.quantity, workloadQuantityUom: input.workload.quantityUom.trim().toUpperCase(), workloadVehicles: validated.workload.vehicles } });
     for (const link of input.orderLinks)
       await tx.amsAppointmentOrderLink.create({ data: { appointmentId: id, bookableQuantityBase: this.decimal(link.bookableQuantityBase), createdBy: context.accountId, packageSpecSnapshot: json(link.packageSpecSnapshot), quantity: this.decimal(link.quantity, true), quantityBase: this.decimal(link.quantityBase, true), quantityBaseUom: link.quantityBaseUom.trim().toUpperCase(), quantityUom: link.quantityUom.trim().toUpperCase(), sourceLineRef: link.sourceLineRef.trim(), sourceRef: link.sourceRef.trim(), sourceSnapshot: json(link.sourceSnapshot), sourceType: link.sourceType.trim().toUpperCase(), tenantId: context.tenantId, updatedBy: context.accountId } });
     return appointment;

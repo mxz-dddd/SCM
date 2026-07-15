@@ -12,6 +12,7 @@ import type { BusinessEventInput } from '../platform/event.service';
 import { hashIdempotencyRequest } from '../platform/idempotency.service';
 import { EventConsumptionFacade } from '../platform/public/event-consumption.facade';
 import { JobSchedulingFacade } from '../platform/public/job-scheduling.facade';
+import { businessNumber } from '../platform/public/numbering.facade';
 import type { CommandMetadata } from '../platform/tenant.service';
 
 type JsonObject = Record<string, unknown>;
@@ -266,7 +267,13 @@ export class ReconciliationService {
             await tx.controlReconciliationCase.create({
               data: {
                 businessRef,
-                caseNo: `REC-${type}-${run.id.slice(0, 8)}-${index + 1}`,
+                caseNo: await businessNumber(
+                  this.prisma,
+                  'CONTROL_RECONCILIATION_CASE',
+                  context,
+                  metadata,
+                  `control-reconciliation:${run.id}:${index + 1}`,
+                ),
                 createdBy: context.accountId,
                 differenceSnapshot: json(difference),
                 reasonCode: outcome,

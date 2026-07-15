@@ -6,6 +6,7 @@ import { AppError } from '../../common/app-error';
 import { toHttpJson } from '../../common/http-json';
 import { isUuid } from '../../common/validation';
 import { PrismaService } from '../../database/prisma.service';
+import { businessNumber } from '../platform/public/numbering.facade';
 import type { CommandMetadata } from '../platform/tenant.service';
 
 const json = (value: unknown) =>
@@ -404,7 +405,13 @@ export class InTransitOperationsService {
             detectedAt: asOf,
             detectedBy: input.detectedBy,
             evidenceSnapshot: json(detection.evidence),
-            exceptionNo: `TEX-${Date.now()}-${id.slice(0, 6)}`,
+            exceptionNo: await businessNumber(
+              this.prisma,
+              'TMS_TRANSPORT_EXCEPTION',
+              context,
+              metadata,
+              `transport-exception:${dedupeKey}`,
+            ),
             financialHold: ['TEMPERATURE', 'DAMAGE', 'REFUSAL'].includes(
               detection.type,
             ),
@@ -661,7 +668,13 @@ export class InTransitOperationsService {
           409,
         );
       const id = randomUUID();
-      const requestRef = `AMS-REQ-${Date.now()}-${id.slice(0, 6)}`;
+      const requestRef = await businessNumber(
+        this.prisma,
+        'TMS_APPOINTMENT_REQUEST',
+        context,
+        metadata,
+        `appointment-request:${shipmentId}:${milestone.id}`,
+      );
       const link = await tx.shipmentAppointmentLink.create({
         data: {
           createdBy: context.accountId,

@@ -10,6 +10,7 @@ import type { TenantContext } from '@scm/shared';
 import { AppError } from '../../common/app-error';
 import { isUuid } from '../../common/validation';
 import { PrismaService } from '../../database/prisma.service';
+import { businessNumber } from '../platform/public/numbering.facade';
 import type { CommandMetadata } from '../platform/tenant.service';
 
 export interface CreateOrderChangeInput {
@@ -925,7 +926,13 @@ export class ChangeReverseService {
           partnerId: input.partnerId,
           reason: input.reason.trim(),
           returnBy,
-          rmaNo: `RMA-${order.orderNo}-${id.slice(0, 8)}`,
+          rmaNo: await businessNumber(
+            this.prisma,
+            'OMS_RETURN_MERCHANDISE_AUTHORIZATION',
+            context,
+            metadata,
+            `rma:${orderId}:${order.version}`,
+          ),
           tenantId: context.tenantId,
           updatedBy: context.accountId,
         },

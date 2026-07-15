@@ -2,6 +2,7 @@
 
 按任务卡记录已完成的工作包。
 
+- 2026-07-16 V2-06：新增租户/组织规则回退、原子序列、周期重置、模板校验、宽度耗尽、审计与幂等的公共编号门面，统一 OMS/WMS/TMS/AMS/Billing/Control 业务单号，补齐默认规则 seed、租户唯一索引、并发测试和源码静态门禁。
 - 2026-07-14 P1-01：完成 pnpm/Turborepo Monorepo、Web/API/Worker/Shared/UI 骨架、PostgreSQL/Redis/MinIO 本地基础设施与统一 CI 验证门禁。
 - 2026-07-14 P1-02：完成 Prisma 九域 multiSchema、通用实体参考模型、Money/双单位数量/受控扩展约定、从零迁移与幂等种子框架。
 - 2026-07-14 P1-03：完成租户生命周期、账号/人员/组织身份绑定、本地 JWT 登录与租户上下文、服务账号/API 凭证、登录审计、事务 Outbox 和写命令幂等控制。

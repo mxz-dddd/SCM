@@ -12,6 +12,7 @@ import { isUuid } from '../../common/validation';
 import { PrismaService } from '../../database/prisma.service';
 import { MdmReferenceService } from '../mdm/public/mdm-reference.service';
 import { RuleEvaluationFacade } from '../platform/public/rule-evaluation.facade';
+import { businessNumber } from '../platform/public/numbering.facade';
 import type { CommandMetadata } from '../platform/tenant.service';
 import { InventoryService } from './inventory.service';
 
@@ -252,7 +253,13 @@ export class QualityPutawayService {
           createdBy: context.accountId,
           id,
           inboundOrderId: inboundId,
-          inspectionNo: `QI-${Date.now()}-${id.slice(0, 6)}`,
+          inspectionNo: await businessNumber(
+            this.prisma,
+            'WMS_QUALITY_INSPECTION',
+            context,
+            metadata,
+            `quality-inspection:${inboundId}:${input.receiptLineId}`,
+          ),
           inventoryLotId: lot?.id ?? null,
           planMode: input.planMode,
           planSnapshot: json(input.planSnapshot),
@@ -504,7 +511,13 @@ export class QualityPutawayService {
             source: 'WMS_QUALITY',
           },
           createdBy: context.accountId,
-          dispositionNo: `QD-${Date.now()}-${id.slice(0, 6)}`,
+          dispositionNo: await businessNumber(
+            this.prisma,
+            'WMS_QUALITY_DISPOSITION',
+            context,
+            metadata,
+            `quality-disposition:${inspection.id}:${inspection.version}`,
+          ),
           id,
           inboundOrderId: inspection.inboundOrderId,
           inspectionId,
@@ -828,7 +841,13 @@ export class QualityPutawayService {
           sourceLocationId: input.sourceLocationId ?? null,
           status: input.assignedTo ? 'ASSIGNED' : 'OPEN',
           targetLocationId: decision.selectedLocationId,
-          taskNo: `PUT-${Date.now()}-${id.slice(0, 6)}`,
+          taskNo: await businessNumber(
+            this.prisma,
+            'WMS_PUTAWAY_TASK',
+            context,
+            metadata,
+            `putaway-task:${decision.inboundOrderId}:${decision.id}`,
+          ),
           tenantId: context.tenantId,
           updatedBy: context.accountId,
         },

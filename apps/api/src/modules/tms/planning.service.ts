@@ -6,6 +6,7 @@ import { AppError } from '../../common/app-error';
 import { toHttpJson } from '../../common/http-json';
 import { isUuid } from '../../common/validation';
 import { PrismaService } from '../../database/prisma.service';
+import { businessNumber } from '../platform/public/numbering.facade';
 import type { CommandMetadata } from '../platform/tenant.service';
 
 const json = (value: unknown) =>
@@ -159,7 +160,13 @@ export class PlanningService {
     return this.prisma.$transaction(async (tx) => {
       const batch = await tx.planningBatch.create({
         data: {
-          batchNo: `PB-${Date.now()}-${id.slice(0, 6).toUpperCase()}`,
+          batchNo: await businessNumber(
+            this.prisma,
+            'TMS_PLANNING_BATCH',
+            context,
+            metadata,
+            'planning-batch',
+          ),
           createdBy: context.accountId,
           criteria: json(input.criteria),
           customerRef: input.customerRef?.trim() || null,
@@ -417,7 +424,13 @@ export class PlanningService {
           createdBy: context.accountId,
           id: planId,
           planningBatchId: batch.id,
-          planNo: `CP-${Date.now()}-${planId.slice(0, 6).toUpperCase()}`,
+          planNo: await businessNumber(
+            this.prisma,
+            'TMS_CONSOLIDATION_PLAN',
+            context,
+            metadata,
+            'consolidation-plan',
+          ),
           policySnapshot: json(input.policySnapshot),
           tenantId: context.tenantId,
           updatedBy: context.accountId,
@@ -438,7 +451,13 @@ export class PlanningService {
             originSnapshot: json(shipmentInput.originSnapshot),
             pickupWindowFrom: shipmentInput.pickupWindowFrom,
             requirementSnapshot: json(shipmentInput.requirementSnapshot),
-            shipmentNo: `SHP-${Date.now()}-${shipmentId.slice(0, 6).toUpperCase()}`,
+            shipmentNo: await businessNumber(
+              this.prisma,
+              'TMS_SHIPMENT',
+              context,
+              metadata,
+              `shipment:${shipmentIds.length}`,
+            ),
             temperatureMax: shipmentInput.temperatureMax,
             temperatureMin: shipmentInput.temperatureMin,
             tenantId: context.tenantId,

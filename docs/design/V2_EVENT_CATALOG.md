@@ -19,7 +19,7 @@
 
 ## 代码扫描目录
 
-已发现 400 个静态事件名。动态事件名仍必须符合 `{domain}.{event}.v{n}` 并在代码评审中核对。
+已发现 401 个静态事件名。动态事件名仍必须符合 `{domain}.{event}.v{n}` 并在代码评审中核对。
 
 | 事件 | 匹配消费者 | 发现位置 |
 | --- | --- | --- |
@@ -310,6 +310,7 @@
 | `platform.notification-template-created.v1` | control.projection.v1, control.alert-engine.v1, control.data-lake.v1 | `apps/api/src/modules/platform/notification.service.ts` |
 | `platform.notification-template-published.v1` | control.projection.v1, control.alert-engine.v1, control.data-lake.v1 | `apps/api/src/modules/platform/notification.service.ts` |
 | `platform.notification-template-retired.v1` | control.projection.v1, control.alert-engine.v1, control.data-lake.v1 | `apps/api/src/modules/platform/notification.service.ts` |
+| `platform.number-allocated.v1` | control.projection.v1, control.alert-engine.v1, control.data-lake.v1 | `apps/api/src/modules/platform/public/numbering.facade.ts` |
 | `platform.number-rule-created.v1` | control.projection.v1, control.alert-engine.v1, control.data-lake.v1 | `apps/api/src/modules/platform/configuration.service.ts` |
 | `platform.ops-archive-completed.v1` | control.projection.v1, control.alert-engine.v1, control.data-lake.v1 | `apps/api/src/modules/platform/operations.service.ts` |
 | `platform.ops-backup-planned.v1` | control.projection.v1, control.alert-engine.v1, control.data-lake.v1 | `apps/api/src/modules/platform/operations.service.ts` |

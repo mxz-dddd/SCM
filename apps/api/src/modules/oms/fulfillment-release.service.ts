@@ -16,6 +16,7 @@ import {
 import { AppError } from '../../common/app-error';
 import { isUuid } from '../../common/validation';
 import { PrismaService } from '../../database/prisma.service';
+import { businessNumber } from '../platform/public/numbering.facade';
 import { CalendarReleaseFacade } from '../mdm/public/calendar-release.facade';
 import type { CommandMetadata } from '../platform/tenant.service';
 import { assertProcessTransition } from './fulfillment-process.state';
@@ -257,7 +258,13 @@ export class FulfillmentReleaseService {
         ]);
       for (const [warehouseId, group] of grouped) {
         const fulfillmentId = randomUUID();
-        const fulfillmentNo = `FUL-${current.orderNo}-${fulfillmentIds.length + 1}-${fulfillmentId.slice(0, 8)}`;
+        const fulfillmentNo = await businessNumber(
+          this.prisma,
+          'OMS_FULFILLMENT_ORDER',
+          context,
+          metadata,
+          `fulfillment:${orderId}:${warehouseId}`,
+        );
         const ownerId = group[0]!.ownerId;
         const fulfillment = await transaction.fulfillmentOrder.create({
           data: {
@@ -319,6 +326,7 @@ export class FulfillmentReleaseService {
             releaseBatchId,
             shipmentRequestIds.length + 1,
             context,
+            metadata,
           ),
         );
       }
@@ -333,6 +341,7 @@ export class FulfillmentReleaseService {
             releaseBatchId,
             1,
             context,
+            metadata,
           ),
         );
       const changed = await transaction.businessOrder.update({
@@ -546,7 +555,16 @@ export class FulfillmentReleaseService {
     const batchId = randomUUID();
     const batch = await this.prisma.orderReleaseBatch.create({
       data: {
-        batchNo: `REL-${batchId.slice(0, 12)}`,
+        batchNo: await businessNumber(
+          this.prisma,
+          'OMS_ORDER_RELEASE_BATCH',
+          context,
+          metadata,
+          `order-release-batch:${input.members
+            .map(({ orderId }) => orderId)
+            .sort()
+            .join(':')}`,
+        ),
         calendarCode: input.calendarCode.trim().toUpperCase(),
         createdBy: context.accountId,
         id: batchId,
@@ -747,6 +765,7 @@ export class FulfillmentReleaseService {
     releaseBatchId: string | undefined,
     sequence: number,
     context: TenantContext,
+    metadata: CommandMetadata,
   ) {
     const id = randomUUID();
     const mode = input.mode ?? 'DIRECT';
@@ -793,7 +812,13 @@ export class FulfillmentReleaseService {
         pickupFrom: date(first.windowFrom, 'windowFrom'),
         pickupUntil: date(first.windowUntil, 'windowUntil'),
         releaseBatchId: releaseBatchId ?? null,
-        requestNo: `SHP-${order.orderNo}-${sequence}-${id.slice(0, 8)}`,
+        requestNo: await businessNumber(
+          this.prisma,
+          'OMS_SHIPMENT_REQUEST',
+          context,
+          metadata,
+          `shipment-request:${order.id}:${warehouseId}:${sequence}`,
+        ),
         requestSnapshot: json(input),
         serviceLevel: input.serviceLevel?.trim().toUpperCase() ?? null,
         status: 'OPEN',

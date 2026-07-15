@@ -10,6 +10,7 @@ import {
   FleetAssignmentFacade,
   type FleetAssignmentInspectionInput,
 } from '../mdm/public/fleet-assignment.facade';
+import { businessNumber } from '../platform/public/numbering.facade';
 import type { CommandMetadata } from '../platform/tenant.service';
 
 const json = (value: unknown) =>
@@ -205,7 +206,13 @@ export class DispatchService {
       const assignment = await tx.vehicleAssignment.create({
         data: {
           assignedBy: context.accountId,
-          assignmentNo: `VA-${Date.now()}-${id.slice(0, 6)}`,
+          assignmentNo: await businessNumber(
+            this.prisma,
+            'TMS_VEHICLE_ASSIGNMENT',
+            context,
+            metadata,
+            `vehicle-assignment:${shipmentId}`,
+          ),
           backupContactSnapshot: json(input.backupContactSnapshot),
           carrierTenderId: tender.id,
           createdBy: context.accountId,
@@ -434,7 +441,13 @@ export class DispatchService {
         data: {
           assignmentVersion: changedAssignment.version,
           checkedBy: context.accountId,
-          checkNo: `CC-${Date.now()}-${id.slice(0, 6)}`,
+          checkNo: await businessNumber(
+            this.prisma,
+            'TMS_COMPLIANCE_CHECK',
+            context,
+            metadata,
+            `compliance-check:${current.id}:${current.version}`,
+          ),
           checklistSnapshot: json({
             driverAndVehicleInspection: inspection,
             requiredVehicleDocuments,
@@ -605,7 +618,13 @@ export class DispatchService {
           complianceCheckId: check.id,
           confirmedBy: context.accountId,
           createdBy: context.accountId,
-          dispatchNo: `DSP-${Date.now()}-${id.slice(0, 6)}`,
+          dispatchNo: await businessNumber(
+            this.prisma,
+            'TMS_SHIPMENT_DISPATCH',
+            context,
+            metadata,
+            `shipment-dispatch:${shipmentId}`,
+          ),
           documentSnapshot: json(input.documentSnapshot),
           id,
           loadSnapshot: json(input.loadSnapshot),

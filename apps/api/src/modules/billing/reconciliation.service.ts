@@ -1,4 +1,3 @@
-import { randomUUID } from 'node:crypto';
 import { Inject, Injectable } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 import type { TenantContext } from '@scm/shared';
@@ -7,6 +6,7 @@ import { toHttpJson } from '../../common/http-json';
 import { isPrismaErrorCode } from '../../common/prisma-error';
 import { isUuid } from '../../common/validation';
 import { PrismaService } from '../../database/prisma.service';
+import { businessNumber } from '../platform/public/numbering.facade';
 import type { CommandMetadata } from '../platform/tenant.service';
 
 type StatementStatus =
@@ -164,7 +164,7 @@ export class ReconciliationService {
             }),
             periodFrom: input.periodFrom,
             periodTo: input.periodTo,
-            statementNo: `REC-${new Date().toISOString().replace(/\D/g, '').slice(0, 14)}-${randomUUID().slice(0, 8).toUpperCase()}`,
+            statementNo: await businessNumber(this.prisma, 'BILLING_RECONCILIATION_STATEMENT', context, metadata, `reconciliation-statement:${input.contractRef}:${input.periodFrom}:${input.periodTo}`),
             subtotalAmount: subtotal,
             taxAmount: tax,
             tenantId: context.tenantId,
@@ -439,7 +439,7 @@ export class ReconciliationService {
           createdBy: context.accountId,
           currency: statement.currency,
           description: input.description,
-          disputeNo: `DSP-${new Date().toISOString().replace(/\D/g, '').slice(0, 14)}-${randomUUID().slice(0, 8).toUpperCase()}`,
+          disputeNo: await businessNumber(this.prisma, 'BILLING_DISPUTE', context, metadata, `billing-dispute:${statementId}:${input.statementLineId ?? 'missing'}:${input.category}`),
           disputedAmount: input.disputedAmount,
           raisedByType: input.raisedByType,
           statementId,
@@ -662,7 +662,7 @@ export class ReconciliationService {
       }
       const adjustment = await tx.billingAdjustmentVoucher.create({
         data: {
-          adjustmentNo: `ADJ-${new Date().toISOString().replace(/\D/g, '').slice(0, 14)}-${randomUUID().slice(0, 8).toUpperCase()}`,
+          adjustmentNo: await businessNumber(this.prisma, 'BILLING_RECONCILIATION_ADJUSTMENT', context, metadata, `reconciliation-adjustment:${voucher.id}:${input.disputeId ?? 'manual'}:${input.adjustmentType}`),
           adjustmentType: input.adjustmentType,
           amount: input.amount,
           createdBy: context.accountId,

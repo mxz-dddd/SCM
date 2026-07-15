@@ -11,6 +11,7 @@ import { AppError } from '../../common/app-error';
 import { toHttpJson } from '../../common/http-json';
 import { isUuid } from '../../common/validation';
 import { PrismaService } from '../../database/prisma.service';
+import { businessNumber } from '../platform/public/numbering.facade';
 import type { CommandMetadata } from '../platform/tenant.service';
 
 const json = (value: unknown) =>
@@ -209,7 +210,13 @@ export class TransportOrderService {
           destinationAddressSnapshot: json(input.destinationAddressSnapshot),
           externalOrderNo: input.externalOrderNo?.trim() || null,
           id,
-          orderNo: `TO-${Date.now()}-${id.slice(0, 6).toUpperCase()}`,
+          orderNo: await businessNumber(
+            this.prisma,
+            'TMS_TRANSPORT_ORDER',
+            context,
+            metadata,
+            `transport-order:${input.sourceType}:${input.sourceRef}:${input.sourceVersion ?? '1'}`,
+          ),
           originAddressRef: input.originAddressRef?.trim() || null,
           originAddressSnapshot: json(input.originAddressSnapshot),
           packagingSnapshot: json(input.packagingSnapshot),

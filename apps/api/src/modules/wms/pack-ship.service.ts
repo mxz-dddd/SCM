@@ -7,6 +7,7 @@ import { toHttpJson } from '../../common/http-json';
 import { isUuid } from '../../common/validation';
 import { PrismaService } from '../../database/prisma.service';
 import { MdmReferenceService } from '../mdm/public/mdm-reference.service';
+import { businessNumber } from '../platform/public/numbering.facade';
 import type { CommandMetadata } from '../platform/tenant.service';
 import { InventoryService } from './inventory.service';
 
@@ -108,7 +109,7 @@ export class PackShipService {
           ruleSnapshot: json(input.ruleSnapshot),
           startedAt: new Date(),
           status: 'PACKING',
-          taskNo: `PKT-${Date.now()}-${taskId.slice(0, 6)}`,
+          taskNo: await businessNumber(this.prisma, 'WMS_PACK_TASK', context, metadata, `pack-task:${outboundId}`),
           tenantId: context.tenantId,
           updatedBy: context.accountId,
         },
@@ -129,7 +130,7 @@ export class PackShipService {
             id: packageId,
             materialSnapshot: json(input.materialSnapshot),
             outboundOrderId: outboundId,
-            packageNo: `PKG-${Date.now()}-${index + 1}-${packageId.slice(0, 6)}`,
+            packageNo: await businessNumber(this.prisma, 'WMS_PACKAGE', context, metadata, `package:${outboundId}:${index + 1}`),
             packTaskId: task.id,
             parentPackageId: input.nested && index > 0 ? packageIds[0]! : null,
             routeCode: order.routeCode,
@@ -196,7 +197,7 @@ export class PackShipService {
       let exceptionId: string | undefined;
       if (weightVariance.greaterThan(weightTolerance) || volumeVariance.greaterThan(volumeTolerance)) {
         exceptionId = randomUUID();
-        await tx.weightException.create({ data: { createdBy: context.accountId, exceptionNo: `WEX-${Date.now()}-${exceptionId.slice(0, 6)}`, id: exceptionId, measurementId: measurement.id, packageId, tenantId: context.tenantId, updatedBy: context.accountId, varianceSnapshot: json({ theoreticalVolume: unit.theoreticalVolume.toString(), theoreticalWeight: unit.theoreticalWeight.toString(), volumeTolerancePct: volumeTolerance.toString(), volumeVariancePct: volumeVariance.toString(), weightTolerancePct: weightTolerance.toString(), weightVariancePct: weightVariance.toString() }) } });
+        await tx.weightException.create({ data: { createdBy: context.accountId, exceptionNo: await businessNumber(this.prisma, 'WMS_WEIGHT_EXCEPTION', context, metadata, `weight-exception:${packageId}:${measurement.id}`), id: exceptionId, measurementId: measurement.id, packageId, tenantId: context.tenantId, updatedBy: context.accountId, varianceSnapshot: json({ theoreticalVolume: unit.theoreticalVolume.toString(), theoreticalWeight: unit.theoreticalWeight.toString(), volumeTolerancePct: volumeTolerance.toString(), volumeVariancePct: volumeVariance.toString(), weightTolerancePct: weightTolerance.toString(), weightVariancePct: weightVariance.toString() }) } });
         await tx.packTask.update({ data: { status: 'EXCEPTION', updatedBy: context.accountId, version: { increment: 1 } }, where: { id: task.id } });
       }
       await this.emit(tx, packageId, measurement.version, exceptionId ? 'outbound.measurement-exception.v1' : 'outbound.measurement-recorded.v1', context, metadata, { exceptionId, measurementId: measurement.id, packageId });
@@ -290,7 +291,7 @@ export class PackShipService {
       const usedVolume = stagedPackages.reduce((sum, row) => sum.add(row.actualVolume ?? 0), new Prisma.Decimal(0));
       if (usedVolume.add(unit.actualVolume ?? 0).greaterThan(maxVolume)) throw new AppError('STAGING_CAPACITY_EXCEEDED', 'Staging location volume capacity would be exceeded', 409);
       const taskId = randomUUID();
-      const task = await tx.stagingTask.create({ data: { capacitySnapshot: json({ maxVolume: maxVolume.toString(), usedBefore: usedVolume.toString() }), createdBy: context.accountId, id: taskId, loadSequence: input.loadSequence, outboundOrderId: unit.outboundOrderId, packageId, routeCode: input.routeCode.trim(), shipmentRef: input.shipmentRef.trim(), stagedAt: new Date(), stagingLocationId: input.stagingLocationId, status: 'STAGED', taskNo: `STG-${Date.now()}-${taskId.slice(0, 6)}`, tenantId: context.tenantId, tripRef: input.tripRef.trim(), updatedBy: context.accountId } });
+      const task = await tx.stagingTask.create({ data: { capacitySnapshot: json({ maxVolume: maxVolume.toString(), usedBefore: usedVolume.toString() }), createdBy: context.accountId, id: taskId, loadSequence: input.loadSequence, outboundOrderId: unit.outboundOrderId, packageId, routeCode: input.routeCode.trim(), shipmentRef: input.shipmentRef.trim(), stagedAt: new Date(), stagingLocationId: input.stagingLocationId, status: 'STAGED', taskNo: await businessNumber(this.prisma, 'WMS_STAGING_TASK', context, metadata, `staging-task:${packageId}`), tenantId: context.tenantId, tripRef: input.tripRef.trim(), updatedBy: context.accountId } });
       await tx.packageUnit.update({ data: { status: 'STAGED', updatedBy: context.accountId, version: { increment: 1 } }, where: { id: packageId } });
       const remaining = await tx.packageUnit.count({ where: { outboundOrderId: unit.outboundOrderId, status: { not: 'STAGED' }, tenantId: context.tenantId } });
       if (!remaining) {
@@ -317,7 +318,7 @@ export class PackShipService {
       const totalVolume = packages.reduce((sum, row) => sum.add(row.actualVolume ?? 0), new Prisma.Decimal(0));
       if (totalWeight.greaterThan(maxWeight) || totalVolume.greaterThan(maxVolume)) throw new AppError('LOAD_VEHICLE_CAPACITY_EXCEEDED', 'Package weight or volume exceeds vehicle capacity', 409);
       const id = randomUUID();
-      const task = await tx.loadTask.create({ data: { createdBy: context.accountId, dockRef: input.dockRef.trim(), expectedSnapshot: json({ maxVolume: maxVolume.toString(), maxWeight: maxWeight.toString(), packageIds: staging.sort((left, right) => left.loadSequence - right.loadSequence).map(({ packageId }) => packageId), totalVolume: totalVolume.toString(), totalWeight: totalWeight.toString() }), id, outboundOrderId: outboundId, sealNo: input.sealNo.trim(), shipmentRef: input.shipmentRef.trim(), taskNo: `LOD-${Date.now()}-${id.slice(0, 6)}`, temperatureZone: order.temperatureZone, tenantId: context.tenantId, updatedBy: context.accountId, vehicleRef: input.vehicleRef.trim() } });
+      const task = await tx.loadTask.create({ data: { createdBy: context.accountId, dockRef: input.dockRef.trim(), expectedSnapshot: json({ maxVolume: maxVolume.toString(), maxWeight: maxWeight.toString(), packageIds: staging.sort((left, right) => left.loadSequence - right.loadSequence).map(({ packageId }) => packageId), totalVolume: totalVolume.toString(), totalWeight: totalWeight.toString() }), id, outboundOrderId: outboundId, sealNo: input.sealNo.trim(), shipmentRef: input.shipmentRef.trim(), taskNo: await businessNumber(this.prisma, 'WMS_LOAD_TASK', context, metadata, `load-task:${outboundId}`), temperatureZone: order.temperatureZone, tenantId: context.tenantId, updatedBy: context.accountId, vehicleRef: input.vehicleRef.trim() } });
       await this.emit(tx, outboundId, task.version, 'outbound.load-created.v1', context, metadata, { loadTaskId: task.id, outboundId, shipmentRef: task.shipmentRef });
       return { loadTaskId: task.id, status: task.status, version: task.version };
     });
@@ -406,13 +407,13 @@ export class PackShipService {
       if (!order) throw this.conflict('OUTBOUND_CANCELLATION_CONFLICT');
       const id = randomUUID();
       if (order.status === 'SHIPPED') {
-        const plan = await tx.cancellationPlan.create({ data: { compensationSteps: json({ requiredFlow: ['RETURN', 'RECALL'], reversible: false }), createdBy: context.accountId, fromStatus: order.status, id, outboundOrderId: outboundId, planNo: `CAN-${Date.now()}-${id.slice(0, 6)}`, reason: input.reason.trim(), reasonCode: input.reasonCode.trim(), status: 'REJECTED', tenantId: context.tenantId, updatedBy: context.accountId } });
+        const plan = await tx.cancellationPlan.create({ data: { compensationSteps: json({ requiredFlow: ['RETURN', 'RECALL'], reversible: false }), createdBy: context.accountId, fromStatus: order.status, id, outboundOrderId: outboundId, planNo: await businessNumber(this.prisma, 'WMS_CANCELLATION_PLAN', context, metadata, `cancellation-plan:${outboundId}`), reason: input.reason.trim(), reasonCode: input.reasonCode.trim(), status: 'REJECTED', tenantId: context.tenantId, updatedBy: context.accountId } });
         return { planId: plan.id, rejected: true };
       }
       const allocations = await tx.outboundAllocation.findMany({ where: { outboundOrderId: outboundId, tenantId: context.tenantId } });
       for (const allocation of allocations) await this.inventory.cancelOutboundReservation(tx, allocation.reservationId, outboundId, context, metadata);
       const steps = { cancelLoadTasks: true, cancelPackAndPickTasks: true, releaseReservationIds: allocations.map(({ reservationId }) => reservationId), returnStagedPackages: order.status === 'STAGED' || order.status === 'LOADED' };
-      const plan = await tx.cancellationPlan.create({ data: { compensationSteps: json(steps), completedAt: new Date(), createdBy: context.accountId, fromStatus: order.status, id, outboundOrderId: outboundId, planNo: `CAN-${Date.now()}-${id.slice(0, 6)}`, reason: input.reason.trim(), reasonCode: input.reasonCode.trim(), status: 'COMPLETED', tenantId: context.tenantId, updatedBy: context.accountId } });
+      const plan = await tx.cancellationPlan.create({ data: { compensationSteps: json(steps), completedAt: new Date(), createdBy: context.accountId, fromStatus: order.status, id, outboundOrderId: outboundId, planNo: await businessNumber(this.prisma, 'WMS_CANCELLATION_PLAN', context, metadata, `cancellation-plan:${outboundId}`), reason: input.reason.trim(), reasonCode: input.reasonCode.trim(), status: 'COMPLETED', tenantId: context.tenantId, updatedBy: context.accountId } });
       await Promise.all([
         tx.pickTask.updateMany({ data: { status: 'CANCELLED', updatedBy: context.accountId, version: { increment: 1 } }, where: { outboundOrderId: outboundId, status: { not: 'COMPLETED' }, tenantId: context.tenantId } }),
         tx.packTask.updateMany({ data: { status: 'CANCELLED', updatedBy: context.accountId, version: { increment: 1 } }, where: { outboundOrderId: outboundId, status: { not: 'PACKED' }, tenantId: context.tenantId } }),

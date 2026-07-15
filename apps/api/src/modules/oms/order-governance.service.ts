@@ -5,6 +5,7 @@ import type { TenantContext } from '@scm/shared';
 import { AppError } from '../../common/app-error';
 import { isUuid } from '../../common/validation';
 import { PrismaService } from '../../database/prisma.service';
+import { businessNumber } from '../platform/public/numbering.facade';
 import type { CommandMetadata } from '../platform/tenant.service';
 
 export interface ReviewOrderInput {
@@ -302,7 +303,7 @@ export class OrderGovernanceService {
           addressId: first.deliveryAddressId,
           aggregateAmount: first.currency ? aggregateAmount : null,
           allocationSnapshot: json({ orderIds: orders.map(({ id }) => id) }),
-          code: `MRG-${randomUUID().replaceAll('-', '').slice(0, 16).toUpperCase()}`,
+          code: await businessNumber(this.prisma, 'OMS_ORDER_MERGE_GROUP', context, metadata, `order-merge:${orders.map(({ id }) => id).sort().join(':')}`),
           createdBy: context.accountId,
           currency: first.currency,
           customerId: first.customerId,

@@ -6,6 +6,7 @@ import { AppError } from '../../common/app-error';
 import { toHttpJson } from '../../common/http-json';
 import { isUuid } from '../../common/validation';
 import { PrismaService } from '../../database/prisma.service';
+import { businessNumber } from '../platform/public/numbering.facade';
 import type { CommandMetadata } from '../platform/tenant.service';
 
 const json = (value: unknown) =>
@@ -157,7 +158,13 @@ export class LoadRouteService {
           equipmentSelectionId: equipment.id,
           id,
           layoutSnapshot: json(input.layoutSnapshot),
-          loadPlanNo: `LP-${Date.now()}-${id.slice(0, 6)}`,
+          loadPlanNo: await businessNumber(
+            this.prisma,
+            'TMS_LOAD_PLAN',
+            context,
+            metadata,
+            `load-plan:${shipment.id}`,
+          ),
           shipmentId: shipment.id,
           tenantId: context.tenantId,
           updatedBy: context.accountId,
@@ -479,7 +486,13 @@ export class LoadRouteService {
           createdBy: context.accountId,
           id: routeId,
           inputSnapshot: json(input),
-          routePlanNo: `RP-${Date.now()}-${routeId.slice(0, 6)}`,
+          routePlanNo: await businessNumber(
+            this.prisma,
+            'TMS_ROUTE_PLAN',
+            context,
+            metadata,
+            `route-plan:${shipmentId}`,
+          ),
           shipmentId,
           tenantId: context.tenantId,
           updatedBy: context.accountId,

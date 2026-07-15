@@ -4430,6 +4430,7 @@ model InventoryExpiryAlert {
   actionSuggestion String @map("action_suggestion") @db.VarChar(500)
   snapshot Json @map("snapshot") @db.JsonB
   resolvedAt DateTime? @map("resolved_at") @db.Timestamptz(3)
+  @@unique([tenantId,alertNo],map:"inventory_expiry_alert_tenant_no_key")
   @@unique([tenantId,dedupeKey],map:"inventory_expiry_alert_dedupe_key")
   @@index([tenantId,status,type,createdAt],map:"inventory_expiry_alert_workbench_idx")
   @@map("inventory_expiry_alert")

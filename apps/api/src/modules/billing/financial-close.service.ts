@@ -1,4 +1,3 @@
-import { randomUUID } from 'node:crypto';
 import { Inject, Injectable } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 import type { TenantContext } from '@scm/shared';
@@ -6,6 +5,7 @@ import { AppError } from '../../common/app-error';
 import { toHttpJson } from '../../common/http-json';
 import { isUuid } from '../../common/validation';
 import { PrismaService } from '../../database/prisma.service';
+import { businessNumber } from '../platform/public/numbering.facade';
 import type { CommandMetadata } from '../platform/tenant.service';
 
 type InvoiceSource = {
@@ -308,7 +308,7 @@ export class FinancialCloseService {
           currency,
           direction: raw.direction,
           externalRef: this.required(raw.externalRef, 'externalRef', 200),
-          paymentNo: `PAY-${new Date().toISOString().replace(/\D/g, '').slice(0, 14)}-${randomUUID().slice(0, 8).toUpperCase()}`,
+          paymentNo: await businessNumber(this.prisma, 'BILLING_PAYMENT', context, metadata, `billing-payment:${raw.source}:${raw.externalRef}`),
           paymentType: raw.paymentType,
           source: raw.source,
           sourceSnapshot: json(raw.sourceSnapshot),
