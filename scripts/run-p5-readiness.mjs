@@ -5,6 +5,9 @@ const restoreDatabaseName = 'scm_p5_restore_verify';
 const jwtSecret = 'scm-p5-readiness-jwt-secret-at-least-32-characters';
 const seedPassword = 'scm-p5-readiness-admin-password';
 const postgresUser = process.env.POSTGRES_USER ?? 'scm';
+const workerActorId = '10000000-0000-4000-8000-000000000099';
+const workerControlToken =
+  'scm-p5-readiness-worker-control-token-at-least-32-characters';
 
 function run(command, args, options = {}) {
   const result = spawnSync(command, args, {
@@ -102,6 +105,8 @@ try {
     DATABASE_URL: `postgresql://${user}:${password}@127.0.0.1:${port}/${databaseName}`,
     JWT_SECRET: jwtSecret,
     SEED_ADMIN_PASSWORD: seedPassword,
+    WORKER_ACTOR_ID: workerActorId,
+    WORKER_CONTROL_TOKEN: workerControlToken,
   };
 
   run('pnpm', ['audit', '--prod', '--audit-level', 'high']);
