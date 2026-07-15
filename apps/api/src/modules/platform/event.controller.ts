@@ -115,16 +115,7 @@ export class EventController {
   @Post('consume')
   @HttpCode(200)
   @RequirePermission('platform.event.process')
-  consume(
-    @Body() input: ConsumeEventInput,
-    @Headers('idempotency-key') idempotencyKey: string | undefined,
-    @Headers('x-correlation-id') correlationId: string,
-    @Req() request: TenantRequest,
-  ) {
-    return this.events.consume(input, request.tenantContext, {
-      correlationId,
-      idempotencyKey,
-      ipAddress: request.ip,
-    });
+  consume(@Body() input: ConsumeEventInput) {
+    return this.events.rejectDiagnosticConsume(input);
   }
 }

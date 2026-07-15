@@ -364,7 +364,7 @@ databaseDescribe('Control BI analytics and lake snapshots', () => {
         context,
         command(),
       ),
-    ).toMatchObject({ status: 'IGNORED' });
+    ).toMatchObject({ status: 'PROCESSED' });
     const late = lakeEvent(randomUUID(), 1, '2030-07-08T10:00:00.000Z', {
       businessRef: 'SHIP-P4-08-LATE',
       dataset: 'SHIPMENT_FACT',
@@ -387,13 +387,16 @@ databaseDescribe('Control BI analytics and lake snapshots', () => {
       where: { tenantId_dataset: { dataset: 'SHIPMENT_FACT', tenantId } },
     });
     expect(watermark.lateRecordCount).toBe(1);
-    expect(
-      await prisma.controlLakeFactSnapshot.findMany({
+    const onlineArrivalStatuses = await prisma.controlLakeFactSnapshot.findMany(
+      {
         orderBy: { occurredAt: 'desc' },
         select: { arrivalStatus: true },
         where: { dataset: 'SHIPMENT_FACT', isolationKey: 'ONLINE', tenantId },
-      }),
-    ).toEqual([{ arrivalStatus: 'ON_TIME' }, { arrivalStatus: 'LATE' }]);
+      },
+    );
+    expect(
+      onlineArrivalStatuses.map(({ arrivalStatus }) => arrivalStatus).sort(),
+    ).toEqual(['LATE', 'ON_TIME', 'ON_TIME']);
     expect(
       await prisma.controlLakeDimensionSnapshot.count({
         where: { dataset: 'CUSTOMER_DIM', isolationKey: 'ONLINE', tenantId },
@@ -409,17 +412,17 @@ databaseDescribe('Control BI analytics and lake snapshots', () => {
       context,
       command(),
     );
-    expect(recompute).toMatchObject({ outputCount: 2, status: 'COMPLETED' });
+    expect(recompute).toMatchObject({ outputCount: 3, status: 'COMPLETED' });
     expect(
       await prisma.controlLakeFactSnapshot.count({
         where: { dataset: 'SHIPMENT_FACT', isolationKey: 'ONLINE', tenantId },
       }),
-    ).toBe(2);
+    ).toBe(3);
     expect(
       await prisma.controlLakeFactSnapshot.count({
         where: { isolationKey: recompute.isolationKey, tenantId },
       }),
-    ).toBe(2);
+    ).toBe(3);
     const fact = await prisma.controlLakeFactSnapshot.findFirstOrThrow({
       where: { isolationKey: 'ONLINE', tenantId },
     });

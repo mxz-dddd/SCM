@@ -188,7 +188,12 @@ databaseDescribe('Control daily cross-domain reconciliations', () => {
         context,
         command(),
       ),
-    ).toMatchObject({ status: 'IGNORED' });
+    ).toMatchObject({ status: 'PROCESSED' });
+    expect(
+      await prisma.controlReconciliationObservation.count({
+        where: { tenantId },
+      }),
+    ).toBe(17);
 
     for (const type of types) {
       const input = {

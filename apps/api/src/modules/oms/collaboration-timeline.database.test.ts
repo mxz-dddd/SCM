@@ -1,18 +1,210 @@
 import { randomUUID } from 'node:crypto';
 import { PrismaClient } from '@prisma/client';
 import type { TenantContext } from '@scm/shared';
-import { afterAll,describe,expect,it } from 'vitest';
+import { afterAll, describe, expect, it } from 'vitest';
 import { EventService } from '../platform/event.service';
 import { IdempotencyService } from '../platform/idempotency.service';
 import { EventConsumptionFacade } from '../platform/public/event-consumption.facade';
 import { CollaborationTimelineService } from './collaboration-timeline.service';
-const databaseDescribe=process.env.DATABASE_URL?describe:describe.skip;const prisma=new PrismaClient();
-databaseDescribe('partner collaboration ASN and timeline',()=>{afterAll(()=>prisma.$disconnect());it('validates partner quantities and consumes timeline events exactly once',async()=>{
- const tenantId=randomUUID(),actorId=randomUUID(),partnerId=randomUUID(),warehouseId=randomUUID(),productId=randomUUID();const context:TenantContext={accountId:actorId,accountKind:'TENANT_ADMIN',deviceId:'collab-db',organizationIds:[],permissionVersion:1,tenantId,tokenId:randomUUID()};const command=()=>({correlationId:randomUUID(),idempotencyKey:randomUUID(),ipAddress:'127.0.0.1'});
- const rawId=randomUUID();await prisma.rawMessageRef.create({data:{channel:'API',contentHash:'a'.repeat(64),createdBy:actorId,externalOrderNo:'PO-1',externalVersion:'1',id:rawId,mappingVersion:'test',rawPayload:{},tenantId,updatedBy:actorId}});const order=await prisma.businessOrder.create({data:{channel:'API',createdBy:actorId,customerId:partnerId,externalOrderNo:'PO-1',externalVersion:'1',id:randomUUID(),mappingVersion:'test',orderNo:'PO-1',rawMessageRefId:rawId,sourcePayloadHash:'b'.repeat(64),status:'APPROVED',tenantId,type:'PURCHASE',updatedBy:actorId}});const line=await prisma.businessOrderLine.create({data:{baseUom:'EA',createdBy:actorId,id:randomUUID(),lineNo:1,lineVersion:1,orderId:order.id,originalUom:'BOX',productId,quantityBase:'10',quantityOriginal:'2',tenantId,updatedBy:actorId}});
- const events=new EventConsumptionFacade(new EventService(new IdempotencyService(prisma as never),prisma as never));const service=new CollaborationTimelineService(prisma as never,events);
- const collaboration=await service.collaborate(order.id,{comment:'accept',confirmed:true,partnerId,type:'SUPPLIER_ACCEPTANCE'},context,command());expect(collaboration.type).toBe('SUPPLIER_ACCEPTANCE');await expect(service.collaborate(order.id,{partnerId:randomUUID(),type:'CUSTOMER_CONFIRMATION'},context,command())).rejects.toMatchObject({code:'ORDER_PARTNER_SCOPE_DENIED'});
- const pallet='PLT-1',carton='CTN-1';const asnInput={expectedArrival:new Date(Date.now()+3600000).toISOString(),expiresAt:new Date(Date.now()+86400000).toISOString(),externalAsnNo:'ASN-1',lines:[{baseUom:'EA',batchNo:'B1',originalUom:'BOX',packageNo:carton,productId,quantityBase:'6',quantityOriginal:'1.2',sourceOrderLineId:line.id}],packages:[{packageNo:pallet,type:'PALLET' as const},{packageNo:carton,parentPackageNo:pallet,type:'CARTON' as const}],partnerId,warehouseId};const asn=await service.createAsn(order.id,asnInput,context,command());expect(asn).toMatchObject({status:'ACCEPTED',version:2});expect(await prisma.platformOutbox.count({where:{aggregateId:asn.asnId,eventName:{in:['wms.asn-submitted.v1','ams.appointment-requested.v1']}}})).toBe(2);
- await expect(service.createAsn(order.id,asnInput,context,command())).rejects.toMatchObject({code:'ASN_DUPLICATE'});await expect(service.createAsn(order.id,{...asnInput,externalAsnNo:'ASN-2',lines:[{...asnInput.lines[0]!,quantityBase:'5'}]},context,command())).rejects.toMatchObject({code:'ASN_QUANTITY_EXCEEDED'});await expect(service.createAsn(order.id,{...asnInput,expiresAt:new Date(Date.now()-1000).toISOString(),externalAsnNo:'ASN-3'},context,command())).rejects.toMatchObject({code:'ASN_EXPIRED'});
- const event={aggregateId:order.id,aggregateType:'BusinessOrder',aggregateVersion:2,eventId:randomUUID(),eventType:'order.released.v1',occurredAt:new Date().toISOString(),payload:{actorId,attachments:[randomUUID()],fromStatus:'ALLOCATED',orderId:order.id,summary:'订单已释放',toStatus:'RELEASED'},schemaVersion:1,traceId:'timeline-trace'};const first=await service.consumeTimeline(event,context,command());expect(first.status).toBe('PROCESSED');const duplicate=await service.consumeTimeline(event,context,command());expect(duplicate).toMatchObject({duplicate:true,status:'PROCESSED'});const old=await service.consumeTimeline({...event,aggregateVersion:1,eventId:randomUUID()},context,command());expect(old.status).toBe('IGNORED');const timeline=await service.timeline(order.id,'Asia/Shanghai',context);expect(timeline.items).toHaveLength(1);expect(timeline.items[0]).toMatchObject({fromStatus:'ALLOCATED',sourceDomain:'ORDER',toStatus:'RELEASED',traceId:'timeline-trace'});
-});});
+const databaseDescribe = process.env.DATABASE_URL ? describe : describe.skip;
+const prisma = new PrismaClient();
+databaseDescribe('partner collaboration ASN and timeline', () => {
+  afterAll(() => prisma.$disconnect());
+  it('validates partner quantities and consumes timeline events exactly once', async () => {
+    const tenantId = randomUUID(),
+      actorId = randomUUID(),
+      partnerId = randomUUID(),
+      warehouseId = randomUUID(),
+      productId = randomUUID();
+    const context: TenantContext = {
+      accountId: actorId,
+      accountKind: 'TENANT_ADMIN',
+      deviceId: 'collab-db',
+      organizationIds: [],
+      permissionVersion: 1,
+      tenantId,
+      tokenId: randomUUID(),
+    };
+    const command = () => ({
+      correlationId: randomUUID(),
+      idempotencyKey: randomUUID(),
+      ipAddress: '127.0.0.1',
+    });
+    const rawId = randomUUID();
+    await prisma.rawMessageRef.create({
+      data: {
+        channel: 'API',
+        contentHash: 'a'.repeat(64),
+        createdBy: actorId,
+        externalOrderNo: 'PO-1',
+        externalVersion: '1',
+        id: rawId,
+        mappingVersion: 'test',
+        rawPayload: {},
+        tenantId,
+        updatedBy: actorId,
+      },
+    });
+    const order = await prisma.businessOrder.create({
+      data: {
+        channel: 'API',
+        createdBy: actorId,
+        customerId: partnerId,
+        externalOrderNo: 'PO-1',
+        externalVersion: '1',
+        id: randomUUID(),
+        mappingVersion: 'test',
+        orderNo: 'PO-1',
+        rawMessageRefId: rawId,
+        sourcePayloadHash: 'b'.repeat(64),
+        status: 'APPROVED',
+        tenantId,
+        type: 'PURCHASE',
+        updatedBy: actorId,
+      },
+    });
+    const line = await prisma.businessOrderLine.create({
+      data: {
+        baseUom: 'EA',
+        createdBy: actorId,
+        id: randomUUID(),
+        lineNo: 1,
+        lineVersion: 1,
+        orderId: order.id,
+        originalUom: 'BOX',
+        productId,
+        quantityBase: '10',
+        quantityOriginal: '2',
+        tenantId,
+        updatedBy: actorId,
+      },
+    });
+    const events = new EventConsumptionFacade(
+      new EventService(
+        new IdempotencyService(prisma as never),
+        prisma as never,
+      ),
+    );
+    const service = new CollaborationTimelineService(prisma as never, events);
+    const collaboration = await service.collaborate(
+      order.id,
+      {
+        comment: 'accept',
+        confirmed: true,
+        partnerId,
+        type: 'SUPPLIER_ACCEPTANCE',
+      },
+      context,
+      command(),
+    );
+    expect(collaboration.type).toBe('SUPPLIER_ACCEPTANCE');
+    await expect(
+      service.collaborate(
+        order.id,
+        { partnerId: randomUUID(), type: 'CUSTOMER_CONFIRMATION' },
+        context,
+        command(),
+      ),
+    ).rejects.toMatchObject({ code: 'ORDER_PARTNER_SCOPE_DENIED' });
+    const pallet = 'PLT-1',
+      carton = 'CTN-1';
+    const asnInput = {
+      expectedArrival: new Date(Date.now() + 3600000).toISOString(),
+      expiresAt: new Date(Date.now() + 86400000).toISOString(),
+      externalAsnNo: 'ASN-1',
+      lines: [
+        {
+          baseUom: 'EA',
+          batchNo: 'B1',
+          originalUom: 'BOX',
+          packageNo: carton,
+          productId,
+          quantityBase: '6',
+          quantityOriginal: '1.2',
+          sourceOrderLineId: line.id,
+        },
+      ],
+      packages: [
+        { packageNo: pallet, type: 'PALLET' as const },
+        { packageNo: carton, parentPackageNo: pallet, type: 'CARTON' as const },
+      ],
+      partnerId,
+      warehouseId,
+    };
+    const asn = await service.createAsn(order.id, asnInput, context, command());
+    expect(asn).toMatchObject({ status: 'ACCEPTED', version: 2 });
+    expect(
+      await prisma.platformOutbox.count({
+        where: {
+          aggregateId: asn.asnId,
+          eventName: {
+            in: ['wms.asn-submitted.v1', 'ams.appointment-requested.v1'],
+          },
+        },
+      }),
+    ).toBe(2);
+    await expect(
+      service.createAsn(order.id, asnInput, context, command()),
+    ).rejects.toMatchObject({ code: 'ASN_DUPLICATE' });
+    await expect(
+      service.createAsn(
+        order.id,
+        {
+          ...asnInput,
+          externalAsnNo: 'ASN-2',
+          lines: [{ ...asnInput.lines[0]!, quantityBase: '5' }],
+        },
+        context,
+        command(),
+      ),
+    ).rejects.toMatchObject({ code: 'ASN_QUANTITY_EXCEEDED' });
+    await expect(
+      service.createAsn(
+        order.id,
+        {
+          ...asnInput,
+          expiresAt: new Date(Date.now() - 1000).toISOString(),
+          externalAsnNo: 'ASN-3',
+        },
+        context,
+        command(),
+      ),
+    ).rejects.toMatchObject({ code: 'ASN_EXPIRED' });
+    const event = {
+      aggregateId: order.id,
+      aggregateType: 'BusinessOrder',
+      aggregateVersion: 2,
+      eventId: randomUUID(),
+      eventType: 'order.released.v1',
+      occurredAt: new Date().toISOString(),
+      payload: {
+        actorId,
+        attachments: [randomUUID()],
+        fromStatus: 'ALLOCATED',
+        orderId: order.id,
+        summary: '订单已释放',
+        toStatus: 'RELEASED',
+      },
+      schemaVersion: 1,
+      traceId: 'timeline-trace',
+    };
+    const first = await service.consumeTimeline(event, context, command());
+    expect(first.status).toBe('PROCESSED');
+    const duplicate = await service.consumeTimeline(event, context, command());
+    expect(duplicate).toMatchObject({ duplicate: true, status: 'PROCESSED' });
+    const old = await service.consumeTimeline(
+      { ...event, aggregateVersion: 1, eventId: randomUUID() },
+      context,
+      command(),
+    );
+    expect(old.status).toBe('PROCESSED');
+    const timeline = await service.timeline(order.id, 'Asia/Shanghai', context);
+    expect(timeline.items).toHaveLength(2);
+    expect(timeline.items[0]).toMatchObject({
+      fromStatus: 'ALLOCATED',
+      sourceDomain: 'ORDER',
+      toStatus: 'RELEASED',
+      traceId: 'timeline-trace',
+    });
+  });
+});

@@ -1,10 +1,17 @@
 import { Inject, Injectable } from '@nestjs/common';
 import { Prisma, type OutboxStatus } from '@prisma/client';
-import type { TenantContext } from '@scm/shared';
+import {
+  subscriptionForConsumer,
+  type ConsumerMode,
+  type TenantContext,
+} from '@scm/shared';
 import { AppError } from '../../common/app-error';
 import { isUuid } from '../../common/validation';
 import { PrismaService } from '../../database/prisma.service';
-import { hashIdempotencyRequest, IdempotencyService } from './idempotency.service';
+import {
+  hashIdempotencyRequest,
+  IdempotencyService,
+} from './idempotency.service';
 import type { CommandMetadata } from './tenant.service';
 
 type JsonObject = Readonly<Record<string, unknown>>;
@@ -36,6 +43,7 @@ export interface BusinessEventInput {
 export interface ConsumeEventInput {
   readonly consumer: string;
   readonly event: BusinessEventInput;
+  readonly mode: ConsumerMode;
 }
 
 interface OutboxRow {
@@ -58,12 +66,20 @@ const CODE_PATTERN = /^[a-z][a-z0-9.-]{2,149}\.v\d+$/;
 const NAME_PATTERN = /^[A-Za-z][A-Za-z0-9_.-]{2,149}$/;
 const OUTBOX_TERMINAL: readonly OutboxStatus[] = ['DEAD_LETTER', 'PUBLISHED'];
 
-export function assertOutboxTransition(current: OutboxStatus, target: OutboxStatus): void {
+export function assertOutboxTransition(
+  current: OutboxStatus,
+  target: OutboxStatus,
+): void {
   const allowed =
-    (['FAILED', 'PENDING', 'PROCESSING'].includes(current) && target === 'PROCESSING') ||
-    (current === 'PROCESSING' && ['DEAD_LETTER', 'FAILED', 'PUBLISHED'].includes(target)) ||
+    (['FAILED', 'PENDING', 'PROCESSING'].includes(current) &&
+      target === 'PROCESSING') ||
+    (current === 'PROCESSING' &&
+      ['DEAD_LETTER', 'FAILED', 'PUBLISHED'].includes(target)) ||
     (current === 'DEAD_LETTER' && target === 'PENDING');
-  if (!allowed || OUTBOX_TERMINAL.includes(current) && current !== 'DEAD_LETTER') {
+  if (
+    !allowed ||
+    (OUTBOX_TERMINAL.includes(current) && current !== 'DEAD_LETTER')
+  ) {
     throw new AppError(
       'EVENT_TRANSITION_INVALID',
       `Outbox transition ${current} -> ${target} is not allowed`,
@@ -89,14 +105,19 @@ function validateBusinessEvent(event: BusinessEventInput): void {
     !event.payload ||
     Array.isArray(event.payload)
   ) {
-    throw new AppError('BUSINESS_EVENT_INVALID', 'Business event envelope is invalid', 400);
+    throw new AppError(
+      'BUSINESS_EVENT_INVALID',
+      'Business event envelope is invalid',
+      400,
+    );
   }
 }
 
 @Injectable()
 export class EventService {
   constructor(
-    @Inject(IdempotencyService) private readonly idempotency: IdempotencyService,
+    @Inject(IdempotencyService)
+    private readonly idempotency: IdempotencyService,
     @Inject(PrismaService) private readonly prisma: PrismaService,
   ) {}
 
@@ -109,12 +130,19 @@ export class EventService {
       'PUBLISHED',
     ];
     if (status && !allowed.includes(status as OutboxStatus)) {
-      throw new AppError('EVENT_STATUS_INVALID', 'Outbox status is invalid', 400);
+      throw new AppError(
+        'EVENT_STATUS_INVALID',
+        'Outbox status is invalid',
+        400,
+      );
     }
     return this.prisma.platformOutbox.findMany({
       orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
       take: 300,
-      where: { ...(status ? { status: status as OutboxStatus } : {}), tenantId: context.tenantId },
+      where: {
+        ...(status ? { status: status as OutboxStatus } : {}),
+        tenantId: context.tenantId,
+      },
     });
   }
 
@@ -126,7 +154,11 @@ export class EventService {
     });
   }
 
-  claim(input: ClaimEventsInput, context: TenantContext, metadata: CommandMetadata) {
+  claim(
+    input: ClaimEventsInput,
+    context: TenantContext,
+    metadata: CommandMetadata,
+  ) {
     const leaseSeconds = input.leaseSeconds ?? 60;
     const limit = input.limit ?? 20;
     if (
@@ -139,7 +171,11 @@ export class EventService {
       limit < 1 ||
       limit > 100
     ) {
-      throw new AppError('EVENT_LEASE_INVALID', 'Outbox lease input is invalid', 400);
+      throw new AppError(
+        'EVENT_LEASE_INVALID',
+        'Outbox lease input is invalid',
+        400,
+      );
     }
     return this.idempotency.execute(
       {
@@ -234,7 +270,11 @@ export class EventService {
     metadata: CommandMetadata,
   ) {
     if (!input.error?.trim() || input.error.length > 1000) {
-      throw new AppError('EVENT_FAILURE_INVALID', 'Relay failure reason is required', 400);
+      throw new AppError(
+        'EVENT_FAILURE_INVALID',
+        'Relay failure reason is required',
+        400,
+      );
     }
     return this.finishLease('FAILED', eventId, input, context, metadata);
   }
@@ -246,7 +286,11 @@ export class EventService {
     metadata: CommandMetadata,
   ) {
     if (!isUuid(eventId) || !Number.isInteger(expectedVersion)) {
-      throw new AppError('EVENT_REPLAY_INVALID', 'Dead-letter replay input is invalid', 400);
+      throw new AppError(
+        'EVENT_REPLAY_INVALID',
+        'Dead-letter replay input is invalid',
+        400,
+      );
     }
     return this.idempotency.execute(
       {
@@ -261,8 +305,16 @@ export class EventService {
         const event = await transaction.platformOutbox.findFirst({
           where: { id: eventId, tenantId: context.tenantId },
         });
-        if (!event) throw new AppError('BUSINESS_EVENT_NOT_FOUND', 'Business event was not found', 404);
-        if (event.version !== expectedVersion || event.status !== 'DEAD_LETTER') {
+        if (!event)
+          throw new AppError(
+            'BUSINESS_EVENT_NOT_FOUND',
+            'Business event was not found',
+            404,
+          );
+        if (
+          event.version !== expectedVersion ||
+          event.status !== 'DEAD_LETTER'
+        ) {
           throw this.versionConflict();
         }
         assertOutboxTransition(event.status, 'PENDING');
@@ -280,11 +332,22 @@ export class EventService {
           },
           where: { id: event.id },
         });
-        await this.audit(transaction, event.id, 'event.dead-letter.replayed', context, metadata, {
-          eventType: event.eventName,
+        await this.audit(
+          transaction,
+          event.id,
+          'event.dead-letter.replayed',
+          context,
+          metadata,
+          {
+            eventType: event.eventName,
+            status: updated.status,
+          },
+        );
+        return {
+          eventId: event.id,
           status: updated.status,
-        });
-        return { eventId: event.id, status: updated.status, version: updated.version };
+          version: updated.version,
+        };
       },
     );
   }
@@ -293,13 +356,22 @@ export class EventService {
     input: ConsumeEventInput,
     context: TenantContext,
     metadata: CommandMetadata,
-    handler: (event: BusinessEventInput, transaction: Prisma.TransactionClient) => Promise<JsonObject> = async () => ({ accepted: true }),
+    handler: (
+      event: BusinessEventInput,
+      transaction: Prisma.TransactionClient,
+    ) => Promise<JsonObject>,
   ) {
     validateBusinessEvent(input.event);
-    if (!NAME_PATTERN.test(input.consumer) || !metadata.idempotencyKey?.trim()) {
+    const subscription = subscriptionForConsumer(input.consumer);
+    if (
+      !NAME_PATTERN.test(input.consumer) ||
+      !subscription ||
+      subscription.mode !== input.mode ||
+      !metadata.idempotencyKey?.trim()
+    ) {
       throw new AppError(
         'EVENT_CONSUMER_INVALID',
-        'Consumer and Idempotency-Key are required',
+        'Registered consumer, matching mode and Idempotency-Key are required',
         400,
       );
     }
@@ -321,9 +393,14 @@ export class EventService {
             existing.eventType !== input.event.eventType ||
             existing.aggregateId !== input.event.aggregateId ||
             existing.aggregateVersion !== input.event.aggregateVersion ||
-            hashIdempotencyRequest(existing.payload) !== hashIdempotencyRequest(input.event.payload)
+            hashIdempotencyRequest(existing.payload) !==
+              hashIdempotencyRequest(input.event.payload)
           ) {
-            throw new AppError('EVENT_REPLAY_CONFLICT', 'Event ID was replayed with different content', 409);
+            throw new AppError(
+              'EVENT_REPLAY_CONFLICT',
+              'Event ID was replayed with different content',
+              409,
+            );
           }
           if (existing.status !== 'FAILED') {
             return {
@@ -353,9 +430,14 @@ export class EventService {
             },
           },
         });
-        const ignored = Boolean(checkpoint && checkpoint.lastVersion >= input.event.aggregateVersion);
-        const inbox = retryInbox ??
-          await transaction.eventInbox.create({
+        const ignored = Boolean(
+          input.mode === 'LATEST_STATE' &&
+          checkpoint &&
+          checkpoint.lastVersion >= input.event.aggregateVersion,
+        );
+        const inbox =
+          retryInbox ??
+          (await transaction.eventInbox.create({
             data: {
               aggregateId: input.event.aggregateId,
               aggregateType: input.event.aggregateType,
@@ -371,37 +453,47 @@ export class EventService {
               traceId: input.event.traceId,
               updatedBy: context.accountId,
             },
-          });
+          }));
         if (ignored) {
-          return { duplicate: false, eventId: input.event.eventId, inboxId: inbox.id, status: 'IGNORED' as const };
+          return {
+            duplicate: false,
+            eventId: input.event.eventId,
+            inboxId: inbox.id,
+            status: 'IGNORED' as const,
+          };
         }
         const result = await handler(input.event, transaction);
-        await transaction.consumerCheckpoint.upsert({
-          create: {
-            aggregateId: input.event.aggregateId,
-            aggregateType: input.event.aggregateType,
-            consumer: input.consumer,
-            createdBy: context.accountId,
-            lastEventId: input.event.eventId,
-            lastVersion: input.event.aggregateVersion,
-            tenantId: context.tenantId,
-            updatedBy: context.accountId,
-          },
-          update: {
-            lastEventId: input.event.eventId,
-            lastVersion: input.event.aggregateVersion,
-            updatedBy: context.accountId,
-            version: { increment: 1 },
-          },
-          where: {
-            tenantId_consumer_aggregateType_aggregateId: {
+        if (
+          !checkpoint ||
+          checkpoint.lastVersion <= input.event.aggregateVersion
+        ) {
+          await transaction.consumerCheckpoint.upsert({
+            create: {
               aggregateId: input.event.aggregateId,
               aggregateType: input.event.aggregateType,
               consumer: input.consumer,
+              createdBy: context.accountId,
+              lastEventId: input.event.eventId,
+              lastVersion: input.event.aggregateVersion,
               tenantId: context.tenantId,
+              updatedBy: context.accountId,
             },
-          },
-        });
+            update: {
+              lastEventId: input.event.eventId,
+              lastVersion: input.event.aggregateVersion,
+              updatedBy: context.accountId,
+              version: { increment: 1 },
+            },
+            where: {
+              tenantId_consumer_aggregateType_aggregateId: {
+                aggregateId: input.event.aggregateId,
+                aggregateType: input.event.aggregateType,
+                consumer: input.consumer,
+                tenantId: context.tenantId,
+              },
+            },
+          });
+        }
         const processed = await transaction.eventInbox.update({
           data: {
             processedAt: new Date(),
@@ -412,7 +504,12 @@ export class EventService {
           },
           where: { id: inbox.id },
         });
-        return { duplicate: false, eventId: input.event.eventId, inboxId: inbox.id, status: processed.status };
+        return {
+          duplicate: false,
+          eventId: input.event.eventId,
+          inboxId: inbox.id,
+          status: processed.status,
+        };
       });
     } catch (error) {
       if (error instanceof AppError) throw error;
@@ -447,8 +544,26 @@ export class EventService {
           },
         },
       });
-      throw new AppError('EVENT_HANDLER_FAILED', 'Event consumer failed', 500, { retryable: true });
+      throw new AppError('EVENT_HANDLER_FAILED', 'Event consumer failed', 500, {
+        retryable: true,
+      });
     }
+  }
+
+  rejectDiagnosticConsume(input: ConsumeEventInput): never {
+    const subscription = subscriptionForConsumer(input.consumer);
+    if (!subscription || subscription.mode !== input.mode) {
+      throw new AppError(
+        'EVENT_CONSUMER_UNREGISTERED',
+        'Consumer is not registered with the requested mode',
+        400,
+      );
+    }
+    throw new AppError(
+      'EVENT_DIAGNOSTIC_HANDLER_REQUIRED',
+      `Consumer ${input.consumer} must be invoked through ${subscription.endpoint}`,
+      409,
+    );
   }
 
   private finishLease(
@@ -459,7 +574,11 @@ export class EventService {
     metadata: CommandMetadata,
   ) {
     if (!isUuid(eventId) || !input.leaseOwner?.trim()) {
-      throw new AppError('EVENT_LEASE_INVALID', 'Event lease input is invalid', 400);
+      throw new AppError(
+        'EVENT_LEASE_INVALID',
+        'Event lease input is invalid',
+        400,
+      );
     }
     return this.idempotency.execute(
       {
@@ -485,11 +604,15 @@ export class EventService {
           throw this.versionConflict();
         }
         const target =
-          requestedTarget === 'FAILED' && event.attemptCount >= event.maxAttempts
+          requestedTarget === 'FAILED' &&
+          event.attemptCount >= event.maxAttempts
             ? 'DEAD_LETTER'
             : requestedTarget;
         assertOutboxTransition(event.status, target);
-        const delaySeconds = Math.min(3600, 2 ** Math.max(0, event.attemptCount - 1));
+        const delaySeconds = Math.min(
+          3600,
+          2 ** Math.max(0, event.attemptCount - 1),
+        );
         const updated = await transaction.platformOutbox.update({
           data: {
             availableAt:
@@ -497,7 +620,8 @@ export class EventService {
                 ? new Date(Date.now() + delaySeconds * 1000)
                 : event.availableAt,
             deadLetteredAt: target === 'DEAD_LETTER' ? new Date() : null,
-            lastError: requestedTarget === 'FAILED' ? input.error!.trim() : null,
+            lastError:
+              requestedTarget === 'FAILED' ? input.error!.trim() : null,
             leaseExpiresAt: null,
             leaseOwner: null,
             publishedAt: target === 'PUBLISHED' ? new Date() : null,
@@ -509,7 +633,8 @@ export class EventService {
         });
         return {
           eventId: event.id,
-          retryAt: target === 'FAILED' ? updated.availableAt.toISOString() : null,
+          retryAt:
+            target === 'FAILED' ? updated.availableAt.toISOString() : null,
           status: updated.status,
           version: updated.version,
         };
@@ -542,8 +667,13 @@ export class EventService {
   }
 
   private versionConflict() {
-    return new AppError('EVENT_LEASE_LOST', 'Event lease or version is no longer valid', 409, {
-      retryable: true,
-    });
+    return new AppError(
+      'EVENT_LEASE_LOST',
+      'Event lease or version is no longer valid',
+      409,
+      {
+        retryable: true,
+      },
+    );
   }
 }
