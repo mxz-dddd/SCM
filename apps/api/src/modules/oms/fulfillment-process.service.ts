@@ -359,9 +359,7 @@ export class FulfillmentProcessService {
       'tms.shipment-request.v2': 'CREATE_TMS_ORDER',
       'wms.fulfillment-command.v2': 'CREATE_WMS_OUTBOUND',
     }[text(payload.consumer) ?? ''] as
-      | 'CREATE_TMS_ORDER'
-      | 'CREATE_WMS_OUTBOUND'
-      | undefined;
+      'CREATE_TMS_ORDER' | 'CREATE_WMS_OUTBOUND' | undefined;
     if (!sourceEventId || !isUuid(sourceEventId) || !stepType)
       return { eventId: message.eventId, status: 'IGNORED' };
     const step = await transaction.orderFulfillmentStep.findFirst({

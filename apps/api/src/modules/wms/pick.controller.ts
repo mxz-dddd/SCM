@@ -35,12 +35,22 @@ export class PickController {
   @RequirePermission('wms.picking.execute')
   assignTask(
     @Param('id') id: string,
-    @Body() input: { assigneeId: string; containerCode: string; expectedVersion: number },
+    @Body()
+    input: {
+      assigneeId: string;
+      containerCode: string;
+      expectedVersion: number;
+    },
     @Headers('idempotency-key') key: string | undefined,
     @Headers('x-correlation-id') correlationId: string,
     @Req() request: TenantRequest,
   ) {
-    return this.service.assignTask(id, input, request.tenantContext, metadata(request, correlationId, key));
+    return this.service.assignTask(
+      id,
+      input,
+      request.tenantContext,
+      metadata(request, correlationId, key),
+    );
   }
 
   @Post('pick-tasks/:id/start')
@@ -53,7 +63,12 @@ export class PickController {
     @Headers('x-correlation-id') correlationId: string,
     @Req() request: TenantRequest,
   ) {
-    return this.service.startTask(id, input, request.tenantContext, metadata(request, correlationId, key));
+    return this.service.startTask(
+      id,
+      input,
+      request.tenantContext,
+      metadata(request, correlationId, key),
+    );
   }
 
   @Post('pick-tasks/:id/replan')
@@ -61,12 +76,22 @@ export class PickController {
   @RequirePermission('wms.picking.supervise')
   replanRoute(
     @Param('id') id: string,
-    @Body() input: { aisleDirection?: 'FORWARD' | 'REVERSE'; congestionSnapshot?: Readonly<Record<string, number>>; expectedVersion: number },
+    @Body()
+    input: {
+      aisleDirection?: 'FORWARD' | 'REVERSE';
+      congestionSnapshot?: Readonly<Record<string, number>>;
+      expectedVersion: number;
+    },
     @Headers('idempotency-key') key: string | undefined,
     @Headers('x-correlation-id') correlationId: string,
     @Req() request: TenantRequest,
   ) {
-    return this.service.replanRoute(id, input, request.tenantContext, metadata(request, correlationId, key));
+    return this.service.replanRoute(
+      id,
+      input,
+      request.tenantContext,
+      metadata(request, correlationId, key),
+    );
   }
 
   @Post('pick-tasks/:id/scans')
@@ -79,7 +104,12 @@ export class PickController {
     @Headers('x-correlation-id') correlationId: string,
     @Req() request: TenantRequest,
   ) {
-    return this.service.scan(id, input, request.tenantContext, metadata(request, correlationId, key));
+    return this.service.scan(
+      id,
+      input,
+      request.tenantContext,
+      metadata(request, correlationId, key),
+    );
   }
 
   @Post('pick-task-lines/:id/short-pick')
@@ -87,12 +117,23 @@ export class PickController {
   @RequirePermission('wms.picking.execute')
   shortPick(
     @Param('id') id: string,
-    @Body() input: { expectedLineVersion: number; reason: string; reasonCode: string; shortBase: string },
+    @Body()
+    input: {
+      expectedLineVersion: number;
+      reason: string;
+      reasonCode: string;
+      shortBase: string;
+    },
     @Headers('idempotency-key') key: string | undefined,
     @Headers('x-correlation-id') correlationId: string,
     @Req() request: TenantRequest,
   ) {
-    return this.service.shortPick(id, input, request.tenantContext, metadata(request, correlationId, key));
+    return this.service.shortPick(
+      id,
+      input,
+      request.tenantContext,
+      metadata(request, correlationId, key),
+    );
   }
 
   @Post('short-picks/:id/resolve')
@@ -100,12 +141,22 @@ export class PickController {
   @RequirePermission('wms.picking.supervise')
   resolveShortPick(
     @Param('id') id: string,
-    @Body() input: { expectedVersion: number; resolutionSnapshot: Readonly<Record<string, unknown>>; type: string },
+    @Body()
+    input: {
+      expectedVersion: number;
+      resolutionSnapshot: Readonly<Record<string, unknown>>;
+      type: string;
+    },
     @Headers('idempotency-key') key: string | undefined,
     @Headers('x-correlation-id') correlationId: string,
     @Req() request: TenantRequest,
   ) {
-    return this.service.resolveShortPick(id, input, request.tenantContext, metadata(request, correlationId, key));
+    return this.service.resolveShortPick(
+      id,
+      input,
+      request.tenantContext,
+      metadata(request, correlationId, key),
+    );
   }
 
   @Post('pick-tasks/:id/verify')
@@ -113,12 +164,23 @@ export class PickController {
   @RequirePermission('wms.picking.verify')
   verifyTask(
     @Param('id') id: string,
-    @Body() input: { actualSnapshot: Readonly<Record<string, unknown>>; expectedVersion: number; scopeRef: string; scopeType: 'ORDER' | 'CONTAINER' | 'PACKAGE' },
+    @Body()
+    input: {
+      actualSnapshot: Readonly<Record<string, unknown>>;
+      expectedVersion: number;
+      scopeRef: string;
+      scopeType: 'ORDER' | 'CONTAINER' | 'PACKAGE';
+    },
     @Headers('idempotency-key') key: string | undefined,
     @Headers('x-correlation-id') correlationId: string,
     @Req() request: TenantRequest,
   ) {
-    return this.service.verifyTask(id, input, request.tenantContext, metadata(request, correlationId, key));
+    return this.service.verifyTask(
+      id,
+      input,
+      request.tenantContext,
+      metadata(request, correlationId, key),
+    );
   }
 
   @Post('pick-verifications/:id/correct')
@@ -126,11 +188,20 @@ export class PickController {
   @RequirePermission('wms.picking.verify')
   correctVerification(
     @Param('id') id: string,
-    @Body() input: { actualSnapshot: Readonly<Record<string, unknown>>; correctionType: 'RETURN' | 'SUPPLEMENT' | 'REALLOCATE' },
+    @Body()
+    input: {
+      actualSnapshot: Readonly<Record<string, unknown>>;
+      correctionType: 'RETURN' | 'SUPPLEMENT' | 'REALLOCATE';
+    },
     @Headers('idempotency-key') key: string | undefined,
     @Headers('x-correlation-id') correlationId: string,
     @Req() request: TenantRequest,
   ) {
-    return this.service.correctVerification(id, input, request.tenantContext, metadata(request, correlationId, key));
+    return this.service.correctVerification(
+      id,
+      input,
+      request.tenantContext,
+      metadata(request, correlationId, key),
+    );
   }
 }

@@ -146,21 +146,19 @@ export function DeliveryReversePanel() {
   const pod = view.pods.find(({ id }) => id === podId);
   const variance = view.variances.find(({ id }) => id === varianceId);
   const claim = view.claims.find(({ id }) => id === claimId);
-  const decisions = actions
-    .list()
-    .map(({ id }) =>
-      actions.decide(id, {
-        dataScopeAllowed: true,
-        permissions,
-        status: ['startReview', 'confirmPod', 'returnPod'].includes(id)
-          ? `POD_${pod?.status ?? 'NONE'}`
-          : id === 'claim'
-            ? `VARIANCE_${variance?.status ?? 'NONE'}`
-            : ['submitClaim', 'approveClaim'].includes(id)
-              ? `CLAIM_${claim?.status ?? 'NONE'}`
-              : `SHIPMENT_${shipment?.status ?? 'NONE'}`,
-      }),
-    );
+  const decisions = actions.list().map(({ id }) =>
+    actions.decide(id, {
+      dataScopeAllowed: true,
+      permissions,
+      status: ['startReview', 'confirmPod', 'returnPod'].includes(id)
+        ? `POD_${pod?.status ?? 'NONE'}`
+        : id === 'claim'
+          ? `VARIANCE_${variance?.status ?? 'NONE'}`
+          : ['submitClaim', 'approveClaim'].includes(id)
+            ? `CLAIM_${claim?.status ?? 'NONE'}`
+            : `SHIPMENT_${shipment?.status ?? 'NONE'}`,
+    }),
+  );
   const request = useCallback(
     async (path: string, init?: RequestInit) => {
       if (!accessToken || !claims)

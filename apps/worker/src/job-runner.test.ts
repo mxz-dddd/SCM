@@ -79,12 +79,28 @@ describe('system job runner', () => {
 
   it('executes operations jobs through the narrow worker command', async () => {
     const request = vi.fn().mockResolvedValue({ status: 'COMPLETED' });
-    await expect(executeRoutedHandler('OPS_OPERATION', { aggregateId: 'archive-1', kind: 'ARCHIVE' },
-      'tenant-1', 'job-run-1', { request } as never)).resolves.toMatchObject({ status: 'COMPLETED' });
-    expect(request).toHaveBeenCalledWith('tenant-1', '/api/v1/platform/operations/jobs/execute', {
-      body: JSON.stringify({ aggregateId: 'archive-1', kind: 'ARCHIVE', jobRunId: 'job-run-1' }),
-      headers: { 'Idempotency-Key': 'ops-operation:job-run-1' }, method: 'POST',
-    });
+    await expect(
+      executeRoutedHandler(
+        'OPS_OPERATION',
+        { aggregateId: 'archive-1', kind: 'ARCHIVE' },
+        'tenant-1',
+        'job-run-1',
+        { request } as never,
+      ),
+    ).resolves.toMatchObject({ status: 'COMPLETED' });
+    expect(request).toHaveBeenCalledWith(
+      'tenant-1',
+      '/api/v1/platform/operations/jobs/execute',
+      {
+        body: JSON.stringify({
+          aggregateId: 'archive-1',
+          kind: 'ARCHIVE',
+          jobRunId: 'job-run-1',
+        }),
+        headers: { 'Idempotency-Key': 'ops-operation:job-run-1' },
+        method: 'POST',
+      },
+    );
   });
 
   it('fails work that exceeds its timeout', async () => {

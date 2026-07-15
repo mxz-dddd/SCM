@@ -500,8 +500,11 @@ databaseDescribe('WMS outbound planning and allocation persistence', () => {
     );
     expect(passed.status).toBe('PASSED');
     expect(
-      (await prisma.pickTask.findUniqueOrThrow({ where: { id: selectedTask.id } }))
-        .status,
+      (
+        await prisma.pickTask.findUniqueOrThrow({
+          where: { id: selectedTask.id },
+        })
+      ).status,
     ).toBe('COMPLETED');
     await expect(
       prisma.pickConfirmation.update({
@@ -697,12 +700,7 @@ databaseDescribe('WMS outbound planning and allocation persistence', () => {
     );
     expect(loaded.loaded).toBe(true);
     await expect(
-      packShip.confirmLoad(
-        load.loadTaskId,
-        loadScan,
-        context,
-        command(),
-      ),
+      packShip.confirmLoad(load.loadTaskId, loadScan, context, command()),
     ).resolves.toMatchObject({
       confirmationId: loaded.confirmationId,
       replayed: true,
@@ -715,18 +713,8 @@ databaseDescribe('WMS outbound planning and allocation persistence', () => {
       expectedVersion: loadedTask.version,
     };
     const concurrentShip = await Promise.all([
-      packShip.ship(
-        load.loadTaskId,
-        concurrentShipInput,
-        context,
-        command(),
-      ),
-      packShip.ship(
-        load.loadTaskId,
-        concurrentShipInput,
-        context,
-        command(),
-      ),
+      packShip.ship(load.loadTaskId, concurrentShipInput, context, command()),
+      packShip.ship(load.loadTaskId, concurrentShipInput, context, command()),
     ]);
     const shipped = concurrentShip[0]!;
     expect(shipped.status).toBe('SHIPPED');
@@ -763,12 +751,16 @@ databaseDescribe('WMS outbound planning and allocation persistence', () => {
         where: { outboundOrderId: outboundId, status: 'REJECTED', tenantId },
       }),
     ).toBe(1);
-    const otherOrderId = orders.find(({ outboundId: id }) => id !== outboundId)!
-      .outboundId;
+    const otherOrderId = orders.find(
+      ({ outboundId: id }) => id !== outboundId,
+    )!.outboundId;
     await expect(
       packShip.cancelOutbound(
         otherOrderId,
-        { reason: 'customer cancelled before shipment', reasonCode: 'CUSTOMER' },
+        {
+          reason: 'customer cancelled before shipment',
+          reasonCode: 'CUSTOMER',
+        },
         context,
         command(),
       ),

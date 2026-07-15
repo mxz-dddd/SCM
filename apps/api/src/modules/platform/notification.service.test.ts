@@ -42,7 +42,8 @@ function fakeIdempotency(transaction: object) {
         const payload = JSON.stringify(input.payload);
         const existing = cache.get(key);
         if (existing) {
-          if (existing.payload !== payload) throw new Error('different content');
+          if (existing.payload !== payload)
+            throw new Error('different content');
           return existing.response;
         }
         const response = await operation(transaction);
@@ -55,10 +56,9 @@ function fakeIdempotency(transaction: object) {
 
 describe('notification template and routing contracts', () => {
   it('renders only whitelisted variables and returns field-level errors', () => {
-    expect(templateVariables('{{orderNo}} / {{ orderNo }} / {{severity}}')).toEqual([
-      'orderNo',
-      'severity',
-    ]);
+    expect(
+      templateVariables('{{orderNo}} / {{ orderNo }} / {{severity}}'),
+    ).toEqual(['orderNo', 'severity']);
     expect(
       renderNotificationTemplate(
         '订单 {{orderNo}}：{{summary}}',
@@ -78,14 +78,16 @@ describe('notification template and routing contracts', () => {
     expect(() => assertInboxTransition('READ', 'ARCHIVED')).not.toThrow();
     expect(() => assertInboxTransition('UNREAD', 'ARCHIVED')).toThrow();
     expect(() => assertTemplateTransition('DRAFT', 'PUBLISHED')).not.toThrow();
-    expect(() => assertTemplateTransition('PUBLISHED', 'RETIRED')).not.toThrow();
+    expect(() =>
+      assertTemplateTransition('PUBLISHED', 'RETIRED'),
+    ).not.toThrow();
     expect(() => assertTemplateTransition('RETIRED', 'PUBLISHED')).toThrow();
     for (const target of ['DELIVERED', 'PARTIAL_FAILED', 'FAILED'] as const) {
-      expect(() => assertNotificationTransition('PENDING', target)).not.toThrow();
+      expect(() =>
+        assertNotificationTransition('PENDING', target),
+      ).not.toThrow();
     }
-    expect(() =>
-      assertNotificationTransition('DELIVERED', 'FAILED'),
-    ).toThrow();
+    expect(() => assertNotificationTransition('DELIVERED', 'FAILED')).toThrow();
   });
 
   it('applies cross-midnight quiet hours and organization ABAC', () => {
@@ -252,27 +254,23 @@ describe('multi-channel delivery contracts', () => {
     ]);
     expect(transaction.inboxItem.create).toHaveBeenCalledTimes(1);
 
-    await service.dispatch(
-      notification.id,
-      { expectedVersion: 2 },
-      context,
-      { ...metadata, idempotencyKey: 'notification-retry' },
+    await service.dispatch(notification.id, { expectedVersion: 2 }, context, {
+      ...metadata,
+      idempotencyKey: 'notification-retry',
+    });
+    expect(attempts.filter(({ channel }) => channel === 'EMAIL')).toHaveLength(
+      2,
     );
-    expect(attempts.filter(({ channel }) => channel === 'EMAIL')).toHaveLength(2);
     expect(transaction.inboxItem.create).toHaveBeenCalledTimes(1);
-    await service.dispatch(
-      notification.id,
-      { expectedVersion: 3 },
-      context,
-      { ...metadata, idempotencyKey: 'notification-retry-final' },
-    );
+    await service.dispatch(notification.id, { expectedVersion: 3 }, context, {
+      ...metadata,
+      idempotencyKey: 'notification-retry-final',
+    });
     await expect(
-      service.dispatch(
-        notification.id,
-        { expectedVersion: 4 },
-        context,
-        { ...metadata, idempotencyKey: 'notification-retry-exhausted' },
-      ),
+      service.dispatch(notification.id, { expectedVersion: 4 }, context, {
+        ...metadata,
+        idempotencyKey: 'notification-retry-exhausted',
+      }),
     ).rejects.toThrow(/No retryable/);
   });
 });

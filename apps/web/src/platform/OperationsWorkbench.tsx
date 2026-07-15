@@ -133,15 +133,13 @@ export function OperationsWorkbench() {
   const [error, setError] = useState<string>();
   const [notice, setNotice] = useState<string>();
   const granted = useMemo(() => new Set(claims ? permissions : []), [claims]);
-  const actions = registry
-    .list()
-    .map(({ id }) =>
-      registry.decide(id, {
-        dataScopeAllowed: true,
-        permissions: granted,
-        status: 'READY',
-      }),
-    );
+  const actions = registry.list().map(({ id }) =>
+    registry.decide(id, {
+      dataScopeAllowed: true,
+      permissions: granted,
+      status: 'READY',
+    }),
+  );
 
   const request = useCallback(
     async (path: string, init?: RequestInit) => {

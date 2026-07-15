@@ -1,2 +1,39 @@
-import { Reflector } from '@nestjs/core';import{describe,expect,it,vi}from'vitest';import{PermissionGuard}from'../platform/auth/permission.guard';import{ContractCalendarQualityController}from'./contract-calendar-quality.controller';
-describe('contract approval authorization',()=>{it('denies rate publication without mdm.contract.approve',async()=>{const decide=vi.fn().mockResolvedValue({allowed:false,reason:'NO_MATCHING_GRANT'});const guard=new PermissionGuard(new Reflector(),{decide}as never);const request={header:(name:string)=>name==='X-Correlation-Id'?'rate-permission-test':undefined,originalUrl:'/api/v1/mdm/rate-versions/id/PUBLISHED',tenantContext:{accountId:'10000000-0000-4000-8000-000000000001',accountKind:'USER',deviceId:'test',organizationIds:[],permissionVersion:1,tenantId:'10000000-0000-4000-8000-000000000002',tokenId:'token'}};const execution={getClass:()=>ContractCalendarQualityController,getHandler:()=>ContractCalendarQualityController.prototype.transitionRate,switchToHttp:()=>({getRequest:()=>request})};await expect(guard.canActivate(execution as never)).rejects.toMatchObject({code:'AUTH_PERMISSION_DENIED',statusCode:403});expect(decide).toHaveBeenCalledWith(expect.objectContaining({permissionCode:'mdm.contract.approve'}));});});
+import { Reflector } from '@nestjs/core';
+import { describe, expect, it, vi } from 'vitest';
+import { PermissionGuard } from '../platform/auth/permission.guard';
+import { ContractCalendarQualityController } from './contract-calendar-quality.controller';
+describe('contract approval authorization', () => {
+  it('denies rate publication without mdm.contract.approve', async () => {
+    const decide = vi
+      .fn()
+      .mockResolvedValue({ allowed: false, reason: 'NO_MATCHING_GRANT' });
+    const guard = new PermissionGuard(new Reflector(), { decide } as never);
+    const request = {
+      header: (name: string) =>
+        name === 'X-Correlation-Id' ? 'rate-permission-test' : undefined,
+      originalUrl: '/api/v1/mdm/rate-versions/id/PUBLISHED',
+      tenantContext: {
+        accountId: '10000000-0000-4000-8000-000000000001',
+        accountKind: 'USER',
+        deviceId: 'test',
+        organizationIds: [],
+        permissionVersion: 1,
+        tenantId: '10000000-0000-4000-8000-000000000002',
+        tokenId: 'token',
+      },
+    };
+    const execution = {
+      getClass: () => ContractCalendarQualityController,
+      getHandler: () =>
+        ContractCalendarQualityController.prototype.transitionRate,
+      switchToHttp: () => ({ getRequest: () => request }),
+    };
+    await expect(guard.canActivate(execution as never)).rejects.toMatchObject({
+      code: 'AUTH_PERMISSION_DENIED',
+      statusCode: 403,
+    });
+    expect(decide).toHaveBeenCalledWith(
+      expect.objectContaining({ permissionCode: 'mdm.contract.approve' }),
+    );
+  });
+});

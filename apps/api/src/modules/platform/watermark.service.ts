@@ -56,10 +56,7 @@ export class WatermarkService {
     contentType: string,
     watermark: string,
   ): Promise<{ readonly body: Buffer; readonly contentType: string }> {
-    if (
-      contentType.startsWith('text/') ||
-      contentType === 'application/json'
-    ) {
+    if (contentType.startsWith('text/') || contentType === 'application/json') {
       return { body: watermarkText(source, watermark), contentType };
     }
     if (contentType.startsWith('image/')) {

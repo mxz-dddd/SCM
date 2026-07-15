@@ -115,9 +115,15 @@ databaseDescribe('AMS capacity calendar and workload persistence', () => {
         command(),
       ),
     ]);
-    expect(competing.filter(({ status }) => status === 'fulfilled')).toHaveLength(1);
-    expect(competing.filter(({ status }) => status === 'rejected')).toHaveLength(1);
-    const closed = await prisma.timeSlot.findUniqueOrThrow({ where: { id: slotId } });
+    expect(
+      competing.filter(({ status }) => status === 'fulfilled'),
+    ).toHaveLength(1);
+    expect(
+      competing.filter(({ status }) => status === 'rejected'),
+    ).toHaveLength(1);
+    const closed = await prisma.timeSlot.findUniqueOrThrow({
+      where: { id: slotId },
+    });
     expect(closed).toMatchObject({ status: 'CLOSED', version: 2 });
     await service.changeSlot(
       slotId,

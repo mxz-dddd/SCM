@@ -17,8 +17,9 @@ interface ObjectMetadata {
 }
 
 function encode(value: string): string {
-  return encodeURIComponent(value).replace(/[!'()*]/g, (character) =>
-    `%${character.charCodeAt(0).toString(16).toUpperCase()}`,
+  return encodeURIComponent(value).replace(
+    /[!'()*]/g,
+    (character) => `%${character.charCodeAt(0).toString(16).toUpperCase()}`,
   );
 }
 
@@ -51,7 +52,10 @@ export function createS3PresignedUrl(input: {
   readonly objectKey?: string;
   readonly region: string;
   readonly secretKey: string;
-}): { readonly headers: Readonly<Record<string, string>>; readonly url: string } {
+}): {
+  readonly headers: Readonly<Record<string, string>>;
+  readonly url: string;
+} {
   const endpoint = new URL(input.endpoint);
   const timestamp = awsTimestamp(input.now);
   const date = timestamp.slice(0, 8);
@@ -113,9 +117,11 @@ export function createS3PresignedUrl(input: {
 export class ObjectStorageService {
   readonly bucket = process.env.ATTACHMENT_BUCKET ?? 'scm-attachments';
   private readonly accessKey = process.env.MINIO_ROOT_USER ?? 'scm-local';
-  private readonly endpoint = process.env.MINIO_ENDPOINT ?? 'http://127.0.0.1:9000';
+  private readonly endpoint =
+    process.env.MINIO_ENDPOINT ?? 'http://127.0.0.1:9000';
   private readonly region = process.env.MINIO_REGION ?? 'us-east-1';
-  private readonly secretKey = process.env.MINIO_ROOT_PASSWORD ?? 'scm-local-secret';
+  private readonly secretKey =
+    process.env.MINIO_ROOT_PASSWORD ?? 'scm-local-secret';
 
   presign(input: PresignInput) {
     return createS3PresignedUrl({

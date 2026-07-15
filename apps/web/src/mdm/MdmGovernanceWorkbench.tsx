@@ -86,7 +86,9 @@ export function MdmGovernanceWorkbench() {
   const [calendars, setCalendars] = useState<readonly CalendarRow[]>([]);
   const [quality, setQuality] = useState<readonly QualityRow[]>([]);
   const [contractStatus, setContractStatus] = useState('');
-  const [selectedContractIds, setSelectedContractIds] = useState<readonly string[]>([]);
+  const [selectedContractIds, setSelectedContractIds] = useState<
+    readonly string[]
+  >([]);
   const [selectedRateIds, setSelectedRateIds] = useState<readonly string[]>([]);
   const [detail, setDetail] = useState<ContractDetail>();
   const [error, setError] = useState<string>();
@@ -98,7 +100,8 @@ export function MdmGovernanceWorkbench() {
 
   const request = useCallback(
     async (path: string, init?: RequestInit) => {
-      if (!accessToken || !claims) throw new Error('请先登录后使用主数据治理工作台');
+      if (!accessToken || !claims)
+        throw new Error('请先登录后使用主数据治理工作台');
       const response = await fetch(path, {
         ...init,
         headers: {
@@ -112,9 +115,14 @@ export function MdmGovernanceWorkbench() {
           ...init?.headers,
         },
       });
-      const body = (await response.json()) as { code?: string; message?: string };
+      const body = (await response.json()) as {
+        code?: string;
+        message?: string;
+      };
       if (!response.ok)
-        throw new Error(`${body.code ?? 'REQUEST_FAILED'}: ${body.message ?? '请求失败'}`);
+        throw new Error(
+          `${body.code ?? 'REQUEST_FAILED'}: ${body.message ?? '请求失败'}`,
+        );
       return body;
     },
     [accessToken, claims],
@@ -143,28 +151,33 @@ export function MdmGovernanceWorkbench() {
 
   async function loadContract(id: string) {
     try {
-      setDetail(await request(`/api/v1/mdm/contracts/${id}`) as unknown as ContractDetail);
+      setDetail(
+        (await request(
+          `/api/v1/mdm/contracts/${id}`,
+        )) as unknown as ContractDetail,
+      );
       setSelectedRateIds([]);
     } catch (caught) {
       setError(caught instanceof Error ? caught.message : '合同详情查询失败');
     }
   }
 
-  const selectedRate = detail?.versions.find(({ id }) => id === selectedRateIds[0]);
-  const decisions = rateActions
-    .list()
-    .map(({ id }) =>
-      rateActions.decide(id, {
-        dataScopeAllowed: true,
-        permissions,
-        status: selectedRate?.status ?? 'NONE',
-      }),
-    );
+  const selectedRate = detail?.versions.find(
+    ({ id }) => id === selectedRateIds[0],
+  );
+  const decisions = rateActions.list().map(({ id }) =>
+    rateActions.decide(id, {
+      dataScopeAllowed: true,
+      permissions,
+      status: selectedRate?.status ?? 'NONE',
+    }),
+  );
 
   async function executeRate(target: string) {
     const decision = decisions.find(({ id }) => id === target);
     if (!selectedRate || !decision?.enabled) return;
-    if (decision.confirmMessage && !window.confirm(decision.confirmMessage)) return;
+    if (decision.confirmMessage && !window.confirm(decision.confirmMessage))
+      return;
     try {
       await request(`/api/v1/mdm/rate-versions/${selectedRate.id}/${target}`, {
         body: JSON.stringify({ expectedVersion: selectedRate.version }),
@@ -223,7 +236,10 @@ export function MdmGovernanceWorkbench() {
           selectedIds={selectedContractIds}
           total={filteredContracts.length}
         />
-        <CommandBar actions={decisions} onAction={({ id }) => void executeRate(id)} />
+        <CommandBar
+          actions={decisions}
+          onAction={({ id }) => void executeRate(id)}
+        />
         <DataGrid
           columns={[
             { key: 'versionNumber', label: '费率版本' },
@@ -298,7 +314,8 @@ export function MdmGovernanceWorkbench() {
         <Col span={24}>
           <Card title="质量问题与外部编码版本追溯">
             <Typography.Paragraph>
-              ExternalCodeMap 支持伙伴、商品、仓库、车型、车辆和司机；同一外部代码的历史映射保留版本。
+              ExternalCodeMap
+              支持伙伴、商品、仓库、车型、车辆和司机；同一外部代码的历史映射保留版本。
             </Typography.Paragraph>
             <DataGrid
               columns={[

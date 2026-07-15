@@ -94,14 +94,12 @@ describe('Webhook delivery worker', () => {
         leaseOwner: 'worker-3',
       })
       .mockResolvedValueOnce({ status: 'FAILED' });
-    const fetcher = vi
-      .fn()
-      .mockResolvedValue(
-        new Response('', {
-          headers: { location: 'https://127.0.0.1/private' },
-          status: 302,
-        }),
-      );
+    const fetcher = vi.fn().mockResolvedValue(
+      new Response('', {
+        headers: { location: 'https://127.0.0.1/private' },
+        status: 302,
+      }),
+    );
     await deliverWebhooksOnce(
       'tenant-1',
       'worker-3',

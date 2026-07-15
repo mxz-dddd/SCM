@@ -67,7 +67,8 @@ function createIdempotency(transaction: object) {
         const payload = JSON.stringify(input.payload);
         const existing = cache.get(cacheKey);
         if (existing) {
-          if (existing.payload !== payload) throw new Error('different content');
+          if (existing.payload !== payload)
+            throw new Error('different content');
           return existing.response;
         }
         const response = await operation(transaction);
@@ -151,8 +152,11 @@ describe('attachment upload and state contracts', () => {
     });
     expect(fixture.objects.ensureBucket).toHaveBeenCalledTimes(2);
     expect(
-      (fixture.transaction as { fileObject: { create: ReturnType<typeof vi.fn> } })
-        .fileObject.create,
+      (
+        fixture.transaction as {
+          fileObject: { create: ReturnType<typeof vi.fn> };
+        }
+      ).fileObject.create,
     ).toHaveBeenCalledTimes(1);
     await expect(
       fixture.service.createUpload(
@@ -244,7 +248,9 @@ describe('attachment upload and state contracts', () => {
       assertAttachmentTransition('PENDING_UPLOAD', 'SCANNING'),
     ).not.toThrow();
     for (const target of ['AVAILABLE', 'QUARANTINED', 'REJECTED'] as const) {
-      expect(() => assertAttachmentTransition('SCANNING', target)).not.toThrow();
+      expect(() =>
+        assertAttachmentTransition('SCANNING', target),
+      ).not.toThrow();
     }
     expect(() =>
       assertAttachmentTransition('PENDING_UPLOAD', 'AVAILABLE'),

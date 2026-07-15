@@ -181,10 +181,7 @@ export class FinancialCloseService {
           ({ id }) => id === line.originalInvoiceLineId,
         )!;
         const credited = credits
-          .filter(
-            ({ originalInvoiceLineId: id }) =>
-              id === originalLine.id,
-          )
+          .filter(({ originalInvoiceLineId: id }) => id === originalLine.id)
           .reduce(
             (sum, item) => sum.plus(item.amount.abs()),
             new Prisma.Decimal(0),
@@ -195,9 +192,7 @@ export class FinancialCloseService {
             'Cumulative red reversal cannot exceed the original invoice line',
           );
         return {
-          amount: originalLine.amount.isPositive()
-            ? amount.negated()
-            : amount,
+          amount: originalLine.amount.isPositive() ? amount.negated() : amount,
           sourceRef: originalLine.sourceRef,
           sourceSnapshot: {
             originalInvoiceId: original.id,
@@ -308,7 +303,13 @@ export class FinancialCloseService {
           currency,
           direction: raw.direction,
           externalRef: this.required(raw.externalRef, 'externalRef', 200),
-          paymentNo: await businessNumber(this.prisma, 'BILLING_PAYMENT', context, metadata, `billing-payment:${raw.source}:${raw.externalRef}`),
+          paymentNo: await businessNumber(
+            this.prisma,
+            'BILLING_PAYMENT',
+            context,
+            metadata,
+            `billing-payment:${raw.source}:${raw.externalRef}`,
+          ),
           paymentType: raw.paymentType,
           source: raw.source,
           sourceSnapshot: json(raw.sourceSnapshot),
@@ -476,9 +477,8 @@ export class FinancialCloseService {
       const remainingMagnitude = payment.unallocatedAmount
         .abs()
         .minus(requested);
-      const unallocatedAmount = sign < 0
-        ? remainingMagnitude.negated()
-        : remainingMagnitude;
+      const unallocatedAmount =
+        sign < 0 ? remainingMagnitude.negated() : remainingMagnitude;
       const changed = await tx.billingPayment.update({
         data: {
           allocatedAmount: payment.allocatedAmount.plus(allocatedDelta),
@@ -554,7 +554,16 @@ export class FinancialCloseService {
           updatedBy: context.accountId,
         },
       });
-      await this.periodHistory(tx, period.id, 1, null, 'OPEN', 'CREATE', context, {});
+      await this.periodHistory(
+        tx,
+        period.id,
+        1,
+        null,
+        'OPEN',
+        'CREATE',
+        context,
+        {},
+      );
       await this.emit(
         tx,
         'BillingAccountingPeriod',
@@ -599,7 +608,10 @@ export class FinancialCloseService {
     this.uuid(id, 'periodId');
     return this.prisma.$transaction(async (tx) => {
       const period = await this.lockPeriod(tx, id, context.tenantId);
-      if (period.status !== 'CLOSING' || period.version !== input.expectedVersion)
+      if (
+        period.status !== 'CLOSING' ||
+        period.version !== input.expectedVersion
+      )
         this.periodConflict('close', period.status, period.version);
       const checks = await this.closeChecks(tx, period, context.tenantId);
       const errors = Object.entries(checks)
@@ -665,7 +677,10 @@ export class FinancialCloseService {
         'CLOSED',
         'CLOSE',
         context,
-        { checkAttempt: attempt, closedVoucherIds: paid.map(({ id: value }) => value) },
+        {
+          checkAttempt: attempt,
+          closedVoucherIds: paid.map(({ id: value }) => value),
+        },
       );
       await this.emit(
         tx,
@@ -777,7 +792,9 @@ export class FinancialCloseService {
       });
       const calculations = await tx.billingCalculation.findMany({
         where: {
-          id: { in: [...new Set(lines.map(({ calculationId }) => calculationId))] },
+          id: {
+            in: [...new Set(lines.map(({ calculationId }) => calculationId))],
+          },
           tenantId: context.tenantId,
         },
       });
@@ -787,7 +804,9 @@ export class FinancialCloseService {
           tenantId: context.tenantId,
         },
       });
-      const voucherById = new Map(vouchers.map((voucher) => [voucher.id, voucher]));
+      const voucherById = new Map(
+        vouchers.map((voucher) => [voucher.id, voucher]),
+      );
       const calculationById = new Map(
         calculations.map((calculation) => [calculation.id, calculation]),
       );
@@ -857,7 +876,9 @@ export class FinancialCloseService {
       const invoices = await tx.billingInvoice.findMany({
         where: {
           statementId: {
-            in: [...new Set(statementLines.map(({ statementId }) => statementId))],
+            in: [
+              ...new Set(statementLines.map(({ statementId }) => statementId)),
+            ],
           },
           tenantId: context.tenantId,
         },
@@ -906,7 +927,9 @@ export class FinancialCloseService {
       }
       for (const accrual of accruals) {
         const calculation = calculationById.get(accrual.calculationId);
-        const fact = calculation ? factById.get(calculation.chargeFactId) : undefined;
+        const fact = calculation
+          ? factById.get(calculation.chargeFactId)
+          : undefined;
         const ref =
           calculation && fact
             ? this.dimensionRef(
@@ -920,7 +943,9 @@ export class FinancialCloseService {
         group.accrual = group.accrual.plus(accrual.amount);
         groups.set(ref, group);
       }
-      const invoiceById = new Map(invoices.map((invoice) => [invoice.id, invoice]));
+      const invoiceById = new Map(
+        invoices.map((invoice) => [invoice.id, invoice]),
+      );
       for (const allocation of allocations) {
         let voucherId = allocation.targetRef;
         if (allocation.targetType === 'INVOICE') {
@@ -987,7 +1012,10 @@ export class FinancialCloseService {
             createdBy: context.accountId,
             currency,
             dimensionRef,
-            dimensionSnapshot: json({ dimensionRef, dimensionType: raw.dimensionType }),
+            dimensionSnapshot: json({
+              dimensionRef,
+              dimensionType: raw.dimensionType,
+            }),
             marginAmount: group.revenue
               .minus(group.cost)
               .plus(group.adjustment),
@@ -1065,10 +1093,18 @@ export class FinancialCloseService {
           );
         available = source.amount;
         taxComponent = source.taxComponent;
-        snapshot = { businessRef: source.businessRef, voucherId: source.voucherId };
+        snapshot = {
+          businessRef: source.businessRef,
+          voucherId: source.voucherId,
+        };
       } else {
         const source = await tx.billingAdjustmentVoucher.findFirst({
-          where: { id: line.sourceRef, statementId, status: 'POSTED', tenantId },
+          where: {
+            id: line.sourceRef,
+            statementId,
+            status: 'POSTED',
+            tenantId,
+          },
         });
         if (!source)
           this.conflict(
@@ -1079,7 +1115,10 @@ export class FinancialCloseService {
           source.direction === 'INCREASE'
             ? source.amount
             : source.amount.negated();
-        snapshot = { adjustmentNo: source.adjustmentNo, direction: source.direction };
+        snapshot = {
+          adjustmentNo: source.adjustmentNo,
+          direction: source.direction,
+        };
       }
       const previous = await tx.billingInvoiceLine.aggregate({
         _sum: { amount: true },
@@ -1272,9 +1311,14 @@ export class FinancialCloseService {
     tenantId: string,
   ) {
     if (type === 'INVOICE') {
-      const invoice = await tx.billingInvoice.findFirst({ where: { id, tenantId } });
+      const invoice = await tx.billingInvoice.findFirst({
+        where: { id, tenantId },
+      });
       if (!invoice)
-        this.conflict('BILLING_SETTLEMENT_TARGET_NOT_FOUND', 'Invoice was not found');
+        this.conflict(
+          'BILLING_SETTLEMENT_TARGET_NOT_FOUND',
+          'Invoice was not found',
+        );
       return {
         amount: invoice.totalAmount,
         currency: invoice.currency,
@@ -1309,22 +1353,32 @@ export class FinancialCloseService {
   ) {
     const voucherIds = new Set<string>();
     for (const allocation of allocations) {
-      if (allocation.targetType === 'VOUCHER') voucherIds.add(allocation.targetRef);
+      if (allocation.targetType === 'VOUCHER')
+        voucherIds.add(allocation.targetRef);
       else {
         const invoice = await tx.billingInvoice.findUniqueOrThrow({
           where: { id: allocation.targetRef },
         });
-        const invoiceAllocated = await tx.billingSettlementAllocation.aggregate({
-          _sum: { amount: true },
-          where: {
-            targetRef: invoice.id,
-            targetType: 'INVOICE',
-            tenantId: context.tenantId,
+        const invoiceAllocated = await tx.billingSettlementAllocation.aggregate(
+          {
+            _sum: { amount: true },
+            where: {
+              targetRef: invoice.id,
+              targetType: 'INVOICE',
+              tenantId: context.tenantId,
+            },
           },
-        });
-        if (new Prisma.Decimal(invoiceAllocated._sum.amount ?? 0).eq(invoice.totalAmount)) {
+        );
+        if (
+          new Prisma.Decimal(invoiceAllocated._sum.amount ?? 0).eq(
+            invoice.totalAmount,
+          )
+        ) {
           const lines = await tx.reconciliationStatementLine.findMany({
-            where: { statementId: invoice.statementId, tenantId: context.tenantId },
+            where: {
+              statementId: invoice.statementId,
+              tenantId: context.tenantId,
+            },
           });
           for (const line of lines) voucherIds.add(line.voucherId);
         }
@@ -1354,7 +1408,10 @@ export class FinancialCloseService {
         ...new Set(statementLines.map(({ statementId }) => statementId)),
       ];
       const invoices = await tx.billingInvoice.findMany({
-        where: { statementId: { in: statementIds }, tenantId: context.tenantId },
+        where: {
+          statementId: { in: statementIds },
+          tenantId: context.tenantId,
+        },
       });
       let invoicesPaid = invoices.length > 0;
       for (const invoice of invoices) {
@@ -1366,7 +1423,11 @@ export class FinancialCloseService {
             tenantId: context.tenantId,
           },
         });
-        if (!new Prisma.Decimal(allocated._sum.amount ?? 0).eq(invoice.totalAmount))
+        if (
+          !new Prisma.Decimal(allocated._sum.amount ?? 0).eq(
+            invoice.totalAmount,
+          )
+        )
           invoicesPaid = false;
       }
       if (directPaid || invoicesPaid) {
@@ -1416,13 +1477,14 @@ export class FinancialCloseService {
         tenantId,
       },
     });
-    const pendingAdjustmentApprovals = await tx.billingAdjustmentApprovalTask.count({
-      where: {
-        adjustmentId: { in: adjustments.map(({ id }) => id) },
-        status: 'PENDING',
-        tenantId,
-      },
-    });
+    const pendingAdjustmentApprovals =
+      await tx.billingAdjustmentApprovalTask.count({
+        where: {
+          adjustmentId: { in: adjustments.map(({ id }) => id) },
+          status: 'PENDING',
+          tenantId,
+        },
+      });
     const openDisputes = await tx.reconciliationDispute.count({
       where: {
         statementId: { in: statements.map(({ id }) => id) },
@@ -1439,11 +1501,14 @@ export class FinancialCloseService {
     const fx = await tx.fxConversion.findMany({
       select: { calculationId: true },
       where: {
-        calculationId: { in: voucherLines.map(({ calculationId }) => calculationId) },
+        calculationId: {
+          in: voucherLines.map(({ calculationId }) => calculationId),
+        },
         tenantId,
       },
     });
-    const missingFx = new Set(voucherLines.map(({ calculationId }) => calculationId)).size -
+    const missingFx =
+      new Set(voucherLines.map(({ calculationId }) => calculationId)).size -
       new Set(fx.map(({ calculationId }) => calculationId)).size;
     return {
       missingFx,
@@ -1465,8 +1530,15 @@ export class FinancialCloseService {
     this.uuid(id, 'periodId');
     return this.prisma.$transaction(async (tx) => {
       const period = await this.lockPeriod(tx, id, context.tenantId);
-      if (!from.includes(period.status as 'OPEN' | 'REOPENED') || period.version !== expectedVersion)
-        this.periodConflict(command.toLowerCase(), period.status, period.version);
+      if (
+        !from.includes(period.status as 'OPEN' | 'REOPENED') ||
+        period.version !== expectedVersion
+      )
+        this.periodConflict(
+          command.toLowerCase(),
+          period.status,
+          period.version,
+        );
       const changed = await tx.billingAccountingPeriod.update({
         data: {
           closingStartedAt: new Date(),
@@ -1622,10 +1694,13 @@ export class FinancialCloseService {
     if (dimension === 'ORDER') return calculation.businessRef;
     if (dimension === 'SERVICE') return fact.serviceType;
     const dimensions =
-      fact.dimensions && typeof fact.dimensions === 'object' && !Array.isArray(fact.dimensions)
+      fact.dimensions &&
+      typeof fact.dimensions === 'object' &&
+      !Array.isArray(fact.dimensions)
         ? (fact.dimensions as Record<string, unknown>)
         : {};
-    const value = dimension === 'WAREHOUSE' ? dimensions.warehouseRef : dimensions.routeRef;
+    const value =
+      dimension === 'WAREHOUSE' ? dimensions.warehouseRef : dimensions.routeRef;
     return typeof value === 'string' && value ? value : 'UNSPECIFIED';
   }
 
@@ -1651,7 +1726,10 @@ export class FinancialCloseService {
         sourceType: line.sourceType,
       };
     });
-    if (new Set(lines.map((line) => `${line.sourceType}:${line.sourceRef}`)).size !== lines.length)
+    if (
+      new Set(lines.map((line) => `${line.sourceType}:${line.sourceRef}`))
+        .size !== lines.length
+    )
       throw new AppError(
         'BILLING_INVOICE_INPUT_INVALID',
         'Invoice sources must be unique within one invoice',
@@ -1661,7 +1739,11 @@ export class FinancialCloseService {
       attachmentRefs: this.references(input.attachmentRefs ?? []),
       invoiceDate: this.date(input.invoiceDate, 'invoiceDate'),
       invoiceNo: this.required(input.invoiceNo, 'invoiceNo', 200),
-      invoicePartyRef: this.required(input.invoicePartyRef, 'invoicePartyRef', 200),
+      invoicePartyRef: this.required(
+        input.invoicePartyRef,
+        'invoicePartyRef',
+        200,
+      ),
       lines,
       statementId: input.statementId,
     };
@@ -1669,7 +1751,11 @@ export class FinancialCloseService {
 
   private references(values: readonly string[]) {
     const refs = [...new Set(values.map((value) => value.trim()))];
-    if (refs.length !== values.length || refs.length > 20 || refs.some((ref) => !ref || ref.length > 500))
+    if (
+      refs.length !== values.length ||
+      refs.length > 20 ||
+      refs.some((ref) => !ref || ref.length > 500)
+    )
       throw new AppError(
         'BILLING_INVOICE_INPUT_INVALID',
         'Attachment references are invalid or duplicated',
@@ -1770,7 +1856,11 @@ export class FinancialCloseService {
       );
   }
 
-  private periodConflict(command: string, status: string, version: number): never {
+  private periodConflict(
+    command: string,
+    status: string,
+    version: number,
+  ): never {
     this.conflict(
       'BILLING_PERIOD_TRANSITION_INVALID',
       `Cannot ${command} from ${status} at version ${version}`,

@@ -31,7 +31,9 @@ function metadata(request: TenantRequest, correlationId: string, key?: string) {
 @Controller('api/v1/oms/orders')
 @UseGuards(PermissionGuard)
 export class OrderIntakeController {
-  constructor(@Inject(OrderIntakeService) private readonly service: OrderIntakeService) {}
+  constructor(
+    @Inject(OrderIntakeService) private readonly service: OrderIntakeService,
+  ) {}
 
   @Get()
   @RequirePermission('oms.order.read')

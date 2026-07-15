@@ -29,7 +29,9 @@ describe('WMS pack and ship HTTP contract', () => {
   });
 
   it('denies shipment confirmation without supervisor permission', async () => {
-    const decide = vi.fn().mockResolvedValue({ allowed: false, reason: 'NO_MATCHING_GRANT' });
+    const decide = vi
+      .fn()
+      .mockResolvedValue({ allowed: false, reason: 'NO_MATCHING_GRANT' });
     const guard = new PermissionGuard(new Reflector(), { decide } as never);
     const request = {
       header: () => 'ship-permission-test',
@@ -49,7 +51,12 @@ describe('WMS pack and ship HTTP contract', () => {
       getHandler: () => PackShipController.prototype.ship,
       switchToHttp: () => ({ getRequest: () => request }),
     };
-    await expect(guard.canActivate(execution as never)).rejects.toMatchObject({ code: 'AUTH_PERMISSION_DENIED', statusCode: 403 });
-    expect(decide).toHaveBeenCalledWith(expect.objectContaining({ permissionCode: 'wms.ship.confirm' }));
+    await expect(guard.canActivate(execution as never)).rejects.toMatchObject({
+      code: 'AUTH_PERMISSION_DENIED',
+      statusCode: 403,
+    });
+    expect(decide).toHaveBeenCalledWith(
+      expect.objectContaining({ permissionCode: 'wms.ship.confirm' }),
+    );
   });
 });

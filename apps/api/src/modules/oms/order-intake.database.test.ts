@@ -6,7 +6,10 @@ import { MdmReferenceService } from '../mdm/public/mdm-reference.service';
 import { PartnerService } from '../mdm/partner.service';
 import { ProductService } from '../mdm/product.service';
 import { IdempotencyService } from '../platform/idempotency.service';
-import { OrderIntakeService, type SaveOrderInput } from './order-intake.service';
+import {
+  OrderIntakeService,
+  type SaveOrderInput,
+} from './order-intake.service';
 
 const databaseDescribe = process.env.DATABASE_URL ? describe : describe.skip;
 const prisma = new PrismaClient();
@@ -93,7 +96,11 @@ databaseDescribe('multi-channel order intake persistence', () => {
 
     const product = await products.saveProduct(
       undefined,
-      { baseUom: 'EA', name: '订单测试商品', sku: `SKU-${randomUUID().slice(0, 8)}` },
+      {
+        baseUom: 'EA',
+        name: '订单测试商品',
+        sku: `SKU-${randomUUID().slice(0, 8)}`,
+      },
       context,
       command(),
     );
@@ -155,8 +162,14 @@ databaseDescribe('multi-channel order intake persistence', () => {
       type: 'SALES',
     };
     const draft = await orders.create(validInput, context, command());
-    expect(draft).toMatchObject({ replayed: false, status: 'DRAFT', version: 1 });
-    await expect(orders.create(validInput, context, command())).resolves.toMatchObject({
+    expect(draft).toMatchObject({
+      replayed: false,
+      status: 'DRAFT',
+      version: 1,
+    });
+    await expect(
+      orders.create(validInput, context, command()),
+    ).resolves.toMatchObject({
       orderId: draft.orderId,
       replayed: true,
     });
@@ -183,7 +196,11 @@ databaseDescribe('multi-channel order intake persistence', () => {
       context,
       command(),
     );
-    expect(opened).toMatchObject({ accepted: true, status: 'OPEN', version: 2 });
+    expect(opened).toMatchObject({
+      accepted: true,
+      status: 'OPEN',
+      version: 2,
+    });
     const convertedLine = await prisma.businessOrderLine.findFirstOrThrow({
       where: { orderId: draft.orderId, status: 'ACTIVE', tenantId },
     });
@@ -270,11 +287,18 @@ databaseDescribe('multi-channel order intake persistence', () => {
     await expect(
       orders.update(
         incomplete.orderId,
-        { ...validInput, expectedVersion: 1, externalOrderNo: invalidExternalNo },
+        {
+          ...validInput,
+          expectedVersion: 1,
+          externalOrderNo: invalidExternalNo,
+        },
         context,
         command(),
       ),
-    ).rejects.toMatchObject({ code: 'ORDER_VERSION_CONFLICT', statusCode: 409 });
+    ).rejects.toMatchObject({
+      code: 'ORDER_VERSION_CONFLICT',
+      statusCode: 409,
+    });
     const corrected = await orders.update(
       incomplete.orderId,
       {

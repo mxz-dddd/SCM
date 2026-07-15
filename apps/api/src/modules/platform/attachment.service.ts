@@ -63,8 +63,10 @@ export interface ListAttachmentQuery {
   readonly status?: FileObjectStatus;
 }
 
-const MIME_PATTERN = /^(application\/(json|pdf|zip|vnd\.openxmlformats-officedocument\.[a-z.]+)|image\/(gif|jpeg|png|webp)|text\/(csv|plain))$/;
-const WATERMARK_MIME_PATTERN = /^(application\/(json|pdf)|image\/(gif|jpeg|png|webp)|text\/(csv|plain))$/;
+const MIME_PATTERN =
+  /^(application\/(json|pdf|zip|vnd\.openxmlformats-officedocument\.[a-z.]+)|image\/(gif|jpeg|png|webp)|text\/(csv|plain))$/;
+const WATERMARK_MIME_PATTERN =
+  /^(application\/(json|pdf)|image\/(gif|jpeg|png|webp)|text\/(csv|plain))$/;
 const IDENTIFIER_PATTERN = /^[A-Z][A-Z0-9_-]{1,99}$/;
 
 export function assertAttachmentTransition(
@@ -175,7 +177,9 @@ export class AttachmentService {
           })
         : undefined;
     const where: Prisma.FileObjectWhereInput = {
-      ...(links ? { id: { in: links.map(({ fileObjectId }) => fileObjectId) } } : {}),
+      ...(links
+        ? { id: { in: links.map(({ fileObjectId }) => fileObjectId) } }
+        : {}),
       ...(query.search?.trim()
         ? {
             originalName: {
@@ -381,7 +385,8 @@ export class AttachmentService {
         });
         if (!file) throw this.notFound();
         assertAttachmentTransition(file.status, 'SCANNING');
-        if (file.version !== input.expectedVersion) throw this.versionConflict();
+        if (file.version !== input.expectedVersion)
+          throw this.versionConflict();
         const changed = await transaction.fileObject.updateMany({
           data: {
             etag: object.etag,
@@ -451,7 +456,8 @@ export class AttachmentService {
         });
         if (!file) throw this.notFound();
         assertAttachmentTransition(file.status, target);
-        if (file.version !== input.expectedVersion) throw this.versionConflict();
+        if (file.version !== input.expectedVersion)
+          throw this.versionConflict();
         const changed = await transaction.fileObject.updateMany({
           data: {
             scanDetails: (input.details ?? {}) as Prisma.InputJsonObject,
@@ -520,7 +526,8 @@ export class AttachmentService {
             409,
           );
         }
-        if (file.version !== input.expectedVersion) throw this.versionConflict();
+        if (file.version !== input.expectedVersion)
+          throw this.versionConflict();
         const linkId = await this.createLinkRecord(
           transaction,
           file.id,
@@ -687,7 +694,9 @@ export class AttachmentService {
   }
 
   private validateUpload(input: CreateUploadInput): void {
-    const maximum = Number(process.env.ATTACHMENT_MAX_BYTES ?? 25 * 1024 * 1024);
+    const maximum = Number(
+      process.env.ATTACHMENT_MAX_BYTES ?? 25 * 1024 * 1024,
+    );
     const retentionDays = input.retentionDays ?? 365;
     if (
       !input.originalName?.trim() ||

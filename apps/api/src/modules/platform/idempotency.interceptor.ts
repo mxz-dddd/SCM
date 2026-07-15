@@ -8,7 +8,14 @@ import {
 import { Reflector } from '@nestjs/core';
 import { Prisma } from '@prisma/client';
 import type { Response } from 'express';
-import { catchError, from, mergeMap, type Observable, of, throwError } from 'rxjs';
+import {
+  catchError,
+  from,
+  mergeMap,
+  type Observable,
+  of,
+  throwError,
+} from 'rxjs';
 import { AppError } from '../../common/app-error';
 import { isPrismaErrorCode } from '../../common/prisma-error';
 import { PrismaService } from '../../database/prisma.service';
@@ -198,5 +205,7 @@ export class IdempotencyInterceptor implements NestInterceptor {
 }
 
 function jsonEnvelope(value: unknown): Prisma.InputJsonObject {
-  return JSON.parse(JSON.stringify({ value: value ?? null })) as Prisma.InputJsonObject;
+  return JSON.parse(
+    JSON.stringify({ value: value ?? null }),
+  ) as Prisma.InputJsonObject;
 }

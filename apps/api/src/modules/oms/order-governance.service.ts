@@ -24,7 +24,10 @@ export interface ReviewDecisionInput {
 }
 
 export interface MergeOrdersInput {
-  readonly members: readonly { readonly expectedVersion: number; readonly orderId: string }[];
+  readonly members: readonly {
+    readonly expectedVersion: number;
+    readonly orderId: string;
+  }[];
 }
 
 export interface SplitOrderInput {
@@ -60,7 +63,10 @@ export interface ReleaseHoldInput {
   readonly reason: string;
 }
 
-export function assertReviewTransition(current: OrderStatus, target: OrderStatus): void {
+export function assertReviewTransition(
+  current: OrderStatus,
+  target: OrderStatus,
+): void {
   const allowed =
     (current === 'OPEN' && ['APPROVED', 'REJECTED', 'HOLD'].includes(target)) ||
     (current === 'APPROVED' && target === 'HOLD') ||
@@ -77,11 +83,19 @@ function decimal(value: string | undefined, field: string, allowZero = true) {
   if (value === undefined) return null;
   try {
     const parsed = new Prisma.Decimal(value);
-    if (!parsed.isFinite() || parsed.isNegative() || (!allowZero && parsed.isZero()))
+    if (
+      !parsed.isFinite() ||
+      parsed.isNegative() ||
+      (!allowZero && parsed.isZero())
+    )
       throw new Error('range');
     return parsed;
   } catch {
-    throw new AppError('ORDER_DECIMAL_INVALID', `${field} must be a valid decimal`, 400);
+    throw new AppError(
+      'ORDER_DECIMAL_INVALID',
+      `${field} must be a valid decimal`,
+      400,
+    );
   }
 }
 
@@ -107,24 +121,47 @@ export class OrderGovernanceService {
     metadata: CommandMetadata,
   ) {
     this.uuid(orderId);
-    const limit = decimal(input.autoApproveLimit ?? '10000', 'autoApproveLimit')!;
+    const limit = decimal(
+      input.autoApproveLimit ?? '10000',
+      'autoApproveLimit',
+    )!;
     const credit = decimal(input.creditAvailable, 'creditAvailable');
     if (input.approvalInstanceId && !isUuid(input.approvalInstanceId))
-      throw new AppError('APPROVAL_INSTANCE_INVALID', 'Approval instance is invalid', 400);
+      throw new AppError(
+        'APPROVAL_INSTANCE_INVALID',
+        'Approval instance is invalid',
+        400,
+      );
     return this.prisma.$transaction(async (transaction) => {
       const order = await this.order(transaction, orderId, context);
       this.expected(order.version, input.expectedVersion);
       if (order.status !== 'OPEN')
-        throw new AppError('ORDER_REVIEW_STATE_INVALID', 'Only open orders can be reviewed', 409);
+        throw new AppError(
+          'ORDER_REVIEW_STATE_INVALID',
+          'Only open orders can be reviewed',
+          409,
+        );
       const findings: { code: string; message: string }[] = [];
       if (order.totalAmount?.greaterThan(limit))
-        findings.push({ code: 'AMOUNT_LIMIT', message: 'Order amount exceeds auto approval limit' });
+        findings.push({
+          code: 'AMOUNT_LIMIT',
+          message: 'Order amount exceeds auto approval limit',
+        });
       if (credit && order.totalAmount?.greaterThan(credit))
-        findings.push({ code: 'CREDIT_LIMIT', message: 'Order amount exceeds available credit' });
+        findings.push({
+          code: 'CREDIT_LIMIT',
+          message: 'Order amount exceeds available credit',
+        });
       if (input.prohibited)
-        findings.push({ code: 'PROHIBITED', message: 'Order contains a prohibited category or route' });
+        findings.push({
+          code: 'PROHIBITED',
+          message: 'Order contains a prohibited category or route',
+        });
       for (const flag of input.riskFlags ?? [])
-        findings.push({ code: 'RISK_FLAG', message: required(flag, 'riskFlags', 300) });
+        findings.push({
+          code: 'RISK_FLAG',
+          message: required(flag, 'riskFlags', 300),
+        });
       if (findings.length && !input.approvalInstanceId)
         throw new AppError(
           'ORDER_APPROVAL_INSTANCE_REQUIRED',
@@ -134,7 +171,11 @@ export class OrderGovernanceService {
       const target: OrderStatus = findings.length ? 'HOLD' : 'APPROVED';
       assertReviewTransition(order.status, target);
       const changed = await transaction.businessOrder.update({
-        data: { status: target, updatedBy: context.accountId, version: { increment: 1 } },
+        data: {
+          status: target,
+          updatedBy: context.accountId,
+          version: { increment: 1 },
+        },
         where: { id: order.id },
       });
       const review = await transaction.orderReview.create({
@@ -144,7 +185,9 @@ export class OrderGovernanceService {
           createdBy: context.accountId,
           decidedAt: findings.length ? null : new Date(),
           decidedBy: findings.length ? null : context.accountId,
-          findings: JSON.parse(JSON.stringify(findings)) as Prisma.InputJsonArray,
+          findings: JSON.parse(
+            JSON.stringify(findings),
+          ) as Prisma.InputJsonArray,
           id: randomUUID(),
           inputSnapshot: json(input),
           orderVersion: order.version,
@@ -196,18 +239,38 @@ export class OrderGovernanceService {
     this.uuid(input.approvalInstanceId);
     return this.prisma.$transaction(async (transaction) => {
       const review = await transaction.orderReview.findFirst({
-        where: { id: reviewId, status: 'PENDING_APPROVAL', tenantId: context.tenantId },
+        where: {
+          id: reviewId,
+          status: 'PENDING_APPROVAL',
+          tenantId: context.tenantId,
+        },
       });
       if (!review)
-        throw new AppError('ORDER_REVIEW_NOT_PENDING', 'Pending order review was not found', 404);
+        throw new AppError(
+          'ORDER_REVIEW_NOT_PENDING',
+          'Pending order review was not found',
+          404,
+        );
       if (review.approvalInstanceId !== input.approvalInstanceId)
-        throw new AppError('ORDER_REVIEW_APPROVAL_MISMATCH', 'Approval instance does not match', 409);
-      const order = await this.order(transaction, review.businessOrderId, context);
+        throw new AppError(
+          'ORDER_REVIEW_APPROVAL_MISMATCH',
+          'Approval instance does not match',
+          409,
+        );
+      const order = await this.order(
+        transaction,
+        review.businessOrderId,
+        context,
+      );
       this.expected(order.version, input.expectedVersion);
       const target: OrderStatus = input.approved ? 'APPROVED' : 'REJECTED';
       assertReviewTransition(order.status, target);
       const changed = await transaction.businessOrder.update({
-        data: { status: target, updatedBy: context.accountId, version: { increment: 1 } },
+        data: {
+          status: target,
+          updatedBy: context.accountId,
+          version: { increment: 1 },
+        },
         where: { id: order.id },
       });
       await transaction.orderReview.update({
@@ -245,7 +308,12 @@ export class OrderGovernanceService {
         metadata,
         { reviewId, status: target },
       );
-      return { orderId: order.id, reviewId, status: changed.status, version: changed.version };
+      return {
+        orderId: order.id,
+        reviewId,
+        status: changed.status,
+        version: changed.version,
+      };
     });
   }
 
@@ -254,21 +322,42 @@ export class OrderGovernanceService {
     context: TenantContext,
     metadata: CommandMetadata,
   ) {
-    if (input.members.length < 2 || new Set(input.members.map(({ orderId }) => orderId)).size !== input.members.length)
-      throw new AppError('ORDER_MERGE_MEMBERS_INVALID', 'At least two unique orders are required', 400);
+    if (
+      input.members.length < 2 ||
+      new Set(input.members.map(({ orderId }) => orderId)).size !==
+        input.members.length
+    )
+      throw new AppError(
+        'ORDER_MERGE_MEMBERS_INVALID',
+        'At least two unique orders are required',
+        400,
+      );
     for (const member of input.members) this.uuid(member.orderId);
     return this.prisma.$transaction(async (transaction) => {
       const orders = await transaction.businessOrder.findMany({
         orderBy: { id: 'asc' },
-        where: { id: { in: input.members.map(({ orderId }) => orderId) }, tenantId: context.tenantId },
+        where: {
+          id: { in: input.members.map(({ orderId }) => orderId) },
+          tenantId: context.tenantId,
+        },
       });
       if (orders.length !== input.members.length)
-        throw new AppError('ORDER_MERGE_MEMBER_NOT_FOUND', 'A merge order was not found', 404);
+        throw new AppError(
+          'ORDER_MERGE_MEMBER_NOT_FOUND',
+          'A merge order was not found',
+          404,
+        );
       for (const order of orders) {
-        const expected = input.members.find(({ orderId }) => orderId === order.id)!.expectedVersion;
+        const expected = input.members.find(
+          ({ orderId }) => orderId === order.id,
+        )!.expectedVersion;
         this.expected(order.version, expected);
         if (!['OPEN', 'APPROVED'].includes(order.status))
-          throw new AppError('ORDER_MERGE_STATE_INVALID', 'Only open or approved orders can merge', 409);
+          throw new AppError(
+            'ORDER_MERGE_STATE_INVALID',
+            'Only open or approved orders can merge',
+            409,
+          );
       }
       const first = orders[0]!;
       if (
@@ -303,7 +392,16 @@ export class OrderGovernanceService {
           addressId: first.deliveryAddressId,
           aggregateAmount: first.currency ? aggregateAmount : null,
           allocationSnapshot: json({ orderIds: orders.map(({ id }) => id) }),
-          code: await businessNumber(this.prisma, 'OMS_ORDER_MERGE_GROUP', context, metadata, `order-merge:${orders.map(({ id }) => id).sort().join(':')}`),
+          code: await businessNumber(
+            this.prisma,
+            'OMS_ORDER_MERGE_GROUP',
+            context,
+            metadata,
+            `order-merge:${orders
+              .map(({ id }) => id)
+              .sort()
+              .join(':')}`,
+          ),
           createdBy: context.accountId,
           currency: first.currency,
           customerId: first.customerId,
@@ -324,12 +422,14 @@ export class OrderGovernanceService {
             orderSnapshot: json(order),
             orderVersion: order.version,
             quantityAllocation: json({
-              lines: memberLines.map(({ baseUom, lineNo, productId, quantityBase }) => ({
-                baseUom,
-                lineNo,
-                productId,
-                quantityBase: quantityBase?.toString() ?? null,
-              })),
+              lines: memberLines.map(
+                ({ baseUom, lineNo, productId, quantityBase }) => ({
+                  baseUom,
+                  lineNo,
+                  productId,
+                  quantityBase: quantityBase?.toString() ?? null,
+                }),
+              ),
             }),
             tenantId: context.tenantId,
             updatedBy: context.accountId,
@@ -361,41 +461,90 @@ export class OrderGovernanceService {
   ) {
     this.uuid(orderId);
     if (input.allocations.length < 2)
-      throw new AppError('ORDER_SPLIT_ALLOCATIONS_INVALID', 'At least two split allocations are required', 400);
+      throw new AppError(
+        'ORDER_SPLIT_ALLOCATIONS_INVALID',
+        'At least two split allocations are required',
+        400,
+      );
     return this.prisma.$transaction(async (transaction) => {
       const order = await this.order(transaction, orderId, context);
       this.expected(order.version, input.expectedVersion);
       if (!['OPEN', 'APPROVED'].includes(order.status))
-        throw new AppError('ORDER_SPLIT_STATE_INVALID', 'Only open or approved orders can split', 409);
+        throw new AppError(
+          'ORDER_SPLIT_STATE_INVALID',
+          'Only open or approved orders can split',
+          409,
+        );
       const lines = await transaction.businessOrderLine.findMany({
         where: { orderId, status: 'ACTIVE', tenantId: context.tenantId },
       });
-      const lineIds = new Set(input.allocations.map(({ sourceLineId }) => sourceLineId));
-      if (lineIds.size !== lines.length || lines.some(({ id }) => !lineIds.has(id)))
-        throw new AppError('ORDER_SPLIT_LINES_INCOMPLETE', 'Every active source line must be allocated', 409);
+      const lineIds = new Set(
+        input.allocations.map(({ sourceLineId }) => sourceLineId),
+      );
+      if (
+        lineIds.size !== lines.length ||
+        lines.some(({ id }) => !lineIds.has(id))
+      )
+        throw new AppError(
+          'ORDER_SPLIT_LINES_INCOMPLETE',
+          'Every active source line must be allocated',
+          409,
+        );
       for (const line of lines) {
-        const allocations = input.allocations.filter(({ sourceLineId }) => sourceLineId === line.id);
-        if (!line.quantityOriginal || !line.quantityBase || !line.originalUom || !line.baseUom)
-          throw new AppError('ORDER_SPLIT_LINE_INVALID', 'Source line quantities are incomplete', 409);
+        const allocations = input.allocations.filter(
+          ({ sourceLineId }) => sourceLineId === line.id,
+        );
+        if (
+          !line.quantityOriginal ||
+          !line.quantityBase ||
+          !line.originalUom ||
+          !line.baseUom
+        )
+          throw new AppError(
+            'ORDER_SPLIT_LINE_INVALID',
+            'Source line quantities are incomplete',
+            409,
+          );
         const original = allocations.reduce(
-          (sum, allocation) => sum.add(decimal(allocation.quantityOriginal, 'quantityOriginal', false)!),
+          (sum, allocation) =>
+            sum.add(
+              decimal(allocation.quantityOriginal, 'quantityOriginal', false)!,
+            ),
           new Prisma.Decimal(0),
         );
         const base = allocations.reduce(
-          (sum, allocation) => sum.add(decimal(allocation.quantityBase, 'quantityBase', false)!),
+          (sum, allocation) =>
+            sum.add(decimal(allocation.quantityBase, 'quantityBase', false)!),
           new Prisma.Decimal(0),
         );
-        if (!original.equals(line.quantityOriginal) || !base.equals(line.quantityBase))
-          throw new AppError('ORDER_SPLIT_QUANTITY_MISMATCH', 'Split quantities must equal source quantities', 409);
+        if (
+          !original.equals(line.quantityOriginal) ||
+          !base.equals(line.quantityBase)
+        )
+          throw new AppError(
+            'ORDER_SPLIT_QUANTITY_MISMATCH',
+            'Split quantities must equal source quantities',
+            409,
+          );
       }
-      const amounts = input.allocations.map(({ amount }) => decimal(amount, 'amount'));
+      const amounts = input.allocations.map(({ amount }) =>
+        decimal(amount, 'amount'),
+      );
       if (order.totalAmount) {
         if (amounts.some((amount) => amount === null))
-          throw new AppError('ORDER_SPLIT_AMOUNT_REQUIRED', 'Every split requires an amount allocation', 409);
+          throw new AppError(
+            'ORDER_SPLIT_AMOUNT_REQUIRED',
+            'Every split requires an amount allocation',
+            409,
+          );
         let total = new Prisma.Decimal(0);
         for (const amount of amounts) total = total.add(amount!);
         if (!total.equals(order.totalAmount))
-          throw new AppError('ORDER_SPLIT_AMOUNT_MISMATCH', 'Split amounts must equal order amount', 409);
+          throw new AppError(
+            'ORDER_SPLIT_AMOUNT_MISMATCH',
+            'Split amounts must equal order amount',
+            409,
+          );
       }
       const splitGroupId = randomUUID();
       for (const [index, allocation] of input.allocations.entries()) {
@@ -404,13 +553,25 @@ export class OrderGovernanceService {
           data: {
             amountAllocation: amounts[index] ?? null,
             baseUom: line.baseUom!,
-            childBusinessRef: required(allocation.childBusinessRef, 'childBusinessRef', 200),
+            childBusinessRef: required(
+              allocation.childBusinessRef,
+              'childBusinessRef',
+              200,
+            ),
             createdBy: context.accountId,
             currency: order.totalAmount ? order.currency : null,
             id: randomUUID(),
             originalUom: line.originalUom!,
-            quantityBase: decimal(allocation.quantityBase, 'quantityBase', false)!,
-            quantityOriginal: decimal(allocation.quantityOriginal, 'quantityOriginal', false)!,
+            quantityBase: decimal(
+              allocation.quantityBase,
+              'quantityBase',
+              false,
+            )!,
+            quantityOriginal: decimal(
+              allocation.quantityOriginal,
+              'quantityOriginal',
+              false,
+            )!,
             sourceLineId: line.id,
             sourceOrderId: order.id,
             sourceOrderVersion: order.version,
@@ -420,11 +581,22 @@ export class OrderGovernanceService {
           },
         });
       }
-      await this.record(transaction, order, 'order.split-created.v1', context, metadata, {
-        allocations: input.allocations.length,
+      await this.record(
+        transaction,
+        order,
+        'order.split-created.v1',
+        context,
+        metadata,
+        {
+          allocations: input.allocations.length,
+          splitGroupId,
+        },
+      );
+      return {
+        allocationCount: input.allocations.length,
+        orderId,
         splitGroupId,
-      });
-      return { allocationCount: input.allocations.length, orderId, splitGroupId };
+      };
     });
   }
 
@@ -435,25 +607,52 @@ export class OrderGovernanceService {
     metadata: CommandMetadata,
   ) {
     this.uuid(orderId);
-    if (!Number.isInteger(input.priority) || input.priority < 1 || input.priority > 100)
-      throw new AppError('ORDER_PRIORITY_INVALID', 'Priority must be between 1 and 100', 400);
+    if (
+      !Number.isInteger(input.priority) ||
+      input.priority < 1 ||
+      input.priority > 100
+    )
+      throw new AppError(
+        'ORDER_PRIORITY_INVALID',
+        'Priority must be between 1 and 100',
+        400,
+      );
     if (input.lineId) this.uuid(input.lineId);
     return this.prisma.$transaction(async (transaction) => {
       const order = await this.order(transaction, orderId, context);
       this.expected(order.version, input.expectedVersion);
       if (!['OPEN', 'APPROVED', 'HOLD'].includes(order.status))
-        throw new AppError('ORDER_PRIORITY_STATE_INVALID', 'Order priority cannot change in this state', 409);
+        throw new AppError(
+          'ORDER_PRIORITY_STATE_INVALID',
+          'Order priority cannot change in this state',
+          409,
+        );
       const line = input.lineId
         ? await transaction.businessOrderLine.findFirst({
-            where: { id: input.lineId, orderId, status: 'ACTIVE', tenantId: context.tenantId },
+            where: {
+              id: input.lineId,
+              orderId,
+              status: 'ACTIVE',
+              tenantId: context.tenantId,
+            },
           })
         : null;
       if (input.lineId && !line)
-        throw new AppError('ORDER_LINE_NOT_FOUND', 'Active order line was not found', 404);
+        throw new AppError(
+          'ORDER_LINE_NOT_FOUND',
+          'Active order line was not found',
+          404,
+        );
       const previousPriority = line?.priority ?? order.priority;
       const changed = await transaction.businessOrder.update({
         data: {
-          ...(line ? {} : { expedited: input.expedited ?? order.expedited, priority: input.priority, vip: input.vip ?? order.vip }),
+          ...(line
+            ? {}
+            : {
+                expedited: input.expedited ?? order.expedited,
+                priority: input.priority,
+                vip: input.vip ?? order.vip,
+              }),
           updatedBy: context.accountId,
           version: { increment: 1 },
         },
@@ -461,16 +660,25 @@ export class OrderGovernanceService {
       });
       if (line)
         await transaction.businessOrderLine.update({
-          data: { priority: input.priority, updatedBy: context.accountId, version: { increment: 1 } },
+          data: {
+            priority: input.priority,
+            updatedBy: context.accountId,
+            version: { increment: 1 },
+          },
           where: { id: line.id },
         });
-      const eligible = line?.quantityBase?.minus(line.executedQuantityBase) ?? null;
+      const eligible =
+        line?.quantityBase?.minus(line.executedQuantityBase) ?? null;
       const decision = await transaction.priorityDecision.create({
         data: {
           baseUom: line?.baseUom ?? null,
           businessOrderId: order.id,
           createdBy: context.accountId,
-          factors: json({ expedited: input.expedited, vip: input.vip, ...input.factors }),
+          factors: json({
+            expedited: input.expedited,
+            vip: input.vip,
+            ...input.factors,
+          }),
           id: randomUUID(),
           orderLineId: line?.id ?? null,
           previousPriority,
@@ -490,7 +698,8 @@ export class OrderGovernanceService {
         metadata,
         {
           decisionId: decision.id,
-          executedQuantityPreserved: line?.executedQuantityBase.toString() ?? null,
+          executedQuantityPreserved:
+            line?.executedQuantityBase.toString() ?? null,
           priority: input.priority,
           reallocationEligibleQuantity: eligible?.toString() ?? null,
         },
@@ -517,13 +726,43 @@ export class OrderGovernanceService {
       const order = await this.order(transaction, orderId, context);
       this.expected(order.version, input.expectedVersion);
       if (!['OPEN', 'APPROVED', 'HOLD'].includes(order.status))
-        throw new AppError('ORDER_HOLD_STATE_INVALID', 'Order cannot be held in this state', 409);
-      if (input.lineId && !(await transaction.businessOrderLine.findFirst({ where: { id: input.lineId, orderId, status: 'ACTIVE', tenantId: context.tenantId } })))
-        throw new AppError('ORDER_LINE_NOT_FOUND', 'Active order line was not found', 404);
-      const previous = order.status === 'HOLD'
-        ? (await transaction.orderHold.findFirst({ orderBy: { createdAt: 'asc' }, where: { businessOrderId: orderId, orderLineId: null, status: 'ACTIVE', tenantId: context.tenantId } }))?.previousOrderStatus ?? 'OPEN'
-        : order.status;
-      if (!input.lineId && order.status !== 'HOLD') assertReviewTransition(order.status, 'HOLD');
+        throw new AppError(
+          'ORDER_HOLD_STATE_INVALID',
+          'Order cannot be held in this state',
+          409,
+        );
+      if (
+        input.lineId &&
+        !(await transaction.businessOrderLine.findFirst({
+          where: {
+            id: input.lineId,
+            orderId,
+            status: 'ACTIVE',
+            tenantId: context.tenantId,
+          },
+        }))
+      )
+        throw new AppError(
+          'ORDER_LINE_NOT_FOUND',
+          'Active order line was not found',
+          404,
+        );
+      const previous =
+        order.status === 'HOLD'
+          ? ((
+              await transaction.orderHold.findFirst({
+                orderBy: { createdAt: 'asc' },
+                where: {
+                  businessOrderId: orderId,
+                  orderLineId: null,
+                  status: 'ACTIVE',
+                  tenantId: context.tenantId,
+                },
+              })
+            )?.previousOrderStatus ?? 'OPEN')
+          : order.status;
+      if (!input.lineId && order.status !== 'HOLD')
+        assertReviewTransition(order.status, 'HOLD');
       const changed = await transaction.businessOrder.update({
         data: {
           ...(input.lineId ? {} : { status: 'HOLD' as const }),
@@ -545,12 +784,25 @@ export class OrderGovernanceService {
           updatedBy: context.accountId,
         },
       });
-      await this.versionAndRecord(transaction, order, changed, 'order.held.v1', context, metadata, {
+      await this.versionAndRecord(
+        transaction,
+        order,
+        changed,
+        'order.held.v1',
+        context,
+        metadata,
+        {
+          holdId: hold.id,
+          lineId: hold.orderLineId,
+          status: changed.status,
+        },
+      );
+      return {
         holdId: hold.id,
-        lineId: hold.orderLineId,
+        orderId,
         status: changed.status,
-      });
-      return { holdId: hold.id, orderId, status: changed.status, version: changed.version };
+        version: changed.version,
+      };
     });
   }
 
@@ -565,8 +817,17 @@ export class OrderGovernanceService {
       const hold = await transaction.orderHold.findFirst({
         where: { id: holdId, status: 'ACTIVE', tenantId: context.tenantId },
       });
-      if (!hold) throw new AppError('ORDER_HOLD_NOT_ACTIVE', 'Active order hold was not found', 404);
-      const order = await this.order(transaction, hold.businessOrderId, context);
+      if (!hold)
+        throw new AppError(
+          'ORDER_HOLD_NOT_ACTIVE',
+          'Active order hold was not found',
+          404,
+        );
+      const order = await this.order(
+        transaction,
+        hold.businessOrderId,
+        context,
+      );
       this.expected(order.version, input.expectedVersion);
       let target = order.status;
       if (!hold.orderLineId) {
@@ -585,7 +846,11 @@ export class OrderGovernanceService {
         }
       }
       const changed = await transaction.businessOrder.update({
-        data: { status: target, updatedBy: context.accountId, version: { increment: 1 } },
+        data: {
+          status: target,
+          updatedBy: context.accountId,
+          version: { increment: 1 },
+        },
         where: { id: order.id },
       });
       await transaction.orderHold.update({
@@ -608,7 +873,12 @@ export class OrderGovernanceService {
         metadata,
         { holdId, status: target },
       );
-      return { holdId, orderId: order.id, status: changed.status, version: changed.version };
+      return {
+        holdId,
+        orderId: order.id,
+        status: changed.status,
+        version: changed.version,
+      };
     });
   }
 
@@ -623,7 +893,11 @@ export class OrderGovernanceService {
   ) {
     const lines = await transaction.businessOrderLine.findMany({
       orderBy: { lineNo: 'asc' },
-      where: { orderId: after.id, status: 'ACTIVE', tenantId: context.tenantId },
+      where: {
+        orderId: after.id,
+        status: 'ACTIVE',
+        tenantId: context.tenantId,
+      },
     });
     await Promise.all([
       transaction.orderVersion.create({
@@ -641,7 +915,10 @@ export class OrderGovernanceService {
       transaction.changeSet.create({
         data: {
           businessOrderId: after.id,
-          changes: json({ details, status: { from: before.status, to: after.status } }),
+          changes: json({
+            details,
+            status: { from: before.status, to: after.status },
+          }),
           createdBy: context.accountId,
           fromVersion: before.version,
           id: randomUUID(),
@@ -652,12 +929,23 @@ export class OrderGovernanceService {
         },
       }),
     ]);
-    await this.record(transaction, after, eventName, context, metadata, details);
+    await this.record(
+      transaction,
+      after,
+      eventName,
+      context,
+      metadata,
+      details,
+    );
   }
 
   private async record(
     transaction: Prisma.TransactionClient,
-    order: { readonly id: string; readonly orderNo: string; readonly version: number },
+    order: {
+      readonly id: string;
+      readonly orderNo: string;
+      readonly version: number;
+    },
     eventName: string,
     context: TenantContext,
     metadata: CommandMetadata,
@@ -705,18 +993,25 @@ export class OrderGovernanceService {
     const order = await transaction.businessOrder.findFirst({
       where: { id: orderId, tenantId: context.tenantId },
     });
-    if (!order) throw new AppError('ORDER_NOT_FOUND', 'Order was not found', 404);
+    if (!order)
+      throw new AppError('ORDER_NOT_FOUND', 'Order was not found', 404);
     return order;
   }
 
   private expected(actual: number, expected: number) {
     if (!Number.isInteger(expected) || actual !== expected)
-      throw new AppError('ORDER_VERSION_CONFLICT', 'Order changed; refresh and retry', 409, {
-        retryable: true,
-      });
+      throw new AppError(
+        'ORDER_VERSION_CONFLICT',
+        'Order changed; refresh and retry',
+        409,
+        {
+          retryable: true,
+        },
+      );
   }
 
   private uuid(id: string) {
-    if (!isUuid(id)) throw new AppError('ORDER_NOT_FOUND', 'Resource was not found', 404);
+    if (!isUuid(id))
+      throw new AppError('ORDER_NOT_FOUND', 'Resource was not found', 404);
   }
 }

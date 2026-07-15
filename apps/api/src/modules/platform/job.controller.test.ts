@@ -5,7 +5,9 @@ import { PermissionGuard } from './auth/permission.guard';
 
 describe('job command authorization', () => {
   it('denies cancellation when RBAC does not grant platform.job.cancel', async () => {
-    const decide = vi.fn().mockResolvedValue({ allowed: false, reason: 'NO_GRANT' });
+    const decide = vi
+      .fn()
+      .mockResolvedValue({ allowed: false, reason: 'NO_GRANT' });
     const guard = new PermissionGuard(new Reflector(), { decide } as never);
     const request = {
       header: (name: string) =>
@@ -27,7 +29,9 @@ describe('job command authorization', () => {
       switchToHttp: () => ({ getRequest: () => request }),
     };
 
-    await expect(guard.canActivate(executionContext as never)).rejects.toMatchObject({
+    await expect(
+      guard.canActivate(executionContext as never),
+    ).rejects.toMatchObject({
       code: 'AUTH_PERMISSION_DENIED',
       statusCode: 403,
     });

@@ -163,7 +163,7 @@ export async function safeWebhookFetch(
                 headers.set(name, String(content));
             }
             resolve(
-            new Response(responseBody.toString('utf8'), {
+              new Response(responseBody.toString('utf8'), {
                 headers,
                 status: response.statusCode ?? 500,
                 ...(response.statusMessage

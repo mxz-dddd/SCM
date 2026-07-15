@@ -20,7 +20,10 @@ function harness() {
   const prisma = {
     idempotencyRecord: {
       create: ({ data }: { data: Record<string, unknown> }) => {
-        const row = { id: `record-${rows.length + 1}`, ...data } as unknown as RecordRow;
+        const row = {
+          id: `record-${rows.length + 1}`,
+          ...data,
+        } as unknown as RecordRow;
         rows.push(row);
         return Promise.resolve(row);
       },
@@ -29,7 +32,11 @@ function harness() {
         if (index >= 0) rows.splice(index, 1);
         return Promise.resolve({ count: index >= 0 ? 1 : 0 });
       },
-      findUnique: ({ where }: { where: { tenantId_scope_key: Record<string, string> } }) =>
+      findUnique: ({
+        where,
+      }: {
+        where: { tenantId_scope_key: Record<string, string> };
+      }) =>
         Promise.resolve(
           rows.find(
             ({ key, scope, tenantId }) =>
@@ -38,16 +45,25 @@ function harness() {
               tenantId === where.tenantId_scope_key.tenantId,
           ) ?? null,
         ),
-      update: ({ data, where }: { data: Record<string, unknown>; where: { id: string } }) => {
+      update: ({
+        data,
+        where,
+      }: {
+        data: Record<string, unknown>;
+        where: { id: string };
+      }) => {
         const row = rows.find(({ id }) => id === where.id)!;
         Object.assign(row, data, { version: 2 });
         return Promise.resolve(row);
       },
     },
   };
-  const interceptor = new IdempotencyInterceptor(prisma as never, {
-    getAllAndOverride: () => 'oms.order.create.v1',
-  } as never);
+  const interceptor = new IdempotencyInterceptor(
+    prisma as never,
+    {
+      getAllAndOverride: () => 'oms.order.create.v1',
+    } as never,
+  );
   return { interceptor, rows };
 }
 
@@ -124,8 +140,13 @@ describe('common Idempotency-Key interceptor', () => {
     );
     const conflict = execution({ externalOrderNo: 'SO-2' }, 'conflict-key');
     await expect(
-      interceptor.intercept(conflict.context as never, { handle: () => of({}) }),
-    ).rejects.toMatchObject({ code: 'IDEMPOTENCY_KEY_CONFLICT', statusCode: 409 });
+      interceptor.intercept(conflict.context as never, {
+        handle: () => of({}),
+      }),
+    ).rejects.toMatchObject({
+      code: 'IDEMPOTENCY_KEY_CONFLICT',
+      statusCode: 409,
+    });
   });
 
   it('replays a deterministic command error without executing it twice', async () => {
@@ -168,6 +189,9 @@ describe('common Idempotency-Key interceptor', () => {
     const missing = execution({ externalOrderNo: 'SO-1' });
     await expect(
       interceptor.intercept(missing.context as never, { handle: () => of({}) }),
-    ).rejects.toMatchObject({ code: 'IDEMPOTENCY_KEY_REQUIRED', statusCode: 400 });
+    ).rejects.toMatchObject({
+      code: 'IDEMPOTENCY_KEY_REQUIRED',
+      statusCode: 400,
+    });
   });
 });

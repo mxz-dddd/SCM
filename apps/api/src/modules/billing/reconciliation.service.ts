@@ -10,23 +10,11 @@ import { businessNumber } from '../platform/public/numbering.facade';
 import type { CommandMetadata } from '../platform/tenant.service';
 
 type StatementStatus =
-  | 'ADJUSTED'
-  | 'DISPUTED'
-  | 'DRAFT'
-  | 'PUBLISHED'
-  | 'RECONCILED';
+  'ADJUSTED' | 'DISPUTED' | 'DRAFT' | 'PUBLISHED' | 'RECONCILED';
 type DisputeStatus =
-  | 'ACCEPTED'
-  | 'ADJUSTED'
-  | 'EVIDENCE_REQUESTED'
-  | 'OPEN'
-  | 'REJECTED';
+  'ACCEPTED' | 'ADJUSTED' | 'EVIDENCE_REQUESTED' | 'OPEN' | 'REJECTED';
 type AdjustmentStatus =
-  | 'APPROVED'
-  | 'DRAFT'
-  | 'PENDING_APPROVAL'
-  | 'POSTED'
-  | 'REJECTED';
+  'APPROVED' | 'DRAFT' | 'PENDING_APPROVAL' | 'POSTED' | 'REJECTED';
 
 export type CreateReconciliationStatementInput = {
   attachmentRefs?: readonly string[];
@@ -134,7 +122,9 @@ export class ReconciliationService {
       }
       const calculations = await tx.billingCalculation.findMany({
         where: {
-          id: { in: [...new Set(lines.map(({ calculationId }) => calculationId))] },
+          id: {
+            in: [...new Set(lines.map(({ calculationId }) => calculationId))],
+          },
           tenantId: context.tenantId,
         },
       });
@@ -164,7 +154,13 @@ export class ReconciliationService {
             }),
             periodFrom: input.periodFrom,
             periodTo: input.periodTo,
-            statementNo: await businessNumber(this.prisma, 'BILLING_RECONCILIATION_STATEMENT', context, metadata, `reconciliation-statement:${input.contractRef}:${input.periodFrom}:${input.periodTo}`),
+            statementNo: await businessNumber(
+              this.prisma,
+              'BILLING_RECONCILIATION_STATEMENT',
+              context,
+              metadata,
+              `reconciliation-statement:${input.contractRef}:${input.periodFrom}:${input.periodTo}`,
+            ),
             subtotalAmount: subtotal,
             taxAmount: tax,
             tenantId: context.tenantId,
@@ -173,7 +169,9 @@ export class ReconciliationService {
             voucherCount: vouchers.length,
           },
         });
-        const voucherById = new Map(vouchers.map((voucher) => [voucher.id, voucher]));
+        const voucherById = new Map(
+          vouchers.map((voucher) => [voucher.id, voucher]),
+        );
         for (const [index, line] of lines.entries()) {
           const calculation = calculationById.get(line.calculationId);
           if (!calculation)
@@ -282,7 +280,11 @@ export class ReconciliationService {
         !['PUBLISHED', 'DISPUTED', 'ADJUSTED'].includes(statement.status) ||
         statement.version !== input.expectedVersion
       )
-        this.transitionConflict('reconcile', statement.status, statement.version);
+        this.transitionConflict(
+          'reconcile',
+          statement.status,
+          statement.version,
+        );
       const unresolved = await tx.reconciliationDispute.count({
         where: {
           statementId: id,
@@ -384,7 +386,8 @@ export class ReconciliationService {
   async raiseDispute(
     statementId: string,
     raw: {
-      category: 'DUPLICATE' | 'MISSING' | 'QUANTITY' | 'RATE' | 'SERVICE' | 'TAX';
+      category:
+        'DUPLICATE' | 'MISSING' | 'QUANTITY' | 'RATE' | 'SERVICE' | 'TAX';
       description: string;
       disputedAmount: string;
       evidenceRefs?: readonly string[];
@@ -439,7 +442,13 @@ export class ReconciliationService {
           createdBy: context.accountId,
           currency: statement.currency,
           description: input.description,
-          disputeNo: await businessNumber(this.prisma, 'BILLING_DISPUTE', context, metadata, `billing-dispute:${statementId}:${input.statementLineId ?? 'missing'}:${input.category}`),
+          disputeNo: await businessNumber(
+            this.prisma,
+            'BILLING_DISPUTE',
+            context,
+            metadata,
+            `billing-dispute:${statementId}:${input.statementLineId ?? 'missing'}:${input.category}`,
+          ),
           disputedAmount: input.disputedAmount,
           raisedByType: input.raisedByType,
           statementId,
@@ -511,8 +520,14 @@ export class ReconciliationService {
   ) {
     this.uuid(id, 'disputeId');
     const message = this.required(raw.message, 'message', 2000);
-    const evidenceRefs = this.references(raw.evidenceRefs ?? [], 'evidenceRefs');
-    const transitions: Record<string, Partial<Record<typeof raw.action, DisputeStatus>>> = {
+    const evidenceRefs = this.references(
+      raw.evidenceRefs ?? [],
+      'evidenceRefs',
+    );
+    const transitions: Record<
+      string,
+      Partial<Record<typeof raw.action, DisputeStatus>>
+    > = {
       EVIDENCE_REQUESTED: {
         ACCEPT: 'ACCEPTED',
         REJECT: 'REJECTED',
@@ -593,7 +608,11 @@ export class ReconciliationService {
         `billing.reconciliation.dispute-${raw.action.toLowerCase().replace('_', '-')}.v1`,
         context,
         metadata,
-        { disputeId: id, statementId: dispute.statementId, status: changed.status },
+        {
+          disputeId: id,
+          statementId: dispute.statementId,
+          status: changed.status,
+        },
       );
       return {
         disputeId: id,
@@ -628,9 +647,11 @@ export class ReconciliationService {
         voucher.periodTo,
         context.tenantId,
       );
-      let dispute:
-        | { id: string; statementId: string; statementLineId: string | null }
-        | null = null;
+      let dispute: {
+        id: string;
+        statementId: string;
+        statementLineId: string | null;
+      } | null = null;
       if (input.disputeId) {
         dispute = await tx.reconciliationDispute.findFirst({
           select: { id: true, statementId: true, statementLineId: true },
@@ -662,7 +683,13 @@ export class ReconciliationService {
       }
       const adjustment = await tx.billingAdjustmentVoucher.create({
         data: {
-          adjustmentNo: await businessNumber(this.prisma, 'BILLING_RECONCILIATION_ADJUSTMENT', context, metadata, `reconciliation-adjustment:${voucher.id}:${input.disputeId ?? 'manual'}:${input.adjustmentType}`),
+          adjustmentNo: await businessNumber(
+            this.prisma,
+            'BILLING_RECONCILIATION_ADJUSTMENT',
+            context,
+            metadata,
+            `reconciliation-adjustment:${voucher.id}:${input.disputeId ?? 'manual'}:${input.adjustmentType}`,
+          ),
           adjustmentType: input.adjustmentType,
           amount: input.amount,
           createdBy: context.accountId,
@@ -696,9 +723,18 @@ export class ReconciliationService {
             updatedBy: context.accountId,
           },
         });
-      await this.adjustmentHistory(tx, adjustment.id, 1, null, 'DRAFT', 'CREATE', context, {
-        allocationCount: input.allocations.length,
-      });
+      await this.adjustmentHistory(
+        tx,
+        adjustment.id,
+        1,
+        null,
+        'DRAFT',
+        'CREATE',
+        context,
+        {
+          allocationCount: input.allocations.length,
+        },
+      );
       await this.emit(
         tx,
         'BillingAdjustmentVoucher',
@@ -733,7 +769,12 @@ export class ReconciliationService {
         adjustment.sourceVoucherId,
         context.tenantId,
       );
-      this.requireAdjustment(adjustment, 'DRAFT', input.expectedVersion, 'submit');
+      this.requireAdjustment(
+        adjustment,
+        'DRAFT',
+        input.expectedVersion,
+        'submit',
+      );
       const changed = await tx.billingAdjustmentVoucher.update({
         data: {
           status: 'PENDING_APPROVAL',
@@ -898,7 +939,12 @@ export class ReconciliationService {
         adjustment.sourceVoucherId,
         context.tenantId,
       );
-      this.requireAdjustment(adjustment, 'APPROVED', input.expectedVersion, 'post');
+      this.requireAdjustment(
+        adjustment,
+        'APPROVED',
+        input.expectedVersion,
+        'post',
+      );
       const allocations = await tx.billingAllocationDetail.findMany({
         where: { adjustmentId: id, tenantId: context.tenantId },
       });
@@ -1031,8 +1077,15 @@ export class ReconciliationService {
         statement.periodTo,
         context.tenantId,
       );
-      if (!from.includes(statement.status) || statement.version !== expectedVersion)
-        this.transitionConflict(command.toLowerCase(), statement.status, statement.version);
+      if (
+        !from.includes(statement.status) ||
+        statement.version !== expectedVersion
+      )
+        this.transitionConflict(
+          command.toLowerCase(),
+          statement.status,
+          statement.version,
+        );
       const changed = await tx.reconciliationStatement.update({
         data: {
           ...(to === 'PUBLISHED'
@@ -1044,7 +1097,13 @@ export class ReconciliationService {
         },
         where: { id },
       });
-      await this.statementVersion(tx, changed, changed.version, command, context);
+      await this.statementVersion(
+        tx,
+        changed,
+        changed.version,
+        command,
+        context,
+      );
       await this.emit(
         tx,
         'ReconciliationStatement',
@@ -1055,7 +1114,11 @@ export class ReconciliationService {
         metadata,
         { statementId: id },
       );
-      return { statementId: id, status: changed.status, version: changed.version };
+      return {
+        statementId: id,
+        status: changed.status,
+        version: changed.version,
+      };
     });
   }
 
@@ -1080,7 +1143,10 @@ export class ReconciliationService {
         400,
       );
     return {
-      attachmentRefs: this.references(input.attachmentRefs ?? [], 'attachmentRefs'),
+      attachmentRefs: this.references(
+        input.attachmentRefs ?? [],
+        'attachmentRefs',
+      ),
       contractRef: this.required(input.contractRef, 'contractRef', 200),
       partnerSnapshot: input.partnerSnapshot ?? {},
       periodFrom,
@@ -1098,14 +1164,25 @@ export class ReconciliationService {
     raisedByType: string;
     statementLineId?: string;
   }) {
-    const categories = ['DUPLICATE', 'MISSING', 'QUANTITY', 'RATE', 'SERVICE', 'TAX'];
-    if (!categories.includes(input.category) || !['FINANCE', 'PARTNER'].includes(input.raisedByType))
+    const categories = [
+      'DUPLICATE',
+      'MISSING',
+      'QUANTITY',
+      'RATE',
+      'SERVICE',
+      'TAX',
+    ];
+    if (
+      !categories.includes(input.category) ||
+      !['FINANCE', 'PARTNER'].includes(input.raisedByType)
+    )
       throw new AppError(
         'BILLING_RECONCILIATION_INPUT_INVALID',
         'Dispute category or actor type is invalid',
         400,
       );
-    if (input.statementLineId) this.uuid(input.statementLineId, 'statementLineId');
+    if (input.statementLineId)
+      this.uuid(input.statementLineId, 'statementLineId');
     const disputedAmount = this.decimal(input.disputedAmount, 'disputedAmount');
     if (disputedAmount.lte(0))
       throw new AppError(
@@ -1115,12 +1192,7 @@ export class ReconciliationService {
       );
     return {
       category: input.category as
-        | 'DUPLICATE'
-        | 'MISSING'
-        | 'QUANTITY'
-        | 'RATE'
-        | 'SERVICE'
-        | 'TAX',
+        'DUPLICATE' | 'MISSING' | 'QUANTITY' | 'RATE' | 'SERVICE' | 'TAX',
       description: this.required(input.description, 'description', 2000),
       disputedAmount,
       evidenceRefs: this.references(input.evidenceRefs ?? [], 'evidenceRefs'),
@@ -1164,7 +1236,10 @@ export class ReconciliationService {
           'Allocation target type is invalid',
           400,
         );
-      const allocationAmount = this.decimal(allocation.amount, 'allocation.amount');
+      const allocationAmount = this.decimal(
+        allocation.amount,
+        'allocation.amount',
+      );
       if (allocationAmount.lte(0))
         throw new AppError(
           'BILLING_ADJUSTMENT_INPUT_INVALID',
@@ -1173,7 +1248,11 @@ export class ReconciliationService {
         );
       return {
         amount: allocationAmount,
-        targetRef: this.required(allocation.targetRef, 'allocation.targetRef', 200),
+        targetRef: this.required(
+          allocation.targetRef,
+          'allocation.targetRef',
+          200,
+        ),
         targetSnapshot: allocation.targetSnapshot ?? {},
         targetType: allocation.targetType,
       };
@@ -1389,7 +1468,11 @@ export class ReconciliationService {
 
   private references(values: readonly string[], field: string) {
     const refs = [...new Set(values.map((value) => value.trim()))];
-    if (refs.length !== values.length || refs.length > 20 || refs.some((ref) => !ref || ref.length > 500))
+    if (
+      refs.length !== values.length ||
+      refs.length > 20 ||
+      refs.some((ref) => !ref || ref.length > 500)
+    )
       throw new AppError(
         'BILLING_RECONCILIATION_INPUT_INVALID',
         `${field} contains invalid or duplicate references`,
@@ -1423,7 +1506,11 @@ export class ReconciliationService {
     });
   }
 
-  private transitionConflict(command: string, status: string, version: number): never {
+  private transitionConflict(
+    command: string,
+    status: string,
+    version: number,
+  ): never {
     this.conflict(
       'BILLING_RECONCILIATION_TRANSITION_INVALID',
       `Cannot ${command} from ${status} at version ${version}`,

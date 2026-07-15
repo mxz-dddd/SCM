@@ -32,59 +32,135 @@ function meta(request: TenantRequest, correlationId: string, key?: string) {
 @UseGuards(PermissionGuard)
 export class OrderGovernanceController {
   constructor(
-    @Inject(OrderGovernanceService) private readonly service: OrderGovernanceService,
+    @Inject(OrderGovernanceService)
+    private readonly service: OrderGovernanceService,
   ) {}
 
   @Post('orders/:id/review')
   @HttpCode(200)
   @Idempotent('oms.order.review.v1')
   @RequirePermission('oms.order.review')
-  review(@Param('id') id: string, @Body() input: ReviewOrderInput, @Headers('idempotency-key') key: string | undefined, @Headers('x-correlation-id') correlationId: string, @Req() request: TenantRequest) {
-    return this.service.review(id, input, request.tenantContext, meta(request, correlationId, key));
+  review(
+    @Param('id') id: string,
+    @Body() input: ReviewOrderInput,
+    @Headers('idempotency-key') key: string | undefined,
+    @Headers('x-correlation-id') correlationId: string,
+    @Req() request: TenantRequest,
+  ) {
+    return this.service.review(
+      id,
+      input,
+      request.tenantContext,
+      meta(request, correlationId, key),
+    );
   }
 
   @Post('order-reviews/:id/decision')
   @HttpCode(200)
   @Idempotent('oms.order.review-decision.v1')
   @RequirePermission('oms.order.approve')
-  decide(@Param('id') id: string, @Body() input: ReviewDecisionInput, @Headers('idempotency-key') key: string | undefined, @Headers('x-correlation-id') correlationId: string, @Req() request: TenantRequest) {
-    return this.service.decideReview(id, input, request.tenantContext, meta(request, correlationId, key));
+  decide(
+    @Param('id') id: string,
+    @Body() input: ReviewDecisionInput,
+    @Headers('idempotency-key') key: string | undefined,
+    @Headers('x-correlation-id') correlationId: string,
+    @Req() request: TenantRequest,
+  ) {
+    return this.service.decideReview(
+      id,
+      input,
+      request.tenantContext,
+      meta(request, correlationId, key),
+    );
   }
 
   @Post('order-merge-groups')
   @Idempotent('oms.order.merge.v1')
   @RequirePermission('oms.order.adjust')
-  merge(@Body() input: MergeOrdersInput, @Headers('idempotency-key') key: string | undefined, @Headers('x-correlation-id') correlationId: string, @Req() request: TenantRequest) {
-    return this.service.merge(input, request.tenantContext, meta(request, correlationId, key));
+  merge(
+    @Body() input: MergeOrdersInput,
+    @Headers('idempotency-key') key: string | undefined,
+    @Headers('x-correlation-id') correlationId: string,
+    @Req() request: TenantRequest,
+  ) {
+    return this.service.merge(
+      input,
+      request.tenantContext,
+      meta(request, correlationId, key),
+    );
   }
 
   @Post('orders/:id/splits')
   @Idempotent('oms.order.split.v1')
   @RequirePermission('oms.order.adjust')
-  split(@Param('id') id: string, @Body() input: SplitOrderInput, @Headers('idempotency-key') key: string | undefined, @Headers('x-correlation-id') correlationId: string, @Req() request: TenantRequest) {
-    return this.service.split(id, input, request.tenantContext, meta(request, correlationId, key));
+  split(
+    @Param('id') id: string,
+    @Body() input: SplitOrderInput,
+    @Headers('idempotency-key') key: string | undefined,
+    @Headers('x-correlation-id') correlationId: string,
+    @Req() request: TenantRequest,
+  ) {
+    return this.service.split(
+      id,
+      input,
+      request.tenantContext,
+      meta(request, correlationId, key),
+    );
   }
 
   @Post('orders/:id/priority')
   @HttpCode(200)
   @Idempotent('oms.order.priority.v1')
   @RequirePermission('oms.order.priority')
-  priority(@Param('id') id: string, @Body() input: SetPriorityInput, @Headers('idempotency-key') key: string | undefined, @Headers('x-correlation-id') correlationId: string, @Req() request: TenantRequest) {
-    return this.service.setPriority(id, input, request.tenantContext, meta(request, correlationId, key));
+  priority(
+    @Param('id') id: string,
+    @Body() input: SetPriorityInput,
+    @Headers('idempotency-key') key: string | undefined,
+    @Headers('x-correlation-id') correlationId: string,
+    @Req() request: TenantRequest,
+  ) {
+    return this.service.setPriority(
+      id,
+      input,
+      request.tenantContext,
+      meta(request, correlationId, key),
+    );
   }
 
   @Post('orders/:id/holds')
   @Idempotent('oms.order.hold.v1')
   @RequirePermission('oms.order.hold')
-  hold(@Param('id') id: string, @Body() input: PlaceHoldInput, @Headers('idempotency-key') key: string | undefined, @Headers('x-correlation-id') correlationId: string, @Req() request: TenantRequest) {
-    return this.service.hold(id, input, request.tenantContext, meta(request, correlationId, key));
+  hold(
+    @Param('id') id: string,
+    @Body() input: PlaceHoldInput,
+    @Headers('idempotency-key') key: string | undefined,
+    @Headers('x-correlation-id') correlationId: string,
+    @Req() request: TenantRequest,
+  ) {
+    return this.service.hold(
+      id,
+      input,
+      request.tenantContext,
+      meta(request, correlationId, key),
+    );
   }
 
   @Post('order-holds/:id/release')
   @HttpCode(200)
   @Idempotent('oms.order.hold-release.v1')
   @RequirePermission('oms.order.hold.release')
-  releaseHold(@Param('id') id: string, @Body() input: ReleaseHoldInput, @Headers('idempotency-key') key: string | undefined, @Headers('x-correlation-id') correlationId: string, @Req() request: TenantRequest) {
-    return this.service.releaseHold(id, input, request.tenantContext, meta(request, correlationId, key));
+  releaseHold(
+    @Param('id') id: string,
+    @Body() input: ReleaseHoldInput,
+    @Headers('idempotency-key') key: string | undefined,
+    @Headers('x-correlation-id') correlationId: string,
+    @Req() request: TenantRequest,
+  ) {
+    return this.service.releaseHold(
+      id,
+      input,
+      request.tenantContext,
+      meta(request, correlationId, key),
+    );
   }
 }

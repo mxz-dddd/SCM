@@ -224,15 +224,13 @@ export function OutboundWorkbench() {
       ),
     [claims],
   );
-  const decisions = actions
-    .list()
-    .map(({ id }) =>
-      actions.decide(id, {
-        dataScopeAllowed: true,
-        permissions,
-        status: 'READY',
-      }),
-    );
+  const decisions = actions.list().map(({ id }) =>
+    actions.decide(id, {
+      dataScopeAllowed: true,
+      permissions,
+      status: 'READY',
+    }),
+  );
   const request = useCallback(
     async (path: string, init?: RequestInit) => {
       if (!accessToken || !claims) throw new Error('请先登录后使用出库工作台');
@@ -422,10 +420,7 @@ export function OutboundWorkbench() {
       } else if (id === 'assign-pick') {
         const task = picking.tasks.find(({ status }) => status === 'OPEN');
         const taskId = window.prompt('拣选任务 UUID', task?.id ?? '');
-        const assigneeId = window.prompt(
-          '拣选员 UUID',
-          claims?.subject ?? '',
-        );
+        const assigneeId = window.prompt('拣选员 UUID', claims?.subject ?? '');
         const containerCode = window.prompt('目标容器码');
         if (!taskId || !assigneeId || !containerCode) return;
         await request(`/api/v1/wms/pick-tasks/${taskId}/assign`, {
@@ -477,7 +472,12 @@ export function OutboundWorkbench() {
           String(task.containerCode ?? ''),
         );
         const quantityBase = window.prompt('确认数量', '1');
-        if (!sourceLocationId || !productId || !targetContainerCode || !quantityBase)
+        if (
+          !sourceLocationId ||
+          !productId ||
+          !targetContainerCode ||
+          !quantityBase
+        )
           return;
         await request(`/api/v1/wms/pick-tasks/${task.id}/scans`, {
           body: JSON.stringify({
@@ -653,7 +653,9 @@ export function OutboundWorkbench() {
         });
         setNotice('包装超差已复核处置');
       } else if (id === 'issue-label') {
-        const unit = packShip.packages.find(({ status }) => status === 'SEALED');
+        const unit = packShip.packages.find(
+          ({ status }) => status === 'SEALED',
+        );
         if (!unit) return;
         await request(`/api/v1/wms/packages/${unit.id}/labels`, {
           body: JSON.stringify({
@@ -665,7 +667,9 @@ export function OutboundWorkbench() {
         });
         setNotice('出库标签已按包裹和模板版本绑定');
       } else if (id === 'stage-package') {
-        const unit = packShip.packages.find(({ status }) => status === 'LABELLED');
+        const unit = packShip.packages.find(
+          ({ status }) => status === 'LABELLED',
+        );
         const stagingLocationId = window.prompt('暂存位 UUID');
         if (!unit || !stagingLocationId) return;
         await request(`/api/v1/wms/packages/${unit.id}/stage`, {
@@ -699,7 +703,9 @@ export function OutboundWorkbench() {
         const load = packShip.loads.find(({ status }) =>
           ['OPEN', 'LOADING'].includes(status),
         );
-        const unit = packShip.packages.find(({ status }) => status === 'STAGED');
+        const unit = packShip.packages.find(
+          ({ status }) => status === 'STAGED',
+        );
         if (!load || !unit) return;
         await request(`/api/v1/wms/load-tasks/${load.id}/confirm`, {
           body: JSON.stringify({
@@ -748,7 +754,8 @@ export function OutboundWorkbench() {
       <Typography.Paragraph>
         波次模板支持候选与工作量模拟；发布时按整箱、FEFO/FIFO
         和最少拆分原子预占，缺口进入可回写 OMS 的处置工单。
-        波次发布生成温层隔离的拣选任务，RF 错扫即时阻止，短拣必须处置后才能复核。
+        波次发布生成温层隔离的拣选任务，RF
+        错扫即时阻止，短拣必须处置后才能复核。
         包装超差阻止封箱，集货与装车防混线路，发运事务原子扣减库存并发布交接事件。
       </Typography.Paragraph>
       {error ? <Alert message={error} showIcon type="error" /> : null}
@@ -802,8 +809,9 @@ export function OutboundWorkbench() {
             total={picking.tasks.length}
           />
           <Typography.Text>
-            RF 事件 {picking.scans.length} 条；短拣工单 {picking.shortPicks.length}{' '}
-            条；复核事实 {picking.verifications.length} 条
+            RF 事件 {picking.scans.length} 条；短拣工单{' '}
+            {picking.shortPicks.length} 条；复核事实{' '}
+            {picking.verifications.length} 条
           </Typography.Text>
         </Card>
         <Card title="包装、集货、装车与发运">

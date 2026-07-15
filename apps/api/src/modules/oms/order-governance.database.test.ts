@@ -97,7 +97,10 @@ databaseDescribe('order review adjustment and hold persistence', () => {
             changeReason: 'TEST_OPEN',
             createdBy: actorId,
             id: randomUUID(),
-            snapshot: { lines: [{ id: line.id }], order: { id: order.id, status: 'OPEN' } },
+            snapshot: {
+              lines: [{ id: line.id }],
+              order: { id: order.id, status: 'OPEN' },
+            },
             tenantId,
             updatedBy: actorId,
             versionNumber: 1,
@@ -118,10 +121,18 @@ databaseDescribe('order review adjustment and hold persistence', () => {
       context,
       command(),
     );
-    expect(auto).toMatchObject({ reviewStatus: 'AUTO_APPROVED', status: 'APPROVED', version: 2 });
+    expect(auto).toMatchObject({
+      reviewStatus: 'AUTO_APPROVED',
+      status: 'APPROVED',
+      version: 2,
+    });
     const held = await service.hold(
       first.order.id,
-      { expectedVersion: 2, holdType: 'CUSTOMER_REQUEST', reason: '客户要求暂停' },
+      {
+        expectedVersion: 2,
+        holdType: 'CUSTOMER_REQUEST',
+        reason: '客户要求暂停',
+      },
       context,
       command(),
     );
@@ -145,7 +156,10 @@ databaseDescribe('order review adjustment and hold persistence', () => {
       context,
       command(),
     );
-    expect(priority).toMatchObject({ reallocationEligibleQuantity: '8', version: 5 });
+    expect(priority).toMatchObject({
+      reallocationEligibleQuantity: '8',
+      version: 5,
+    });
 
     const approvalId = randomUUID();
     const pending = await service.review(
@@ -158,7 +172,10 @@ databaseDescribe('order review adjustment and hold persistence', () => {
       context,
       command(),
     );
-    expect(pending).toMatchObject({ reviewStatus: 'PENDING_APPROVAL', status: 'HOLD' });
+    expect(pending).toMatchObject({
+      reviewStatus: 'PENDING_APPROVAL',
+      status: 'HOLD',
+    });
     const approved = await service.decideReview(
       pending.reviewId,
       { approvalInstanceId: approvalId, approved: true, expectedVersion: 2 },
@@ -181,7 +198,11 @@ databaseDescribe('order review adjustment and hold persistence', () => {
     await expect(
       service.decideReview(
         rejectedPending.reviewId,
-        { approvalInstanceId: rejectedApproval, approved: false, expectedVersion: 2 },
+        {
+          approvalInstanceId: rejectedApproval,
+          approved: false,
+          expectedVersion: 2,
+        },
         context,
         command(),
       ),
@@ -197,7 +218,11 @@ databaseDescribe('order review adjustment and hold persistence', () => {
       context,
       command(),
     );
-    expect(merge).toMatchObject({ aggregateAmount: '200', currency: 'CNY', memberCount: 2 });
+    expect(merge).toMatchObject({
+      aggregateAmount: '200',
+      currency: 'CNY',
+      memberCount: 2,
+    });
 
     const split = await service.split(
       first.order.id,
@@ -229,15 +254,30 @@ databaseDescribe('order review adjustment and hold persistence', () => {
         first.order.id,
         {
           allocations: [
-            { amount: '50', childBusinessRef: 'BAD-A', quantityBase: '5', quantityOriginal: '5', sourceLineId: first.line.id },
-            { amount: '50', childBusinessRef: 'BAD-B', quantityBase: '6', quantityOriginal: '6', sourceLineId: first.line.id },
+            {
+              amount: '50',
+              childBusinessRef: 'BAD-A',
+              quantityBase: '5',
+              quantityOriginal: '5',
+              sourceLineId: first.line.id,
+            },
+            {
+              amount: '50',
+              childBusinessRef: 'BAD-B',
+              quantityBase: '6',
+              quantityOriginal: '6',
+              sourceLineId: first.line.id,
+            },
           ],
           expectedVersion: 5,
         },
         context,
         command(),
       ),
-    ).rejects.toMatchObject({ code: 'ORDER_SPLIT_QUANTITY_MISMATCH', statusCode: 409 });
+    ).rejects.toMatchObject({
+      code: 'ORDER_SPLIT_QUANTITY_MISMATCH',
+      statusCode: 409,
+    });
     await expect(
       prisma.orderSplitRelation.create({
         data: {

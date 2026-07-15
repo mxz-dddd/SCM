@@ -180,8 +180,7 @@ export function AppointmentIntakePanel() {
       return;
     try {
       const slot = slots[0];
-      if (id.startsWith('create') && !slot)
-        throw new Error('请先生成可用时隙');
+      if (id.startsWith('create') && !slot) throw new Error('请先生成可用时隙');
       if ((id === 'approve' || id === 'reject') && selected)
         await request(`/api/v1/ams/appointments/${selected.id}/decide`, {
           body: JSON.stringify({
@@ -192,7 +191,9 @@ export function AppointmentIntakePanel() {
           method: 'POST',
         });
       if (id === 'reschedule' && selected) {
-        const candidate = slots.find(({ id: slotId }) => slotId !== selected.timeSlotId);
+        const candidate = slots.find(
+          ({ id: slotId }) => slotId !== selected.timeSlotId,
+        );
         if (!candidate) throw new Error('没有可用于改期的新时隙');
         await request(`/api/v1/ams/appointments/${selected.id}/reschedule`, {
           body: JSON.stringify({
@@ -231,8 +232,16 @@ export function AppointmentIntakePanel() {
               tips: ['提前 15 分钟到达门岗'],
             },
             reminders: [
-              { channel: 'IN_APP', leadMinutes: 1440, reminderType: 'DAY_BEFORE' },
-              { channel: 'SMS', leadMinutes: 120, reminderType: 'ARRIVAL_PREP' },
+              {
+                channel: 'IN_APP',
+                leadMinutes: 1440,
+                reminderType: 'DAY_BEFORE',
+              },
+              {
+                channel: 'SMS',
+                leadMinutes: 120,
+                reminderType: 'ARRIVAL_PREP',
+              },
             ],
           }),
           method: 'POST',

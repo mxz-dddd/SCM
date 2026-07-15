@@ -16,8 +16,14 @@ describe('order review and hold transitions', () => {
   });
 
   it('rejects skipped, reverse and terminal transitions', () => {
-    expect(() => assertReviewTransition('DRAFT', 'APPROVED')).toThrowError(/not allowed/);
-    expect(() => assertReviewTransition('APPROVED', 'OPEN')).toThrowError(/not allowed/);
-    expect(() => assertReviewTransition('REJECTED', 'OPEN')).toThrowError(/not allowed/);
+    expect(() => assertReviewTransition('DRAFT', 'APPROVED')).toThrowError(
+      /not allowed/,
+    );
+    expect(() => assertReviewTransition('APPROVED', 'OPEN')).toThrowError(
+      /not allowed/,
+    );
+    expect(() => assertReviewTransition('REJECTED', 'OPEN')).toThrowError(
+      /not allowed/,
+    );
   });
 });
