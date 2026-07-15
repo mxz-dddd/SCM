@@ -17,6 +17,7 @@ import type { WorkspaceContextSelection, WorkspaceTab } from '@scm/shared';
 import { AuthWorkbench } from '../platform/AuthWorkbench';
 import { AppointmentCapacityWorkbench } from '../ams/AppointmentCapacityWorkbench';
 import { BillingFactWorkbench } from '../billing/BillingFactWorkbench';
+import { ControlTowerWorkbench } from '../control/ControlTowerWorkbench';
 import { AuditWorkbench } from '../platform/AuditWorkbench';
 import { AttachmentWorkbench } from '../platform/AttachmentWorkbench';
 import { ConfigurationWorkbench } from '../platform/ConfigurationWorkbench';
@@ -156,6 +157,7 @@ const pageRegistry: readonly WorkspaceTab[] = [
     title: '预约容量',
   },
   { dirty: false, id: 'billing', route: '/billing/facts', title: '结算中心' },
+  { dirty: false, id: 'control', route: '/control/tower', title: '控制塔' },
 ];
 
 const modules = [
@@ -184,6 +186,7 @@ const modules = [
   ['运输', 'transport'],
   ['预约', 'appointments'],
   ['结算', 'billing'],
+  ['控制塔', 'control'],
 ] as const;
 
 interface WorkspaceCatalogItem {
@@ -340,6 +343,7 @@ export function ApplicationShell() {
     if (tabId === 'transport') return <TransportOrderWorkbench />;
     if (tabId === 'appointments') return <AppointmentCapacityWorkbench />;
     if (tabId === 'billing') return <BillingFactWorkbench />;
+    if (tabId === 'control') return <ControlTowerWorkbench />;
     return (
       <section className="workspace-placeholder">
         <Typography.Title level={2}>

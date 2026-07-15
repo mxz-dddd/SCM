@@ -11126,3 +11126,170 @@ model BillingSettlementMetricTrace {
   @@map("billing_settlement_metric_trace")
   @@schema("billing")
 }
+
+enum ControlProjectionRecordStatus {
+  ACTIVE
+  @@schema("control")
+}
+
+model ControlProjectionCursor {
+  id String @id @default(uuid()) @db.Uuid
+  tenantId String @map("tenant_id") @db.Uuid
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  createdBy String @map("created_by") @db.Uuid
+  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
+  updatedBy String @map("updated_by") @db.Uuid
+  version Int @default(1)
+  status ControlProjectionRecordStatus @default(ACTIVE)
+  aggregateType String @map("aggregate_type") @db.VarChar(100)
+  aggregateId String @map("aggregate_id") @db.Uuid
+  businessRef String @map("business_ref") @db.VarChar(200)
+  lastAggregateVersion Int @map("last_aggregate_version")
+  lastEventId String @map("last_event_id") @db.Uuid
+  lastEventType String @map("last_event_type") @db.VarChar(200)
+  projectedAt DateTime @default(now()) @map("projected_at") @db.Timestamptz(3)
+  @@unique([tenantId,aggregateType,aggregateId],map:"control_projection_cursor_aggregate_key")
+  @@index([tenantId,businessRef,projectedAt],map:"control_projection_cursor_business_idx")
+  @@map("projection_cursor")
+  @@schema("control")
+}
+
+model ControlTimelineEvent {
+  id String @id @default(uuid()) @db.Uuid
+  tenantId String @map("tenant_id") @db.Uuid
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  createdBy String @map("created_by") @db.Uuid
+  updatedAt DateTime @default(now()) @map("updated_at") @db.Timestamptz(3)
+  updatedBy String @map("updated_by") @db.Uuid
+  version Int @default(1)
+  status ControlProjectionRecordStatus @default(ACTIVE)
+  eventId String @map("event_id") @db.Uuid
+  businessRef String @map("business_ref") @db.VarChar(200)
+  aggregateType String @map("aggregate_type") @db.VarChar(100)
+  aggregateId String @map("aggregate_id") @db.Uuid
+  aggregateVersion Int @map("aggregate_version")
+  eventType String @map("event_type") @db.VarChar(200)
+  sourceDomain String @map("source_domain") @db.VarChar(50)
+  occurredAt DateTime @map("occurred_at") @db.Timestamptz(3)
+  traceId String @map("trace_id") @db.VarChar(200)
+  causationId String? @map("causation_id") @db.Uuid
+  replayStatus String @map("replay_status") @db.VarChar(30)
+  summary String @db.VarChar(500)
+  attachmentSnapshot Json @map("attachment_snapshot") @db.JsonB
+  payload Json @db.JsonB
+  @@unique([tenantId,eventId],map:"control_timeline_event_id_key")
+  @@index([tenantId,businessRef,occurredAt,id],map:"control_timeline_business_idx")
+  @@index([tenantId,traceId,occurredAt],map:"control_timeline_trace_idx")
+  @@map("timeline_event")
+  @@schema("control")
+}
+
+model OrderControlView {
+  id String @id @default(uuid()) @db.Uuid
+  tenantId String @map("tenant_id") @db.Uuid
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  createdBy String @map("created_by") @db.Uuid
+  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
+  updatedBy String @map("updated_by") @db.Uuid
+  version Int @default(1)
+  status ControlProjectionRecordStatus @default(ACTIVE)
+  businessRef String @map("business_ref") @db.VarChar(200)
+  orderRef String @map("order_ref") @db.VarChar(200)
+  currentStage String @map("current_stage") @db.VarChar(50)
+  currentStatus String @map("current_status") @db.VarChar(100)
+  completionRate Decimal @map("completion_rate") @db.Decimal(8,4)
+  promisedAt DateTime? @map("promised_at") @db.Timestamptz(3)
+  stageSnapshot Json @map("stage_snapshot") @db.JsonB
+  blockingSnapshot Json @map("blocking_snapshot") @db.JsonB
+  sourceVersions Json @map("source_versions") @db.JsonB
+  refreshedAt DateTime @default(now()) @map("refreshed_at") @db.Timestamptz(3)
+  @@unique([tenantId,businessRef],map:"order_control_view_business_key")
+  @@index([tenantId,currentStage,currentStatus,refreshedAt],map:"order_control_view_stage_idx")
+  @@map("order_control_view")
+  @@schema("control")
+}
+
+model InventoryNetworkView {
+  id String @id @default(uuid()) @db.Uuid
+  tenantId String @map("tenant_id") @db.Uuid
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  createdBy String @map("created_by") @db.Uuid
+  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
+  updatedBy String @map("updated_by") @db.Uuid
+  version Int @default(1)
+  status ControlProjectionRecordStatus @default(ACTIVE)
+  warehouseRef String @map("warehouse_ref") @db.VarChar(200)
+  ownerRef String @map("owner_ref") @db.VarChar(200)
+  productRef String @map("product_ref") @db.VarChar(200)
+  regionRef String @map("region_ref") @db.VarChar(200)
+  availableQuantity Decimal @map("available_quantity") @db.Decimal(24,6)
+  holdQuantity Decimal @map("hold_quantity") @db.Decimal(24,6)
+  inTransitQuantity Decimal @map("in_transit_quantity") @db.Decimal(24,6)
+  baseUom String @map("base_uom") @db.VarChar(20)
+  agingDays Int @map("aging_days")
+  turnoverDays Decimal @map("turnover_days") @db.Decimal(12,4)
+  stockoutRisk Decimal @map("stockout_risk") @db.Decimal(8,4)
+  sourceVersion Int @map("source_version")
+  refreshedAt DateTime @default(now()) @map("refreshed_at") @db.Timestamptz(3)
+  @@unique([tenantId,warehouseRef,ownerRef,productRef,regionRef],map:"inventory_network_view_scope_key")
+  @@index([tenantId,regionRef,warehouseRef,stockoutRisk],map:"inventory_network_view_risk_idx")
+  @@map("inventory_network_view")
+  @@schema("control")
+}
+
+model TransportNetworkView {
+  id String @id @default(uuid()) @db.Uuid
+  tenantId String @map("tenant_id") @db.Uuid
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  createdBy String @map("created_by") @db.Uuid
+  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
+  updatedBy String @map("updated_by") @db.Uuid
+  version Int @default(1)
+  status ControlProjectionRecordStatus @default(ACTIVE)
+  shipmentRef String @map("shipment_ref") @db.VarChar(200)
+  businessRef String @map("business_ref") @db.VarChar(200)
+  vehicleRef String? @map("vehicle_ref") @db.VarChar(200)
+  routeRef String @map("route_ref") @db.VarChar(200)
+  currentNodeRef String? @map("current_node_ref") @db.VarChar(200)
+  nodeSnapshot Json @map("node_snapshot") @db.JsonB
+  latitude Decimal? @db.Decimal(10,7)
+  longitude Decimal? @db.Decimal(10,7)
+  etaAt DateTime? @map("eta_at") @db.Timestamptz(3)
+  delayed Boolean @default(false)
+  temperatureAlert Boolean @default(false) @map("temperature_alert")
+  heatWeight Decimal @default(0) @map("heat_weight") @db.Decimal(12,4)
+  sourceVersion Int @map("source_version")
+  refreshedAt DateTime @default(now()) @map("refreshed_at") @db.Timestamptz(3)
+  @@unique([tenantId,shipmentRef],map:"transport_network_view_shipment_key")
+  @@index([tenantId,routeRef,delayed,temperatureAlert],map:"transport_network_view_route_idx")
+  @@map("transport_network_view")
+  @@schema("control")
+}
+
+model YardControlView {
+  id String @id @default(uuid()) @db.Uuid
+  tenantId String @map("tenant_id") @db.Uuid
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  createdBy String @map("created_by") @db.Uuid
+  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
+  updatedBy String @map("updated_by") @db.Uuid
+  version Int @default(1)
+  status ControlProjectionRecordStatus @default(ACTIVE)
+  warehouseRef String @map("warehouse_ref") @db.VarChar(200)
+  dockRef String @map("dock_ref") @db.VarChar(200)
+  futureCapacity Decimal @map("future_capacity") @db.Decimal(24,6)
+  arrivedToday Int @map("arrived_today")
+  queueCount Int @map("queue_count")
+  occupied Boolean
+  operationMinutes Int @map("operation_minutes")
+  lateCount Int @map("late_count")
+  noShowCount Int @map("no_show_count")
+  wmsReferenceSnapshot Json @map("wms_reference_snapshot") @db.JsonB
+  tmsReferenceSnapshot Json @map("tms_reference_snapshot") @db.JsonB
+  sourceVersion Int @map("source_version")
+  refreshedAt DateTime @default(now()) @map("refreshed_at") @db.Timestamptz(3)
+  @@unique([tenantId,warehouseRef,dockRef],map:"yard_control_view_dock_key")
+  @@index([tenantId,warehouseRef,occupied,queueCount],map:"yard_control_view_warehouse_idx")
+  @@map("yard_control_view")
+  @@schema("control")
+}

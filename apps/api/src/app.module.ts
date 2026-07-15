@@ -10,6 +10,7 @@ import { DatabaseModule } from './database/database.module';
 import { HealthController } from './health.controller';
 import { AmsModule } from './modules/ams/ams.module';
 import { BillingModule } from './modules/billing/billing.module';
+import { ControlModule } from './modules/control/control.module';
 import { MdmModule } from './modules/mdm/mdm.module';
 import { OmsModule } from './modules/oms/oms.module';
 import { AuthModule } from './modules/platform/auth/auth.module';
@@ -23,6 +24,7 @@ import { WmsModule } from './modules/wms/wms.module';
   imports: [
     AmsModule,
     BillingModule,
+    ControlModule,
     DatabaseModule,
     AuthModule,
     MdmModule,

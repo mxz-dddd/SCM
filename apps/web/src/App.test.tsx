@@ -36,6 +36,23 @@ describe('App', () => {
     expect(screen.getByText(/版本冲突/)).toBeInTheDocument();
   });
 
+  it('opens the event-projected supply chain control tower', () => {
+    render(<App />);
+
+    fireEvent.click(screen.getByRole('button', { name: '控制塔' }));
+
+    expect(
+      screen.getByRole('heading', { name: '供应链控制塔' }),
+    ).toBeInTheDocument();
+    expect(screen.getByText('端到端业务时间线')).toBeInTheDocument();
+    expect(screen.getByText('订单履约控制视图')).toBeInTheDocument();
+    expect(screen.getByText('库存网络与缺货风险')).toBeInTheDocument();
+    expect(screen.getByText('运输网络、ETA 与热力')).toBeInTheDocument();
+    expect(screen.getByText('预约、排队与月台视图')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: '刷新控制塔' })).toBeDisabled();
+    expect(screen.getByRole('button', { name: '精确位置下钻' })).toBeDisabled();
+  });
+
   it('opens the configuration, dictionary and number rule workbench', () => {
     render(<App />);
 
@@ -512,15 +529,11 @@ describe('App', () => {
     expect(
       screen.getByText('AR/AP 凭证、校验审批与预提冲销'),
     ).toBeInTheDocument();
-    expect(
-      screen.getByText('对账单、逐行差异与全程留痕'),
-    ).toBeInTheDocument();
+    expect(screen.getByText('对账单、逐行差异与全程留痕')).toBeInTheDocument();
     expect(
       screen.getByText('调整、索赔扣款与跨订单 / 成本中心分摊'),
     ).toBeInTheDocument();
-    expect(
-      screen.getByText('开票收票、红冲与收付款核销'),
-    ).toBeInTheDocument();
+    expect(screen.getByText('开票收票、红冲与收付款核销')).toBeInTheDocument();
     expect(
       screen.getByText('会计期间关闭、重开与毛利追溯'),
     ).toBeInTheDocument();

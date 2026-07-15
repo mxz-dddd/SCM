@@ -11,6 +11,9 @@ export type PermissionEffect = 'ALLOW' | 'DENY';
 export type PermissionResourceType = (typeof PERMISSION_RESOURCE_TYPES)[number];
 
 const MODULE_ADMIN_PERMISSION_CODES = [
+  'control.location.precise',
+  'control.projection.consume',
+  'control.view.read',
   'billing.calculation.execute',
   'billing.accrual.manage',
   'billing.adjustment.approve',
