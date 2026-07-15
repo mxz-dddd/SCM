@@ -2,6 +2,10 @@ packages:
   - apps/*
   - packages/*
 
+overrides:
+  effect: 3.22.0
+  multer: 2.2.0
+
 allowBuilds:
   '@nestjs/core': false
   '@prisma/client': true
