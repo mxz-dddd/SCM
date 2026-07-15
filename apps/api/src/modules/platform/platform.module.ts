@@ -51,6 +51,9 @@ import { WorkflowController } from './workflow.controller';
 import { WorkflowService } from './workflow.service';
 import { ChangeRecordingFacade } from './public/change-recording.facade';
 import { IdempotencyExecutionFacade } from './public/idempotency-execution.facade';
+import { ObservabilityService } from './observability.service';
+import { OperationsController } from './operations.controller';
+import { OperationsService } from './operations.service';
 
 @Module({
   controllers: [
@@ -63,6 +66,7 @@ import { IdempotencyExecutionFacade } from './public/idempotency-execution.facad
     JobController,
     NotificationController,
     OrganizationController,
+    OperationsController,
     PlatformFinishController,
     RoleController,
     RuleEngineController,
@@ -92,6 +96,8 @@ import { IdempotencyExecutionFacade } from './public/idempotency-execution.facad
     LocaleUnitService,
     NotificationChannelService,
     NotificationService,
+    ObservabilityService,
+    OperationsService,
     OrganizationService,
     PrintQueueService,
     ObjectStorageService,
@@ -116,6 +122,7 @@ import { IdempotencyExecutionFacade } from './public/idempotency-execution.facad
     EventConsumptionFacade,
     IdempotencyExecutionFacade,
     JobSchedulingFacade,
+    ObservabilityService,
     PermissionDecisionFacade,
     RuleEvaluationFacade,
   ],

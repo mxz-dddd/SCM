@@ -13,8 +13,26 @@ jobs:
   verify:
     runs-on: ubuntu-latest
     timeout-minutes: 20
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_DB: scm_verify
+          POSTGRES_PASSWORD: scm-ci-only
+          POSTGRES_USER: scm
+        options: >-
+          --health-cmd "pg_isready -U scm -d scm_verify"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+        ports:
+          - 5432:5432
+    env:
+      DATABASE_URL: postgresql://scm:scm-ci-only@localhost:5432/scm_verify
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
       - uses: pnpm/action-setup@v4
         with:
           version: 11.7.0
@@ -24,5 +42,23 @@ jobs:
           node-version: 22
           cache: pnpm
       - run: pnpm install --frozen-lockfile
+      - run: pnpm db:migrate:deploy
+      - run: pnpm migration:safety
+        env:
+          MIGRATION_BASE_SHA: ${{ github.event.pull_request.base.sha || github.event.before }}
       - run: pnpm verify
       - run: pnpm build
+
+  optimizer-image:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - run: docker build --tag scm-optimizer:verify services/optimizer
+      - uses: aquasecurity/trivy-action@57a97c7e7821a5776cebc9bb87c984fa69cba8f1
+        with:
+          exit-code: '1'
+          format: table
+          ignore-unfixed: true
+          image-ref: scm-optimizer:verify
+          severity: CRITICAL,HIGH

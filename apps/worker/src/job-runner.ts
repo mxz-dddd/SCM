@@ -161,6 +161,13 @@ export async function executeRoutedHandler(
       method: 'POST',
     });
   }
+  if (handler === 'OPS_OPERATION') {
+    return api.request(tenantId, '/api/v1/platform/operations/jobs/execute', {
+      body: JSON.stringify({ ...payload, jobRunId }),
+      headers: { 'Idempotency-Key': `ops-operation:${jobRunId}` },
+      method: 'POST',
+    });
+  }
   if (handler !== 'RECONCILIATION') return routeHandler(handler, payload);
   const periodEnd = payload.periodEnd
     ? new Date(String(payload.periodEnd))
@@ -189,6 +196,7 @@ export async function routeHandler(
     'EXPORT',
     'IMPORT',
     'NOTIFICATION_RETRY',
+    'OPS_OPERATION',
     'RECONCILIATION',
     'REPORT',
     'SYSTEM_CLEANUP',

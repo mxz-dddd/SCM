@@ -3,6 +3,16 @@ name: scm-cloud
 services:
   postgres:
     image: postgres:16-alpine
+    command:
+      - postgres
+      - -c
+      - wal_level=replica
+      - -c
+      - archive_mode=on
+      - -c
+      - archive_timeout=300
+      - -c
+      - archive_command=mkdir -p /var/lib/postgresql/data/wal-archive && test ! -f /var/lib/postgresql/data/wal-archive/%f && cp %p /var/lib/postgresql/data/wal-archive/%f
     environment:
       POSTGRES_DB: ${POSTGRES_DB:-scm}
       POSTGRES_USER: ${POSTGRES_USER:-scm}
@@ -58,7 +68,13 @@ services:
     ports:
       - '${OPTIMIZER_PORT:-8090}:8090'
     healthcheck:
-      test: ['CMD', 'python', '-c', "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8090/health', timeout=2)"]
+      test:
+        [
+          'CMD',
+          'python',
+          '-c',
+          "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8090/health', timeout=2)",
+        ]
       interval: 10s
       timeout: 3s
       retries: 5

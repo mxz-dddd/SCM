@@ -97,6 +97,22 @@ describe('App', () => {
     ).toBeDisabled();
   });
 
+  it('opens production operations and data governance', () => {
+    render(<App />);
+
+    fireEvent.click(screen.getByRole('button', { name: '生产运维' }));
+
+    expect(screen.getByRole('heading', { name: '生产运维与数据治理' })).toBeInTheDocument();
+    expect(screen.getByText('业务与技术告警')).toBeInTheDocument();
+    expect(screen.getByText('备份与容灾演练')).toBeInTheDocument();
+    expect(screen.getByText('发布与迁移')).toBeInTheDocument();
+    expect(screen.getByText('保留、归档与隐私')).toBeInTheDocument();
+    expect(screen.getByText('容量、配额与成本')).toBeInTheDocument();
+    expect(screen.getByText('租户迁移与对账')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: '登记 PITR 备份' })).toBeDisabled();
+    expect(screen.getByRole('button', { name: '创建租户迁移计划 · 异步' })).toBeDisabled();
+  });
+
   it('opens scoped customer mobile and partner portals', () => {
     render(<App />);
 

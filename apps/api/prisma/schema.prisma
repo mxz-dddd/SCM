@@ -12370,6 +12370,443 @@ model ControlSimulationResult {
   @@schema("control")
 }
 
+enum OpsDefinitionStatus {
+  DRAFT
+  ACTIVE
+  PAUSED
+  RETIRED
+  @@schema("platform")
+}
+
+enum OpsMonitorAlertStatus {
+  OPEN
+  ACKNOWLEDGED
+  RESOLVED
+  @@schema("platform")
+}
+
+enum OpsBackupStatus {
+  PLANNED
+  RUNNING
+  VERIFIED
+  FAILED
+  EXPIRED
+  @@schema("platform")
+}
+
+enum OpsDrDrillStatus {
+  DRAFT
+  QUEUED
+  RUNNING
+  PASSED
+  FAILED
+  @@schema("platform")
+}
+
+enum OpsReleaseStatus {
+  DRAFT
+  VALIDATED
+  CANARY
+  ROLLED_OUT
+  ROLLED_BACK
+  FAILED
+  @@schema("platform")
+}
+
+enum OpsMigrationPhase {
+  EXPAND
+  MIGRATE
+  CONTRACT
+  @@schema("platform")
+}
+
+enum OpsMigrationRunStatus {
+  PLANNED
+  RUNNING
+  COMPLETED
+  FAILED
+  ROLLED_BACK
+  @@schema("platform")
+}
+
+enum OpsArchiveStatus {
+  QUEUED
+  RUNNING
+  COMPLETED
+  FAILED
+  BLOCKED
+  @@schema("platform")
+}
+
+enum OpsPrivacyRequestType {
+  ACCESS
+  CORRECT
+  DELETE
+  @@schema("platform")
+}
+
+enum OpsPrivacyRequestStatus {
+  RECEIVED
+  VERIFIED
+  QUEUED
+  RUNNING
+  FULFILLED
+  PARTIALLY_FULFILLED
+  REJECTED
+  @@schema("platform")
+}
+
+enum OpsTenantMigrationStatus {
+  DRAFT
+  VALIDATED
+  QUEUED
+  RUNNING
+  RECONCILING
+  COMPLETED
+  FAILED
+  ROLLED_BACK
+  @@schema("platform")
+}
+
+model OpsMonitorRule {
+  id String @id @default(uuid()) @db.Uuid
+  tenantId String @map("tenant_id") @db.Uuid
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  createdBy String @map("created_by") @db.Uuid
+  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
+  updatedBy String @map("updated_by") @db.Uuid
+  version Int @default(1)
+  status OpsDefinitionStatus @default(DRAFT)
+  code String @db.VarChar(100)
+  name String @db.VarChar(200)
+  signal String @db.VarChar(100)
+  severity String @db.VarChar(30)
+  operator String @db.VarChar(10)
+  threshold Decimal @db.Decimal(30,6)
+  durationSeconds Int @map("duration_seconds")
+  dedupSeconds Int @map("dedup_seconds")
+  dimensionFilter Json @map("dimension_filter") @db.JsonB
+  ownerRef String @map("owner_ref") @db.VarChar(200)
+  @@unique([tenantId,code],map:"ops_monitor_rule_code_key")
+  @@index([tenantId,signal,status,createdAt],map:"ops_monitor_rule_signal_idx")
+  @@map("ops_monitor_rule")
+  @@schema("platform")
+}
+
+model OpsMonitorAlert {
+  id String @id @default(uuid()) @db.Uuid
+  tenantId String @map("tenant_id") @db.Uuid
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  createdBy String @map("created_by") @db.Uuid
+  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
+  updatedBy String @map("updated_by") @db.Uuid
+  version Int @default(1)
+  status OpsMonitorAlertStatus @default(OPEN)
+  ruleId String @map("rule_id") @db.Uuid
+  signal String @db.VarChar(100)
+  severity String @db.VarChar(30)
+  dedupKey String @map("dedup_key") @db.Char(64)
+  observedValue Decimal @map("observed_value") @db.Decimal(30,6)
+  threshold Decimal @db.Decimal(30,6)
+  unit String @db.VarChar(30)
+  dimensionSnapshot Json @map("dimension_snapshot") @db.JsonB
+  firstTriggeredAt DateTime @map("first_triggered_at") @db.Timestamptz(3)
+  lastTriggeredAt DateTime @map("last_triggered_at") @db.Timestamptz(3)
+  triggerCount Int @default(1) @map("trigger_count")
+  acknowledgedAt DateTime? @map("acknowledged_at") @db.Timestamptz(3)
+  acknowledgedBy String? @map("acknowledged_by") @db.Uuid
+  resolvedAt DateTime? @map("resolved_at") @db.Timestamptz(3)
+  resolvedBy String? @map("resolved_by") @db.Uuid
+  resolution String? @db.VarChar(1000)
+  @@index([tenantId,status,severity,lastTriggeredAt],map:"ops_monitor_alert_status_idx")
+  @@index([tenantId,dedupKey,lastTriggeredAt],map:"ops_monitor_alert_dedup_idx")
+  @@map("ops_monitor_alert")
+  @@schema("platform")
+}
+
+model OpsBackupSet {
+  id String @id @default(uuid()) @db.Uuid
+  tenantId String @map("tenant_id") @db.Uuid
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  createdBy String @map("created_by") @db.Uuid
+  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
+  updatedBy String @map("updated_by") @db.Uuid
+  version Int @default(1)
+  status OpsBackupStatus @default(PLANNED)
+  backupNo String @map("backup_no") @db.VarChar(100)
+  environment String @db.VarChar(100)
+  targetRpoMinutes Int @map("target_rpo_minutes")
+  targetRtoMinutes Int @map("target_rto_minutes")
+  policySnapshot Json @map("policy_snapshot") @db.JsonB
+  artifactSnapshot Json? @map("artifact_snapshot") @db.JsonB
+  startedAt DateTime? @map("started_at") @db.Timestamptz(3)
+  completedAt DateTime? @map("completed_at") @db.Timestamptz(3)
+  failureCode String? @map("failure_code") @db.VarChar(100)
+  @@unique([tenantId,backupNo],map:"ops_backup_set_no_key")
+  @@index([tenantId,environment,status,createdAt],map:"ops_backup_set_status_idx")
+  @@map("ops_backup_set")
+  @@schema("platform")
+}
+
+model OpsDrDrillReport {
+  id String @id @default(uuid()) @db.Uuid
+  tenantId String @map("tenant_id") @db.Uuid
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  createdBy String @map("created_by") @db.Uuid
+  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
+  updatedBy String @map("updated_by") @db.Uuid
+  version Int @default(1)
+  status OpsDrDrillStatus @default(DRAFT)
+  drillNo String @map("drill_no") @db.VarChar(100)
+  backupSetId String @map("backup_set_id") @db.Uuid
+  jobRunId String? @map("job_run_id") @db.Uuid
+  singleWriterFence String @map("single_writer_fence") @db.VarChar(200)
+  exerciseSnapshot Json @map("exercise_snapshot") @db.JsonB
+  resultSnapshot Json? @map("result_snapshot") @db.JsonB
+  achievedRpoMinutes Int? @map("achieved_rpo_minutes")
+  achievedRtoMinutes Int? @map("achieved_rto_minutes")
+  startedAt DateTime? @map("started_at") @db.Timestamptz(3)
+  completedAt DateTime? @map("completed_at") @db.Timestamptz(3)
+  @@unique([tenantId,drillNo],map:"ops_dr_drill_no_key")
+  @@unique([tenantId,jobRunId],map:"ops_dr_drill_job_key")
+  @@index([tenantId,status,createdAt],map:"ops_dr_drill_status_idx")
+  @@map("ops_dr_drill_report")
+  @@schema("platform")
+}
+
+model OpsRelease {
+  id String @id @default(uuid()) @db.Uuid
+  tenantId String @map("tenant_id") @db.Uuid
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  createdBy String @map("created_by") @db.Uuid
+  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
+  updatedBy String @map("updated_by") @db.Uuid
+  version Int @default(1)
+  status OpsReleaseStatus @default(DRAFT)
+  releaseNo String @map("release_no") @db.VarChar(100)
+  environment String @db.VarChar(100)
+  commitSha String @map("commit_sha") @db.Char(40)
+  imageDigest String @map("image_digest") @db.VarChar(100)
+  artifactSnapshot Json @map("artifact_snapshot") @db.JsonB
+  canarySnapshot Json? @map("canary_snapshot") @db.JsonB
+  rollbackSnapshot Json? @map("rollback_snapshot") @db.JsonB
+  validatedAt DateTime? @map("validated_at") @db.Timestamptz(3)
+  completedAt DateTime? @map("completed_at") @db.Timestamptz(3)
+  @@unique([tenantId,releaseNo],map:"ops_release_no_key")
+  @@index([tenantId,environment,status,createdAt],map:"ops_release_status_idx")
+  @@map("ops_release")
+  @@schema("platform")
+}
+
+model OpsMigrationRun {
+  id String @id @default(uuid()) @db.Uuid
+  tenantId String @map("tenant_id") @db.Uuid
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  createdBy String @map("created_by") @db.Uuid
+  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
+  updatedBy String @map("updated_by") @db.Uuid
+  version Int @default(1)
+  status OpsMigrationRunStatus @default(PLANNED)
+  releaseId String @map("release_id") @db.Uuid
+  migrationName String @map("migration_name") @db.VarChar(200)
+  phase OpsMigrationPhase
+  compatibilitySnapshot Json @map("compatibility_snapshot") @db.JsonB
+  lockRiskSnapshot Json @map("lock_risk_snapshot") @db.JsonB
+  executionSnapshot Json? @map("execution_snapshot") @db.JsonB
+  startedAt DateTime? @map("started_at") @db.Timestamptz(3)
+  completedAt DateTime? @map("completed_at") @db.Timestamptz(3)
+  @@unique([tenantId,releaseId,migrationName,phase],map:"ops_migration_run_phase_key")
+  @@index([tenantId,status,phase,createdAt],map:"ops_migration_run_status_idx")
+  @@map("ops_migration_run")
+  @@schema("platform")
+}
+
+model OpsRetentionPolicy {
+  id String @id @default(uuid()) @db.Uuid
+  tenantId String @map("tenant_id") @db.Uuid
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  createdBy String @map("created_by") @db.Uuid
+  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
+  updatedBy String @map("updated_by") @db.Uuid
+  version Int @default(1)
+  status OpsDefinitionStatus @default(DRAFT)
+  category String @db.VarChar(100)
+  retainDays Int @map("retain_days")
+  archiveAfterDays Int @map("archive_after_days")
+  deleteAllowed Boolean @map("delete_allowed")
+  legalHold Boolean @default(false) @map("legal_hold")
+  contractSnapshot Json @map("contract_snapshot") @db.JsonB
+  archiveTier String @map("archive_tier") @db.VarChar(30)
+  @@unique([tenantId,category],map:"ops_retention_policy_category_key")
+  @@index([tenantId,status,category],map:"ops_retention_policy_status_idx")
+  @@map("ops_retention_policy")
+  @@schema("platform")
+}
+
+model OpsArchiveJob {
+  id String @id @default(uuid()) @db.Uuid
+  tenantId String @map("tenant_id") @db.Uuid
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  createdBy String @map("created_by") @db.Uuid
+  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
+  updatedBy String @map("updated_by") @db.Uuid
+  version Int @default(1)
+  status OpsArchiveStatus @default(QUEUED)
+  policyId String @map("policy_id") @db.Uuid
+  jobRunId String? @map("job_run_id") @db.Uuid
+  cutoffAt DateTime @map("cutoff_at") @db.Timestamptz(3)
+  candidateSnapshot Json @map("candidate_snapshot") @db.JsonB
+  manifestSnapshot Json? @map("manifest_snapshot") @db.JsonB
+  archivedCount Int @default(0) @map("archived_count")
+  deletedCount Int @default(0) @map("deleted_count")
+  failureCode String? @map("failure_code") @db.VarChar(100)
+  startedAt DateTime? @map("started_at") @db.Timestamptz(3)
+  completedAt DateTime? @map("completed_at") @db.Timestamptz(3)
+  @@unique([tenantId,jobRunId],map:"ops_archive_job_run_key")
+  @@index([tenantId,status,cutoffAt],map:"ops_archive_job_status_idx")
+  @@map("ops_archive_job")
+  @@schema("platform")
+}
+
+model OpsPrivacyRequest {
+  id String @id @default(uuid()) @db.Uuid
+  tenantId String @map("tenant_id") @db.Uuid
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  createdBy String @map("created_by") @db.Uuid
+  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
+  updatedBy String @map("updated_by") @db.Uuid
+  version Int @default(1)
+  status OpsPrivacyRequestStatus @default(RECEIVED)
+  requestNo String @map("request_no") @db.VarChar(100)
+  requestType OpsPrivacyRequestType @map("request_type")
+  subjectRefHash String @map("subject_ref_hash") @db.Char(64)
+  scopeSnapshot Json @map("scope_snapshot") @db.JsonB
+  verificationSnapshot Json? @map("verification_snapshot") @db.JsonB
+  legalBasisSnapshot Json @map("legal_basis_snapshot") @db.JsonB
+  jobRunId String? @map("job_run_id") @db.Uuid
+  dueAt DateTime @map("due_at") @db.Timestamptz(3)
+  completedAt DateTime? @map("completed_at") @db.Timestamptz(3)
+  rejectionReason String? @map("rejection_reason") @db.VarChar(1000)
+  @@unique([tenantId,requestNo],map:"ops_privacy_request_no_key")
+  @@unique([tenantId,jobRunId],map:"ops_privacy_request_job_key")
+  @@index([tenantId,status,dueAt],map:"ops_privacy_request_status_idx")
+  @@map("ops_privacy_request")
+  @@schema("platform")
+}
+
+model OpsRedactionRecord {
+  id String @id @default(uuid()) @db.Uuid
+  tenantId String @map("tenant_id") @db.Uuid
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  createdBy String @map("created_by") @db.Uuid
+  updatedAt DateTime @default(now()) @map("updated_at") @db.Timestamptz(3)
+  updatedBy String @map("updated_by") @db.Uuid
+  version Int @default(1)
+  status RecordStatus @default(ACTIVE)
+  privacyRequestId String @map("privacy_request_id") @db.Uuid
+  domain String @db.VarChar(50)
+  recordRefHash String @map("record_ref_hash") @db.Char(64)
+  fieldClassification String @map("field_classification") @db.VarChar(100)
+  action String @db.VarChar(50)
+  outcome String @db.VarChar(50)
+  reasonCode String @map("reason_code") @db.VarChar(100)
+  evidenceSnapshot Json @map("evidence_snapshot") @db.JsonB
+  @@index([tenantId,privacyRequestId,domain],map:"ops_redaction_request_idx")
+  @@map("ops_redaction_record")
+  @@schema("platform")
+}
+
+model OpsCapacityPlan {
+  id String @id @default(uuid()) @db.Uuid
+  tenantId String @map("tenant_id") @db.Uuid
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  createdBy String @map("created_by") @db.Uuid
+  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
+  updatedBy String @map("updated_by") @db.Uuid
+  version Int @default(1)
+  status OpsDefinitionStatus @default(DRAFT)
+  code String @db.VarChar(100)
+  domain String @db.VarChar(50)
+  quotaSnapshot Json @map("quota_snapshot") @db.JsonB
+  scalingSnapshot Json @map("scaling_snapshot") @db.JsonB
+  tieringSnapshot Json @map("tiering_snapshot") @db.JsonB
+  effectiveFrom DateTime @map("effective_from") @db.Timestamptz(3)
+  @@unique([tenantId,code],map:"ops_capacity_plan_code_key")
+  @@index([tenantId,domain,status,effectiveFrom],map:"ops_capacity_plan_status_idx")
+  @@map("ops_capacity_plan")
+  @@schema("platform")
+}
+
+model OpsUsageMetric {
+  id String @id @default(uuid()) @db.Uuid
+  tenantId String @map("tenant_id") @db.Uuid
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  createdBy String @map("created_by") @db.Uuid
+  updatedAt DateTime @default(now()) @map("updated_at") @db.Timestamptz(3)
+  updatedBy String @map("updated_by") @db.Uuid
+  version Int @default(1)
+  status RecordStatus @default(ACTIVE)
+  metricName String @map("metric_name") @db.VarChar(100)
+  domain String @db.VarChar(50)
+  value Decimal @db.Decimal(30,6)
+  unit String @db.VarChar(30)
+  observedAt DateTime @map("observed_at") @db.Timestamptz(3)
+  dimensionSnapshot Json @map("dimension_snapshot") @db.JsonB
+  traceId String @map("trace_id") @db.VarChar(100)
+  @@index([tenantId,domain,metricName,observedAt],map:"ops_usage_metric_lookup_idx")
+  @@map("ops_usage_metric")
+  @@schema("platform")
+}
+
+model OpsTenantMigrationPlan {
+  id String @id @default(uuid()) @db.Uuid
+  tenantId String @map("tenant_id") @db.Uuid
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  createdBy String @map("created_by") @db.Uuid
+  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
+  updatedBy String @map("updated_by") @db.Uuid
+  version Int @default(1)
+  status OpsTenantMigrationStatus @default(DRAFT)
+  planNo String @map("plan_no") @db.VarChar(100)
+  sourceEnvironment String @map("source_environment") @db.VarChar(100)
+  targetEnvironment String @map("target_environment") @db.VarChar(100)
+  scopeSnapshot Json @map("scope_snapshot") @db.JsonB
+  dependencySnapshot Json @map("dependency_snapshot") @db.JsonB
+  sourceTotalSnapshot Json @map("source_total_snapshot") @db.JsonB
+  targetTotalSnapshot Json @map("target_total_snapshot") @db.JsonB
+  rollbackSnapshot Json @map("rollback_snapshot") @db.JsonB
+  jobRunId String? @map("job_run_id") @db.Uuid
+  startedAt DateTime? @map("started_at") @db.Timestamptz(3)
+  completedAt DateTime? @map("completed_at") @db.Timestamptz(3)
+  failureCode String? @map("failure_code") @db.VarChar(100)
+  @@unique([tenantId,planNo],map:"ops_tenant_migration_plan_no_key")
+  @@unique([tenantId,jobRunId],map:"ops_tenant_migration_job_key")
+  @@index([tenantId,status,createdAt],map:"ops_tenant_migration_status_idx")
+  @@map("ops_tenant_migration_plan")
+  @@schema("platform")
+}
+
+model OpsMigrationReconciliationReport {
+  id String @id @default(uuid()) @db.Uuid
+  tenantId String @map("tenant_id") @db.Uuid
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  createdBy String @map("created_by") @db.Uuid
+  updatedAt DateTime @default(now()) @map("updated_at") @db.Timestamptz(3)
+  updatedBy String @map("updated_by") @db.Uuid
+  version Int @default(1)
+  status RecordStatus @default(ACTIVE)
+  migrationPlanId String @map("migration_plan_id") @db.Uuid
+  countComparison Json @map("count_comparison") @db.JsonB
+  moneyComparison Json @map("money_comparison") @db.JsonB
+  statusComparison Json @map("status_comparison") @db.JsonB
+  differenceCount Int @map("difference_count")
+  reportHash String @map("report_hash") @db.Char(64)
+  @@unique([tenantId,migrationPlanId],map:"ops_migration_reconciliation_plan_key")
+  @@index([tenantId,createdAt],map:"ops_migration_reconciliation_created_idx")
+  @@map("ops_migration_reconciliation_report")
+  @@schema("platform")
+}
+
 enum IntegrationRecordStatus {
   ACTIVE
   INACTIVE

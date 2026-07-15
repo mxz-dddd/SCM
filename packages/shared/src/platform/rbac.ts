@@ -11,6 +11,19 @@ export type PermissionEffect = 'ALLOW' | 'DENY';
 export type PermissionResourceType = (typeof PERMISSION_RESOURCE_TYPES)[number];
 
 const MODULE_ADMIN_PERMISSION_CODES = [
+  'platform.operations.read',
+  'platform.operations.telemetry.read',
+  'platform.operations.monitor.manage',
+  'platform.operations.signal.ingest',
+  'platform.operations.alert.manage',
+  'platform.operations.recovery.manage',
+  'platform.operations.release.manage',
+  'platform.operations.policy.manage',
+  'platform.operations.archive.manage',
+  'platform.operations.privacy.manage',
+  'platform.operations.capacity.manage',
+  'platform.operations.migration.manage',
+  'platform.operations.job.process',
   'integration.gateway.read',
   'integration.gateway.manage',
   'integration.credential.manage',

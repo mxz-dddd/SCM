@@ -17,6 +17,7 @@
     "format": "prettier --write .",
     "format:check": "prettier --check .",
     "lint": "turbo run lint",
+    "migration:safety": "node scripts/check-migration-safety.mjs",
     "postinstall": "pnpm db:generate",
     "test": "turbo run test",
     "test:e2e": "node scripts/run-p2-e2e.mjs",

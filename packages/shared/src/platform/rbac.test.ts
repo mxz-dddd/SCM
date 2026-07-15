@@ -82,6 +82,19 @@ describe('RBAC resolution', () => {
     const codes = new Set(ADMIN_PERMISSIONS.map(({ code }) => code));
     expect(
       [
+        'platform.operations.read',
+        'platform.operations.telemetry.read',
+        'platform.operations.monitor.manage',
+        'platform.operations.signal.ingest',
+        'platform.operations.alert.manage',
+        'platform.operations.recovery.manage',
+        'platform.operations.release.manage',
+        'platform.operations.policy.manage',
+        'platform.operations.archive.manage',
+        'platform.operations.privacy.manage',
+        'platform.operations.capacity.manage',
+        'platform.operations.migration.manage',
+        'platform.operations.job.process',
         'ams.appointment.create',
         'ams.gate.verify',
         'ams.operation.manage',

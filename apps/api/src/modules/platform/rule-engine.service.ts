@@ -72,7 +72,7 @@ interface RuntimeRule extends RuleInput {
   readonly id: string;
 }
 
-interface EvaluationStep {
+export interface EvaluationStep {
   readonly candidateIds: readonly string[];
   readonly matched: boolean;
   readonly priority: number;

@@ -37,6 +37,7 @@ import { RuleEngineWorkbench } from '../platform/RuleEngineWorkbench';
 import { JobWorkbench } from '../platform/JobWorkbench';
 import { EventWorkbench } from '../platform/EventWorkbench';
 import { PlatformFinalizationWorkbench } from '../platform/PlatformFinalizationWorkbench';
+import { OperationsWorkbench } from '../platform/OperationsWorkbench';
 import { ProductWorkbench } from '../mdm/ProductWorkbench';
 import { PartnerWorkbench } from '../mdm/PartnerWorkbench';
 import { WarehouseFleetWorkbench } from '../mdm/WarehouseFleetWorkbench';
@@ -214,6 +215,12 @@ const pageRegistry: readonly WorkspaceTab[] = [
     route: '/mobile/portal',
     title: '移动与伙伴门户',
   },
+  {
+    dirty: false,
+    id: 'platform-operations',
+    route: '/platform/operations',
+    title: '生产运维',
+  },
 ];
 
 const modules = [
@@ -251,6 +258,7 @@ const modules = [
   ['消息集成', 'integration-exchange'],
   ['适配器与 IoT', 'integration-adapter-iot'],
   ['移动与门户', 'mobile-portal'],
+  ['生产运维', 'platform-operations'],
 ] as const;
 
 interface WorkspaceCatalogItem {
@@ -416,6 +424,7 @@ export function ApplicationShell() {
     if (tabId === 'integration-exchange') return <MessageExchangeWorkbench />;
     if (tabId === 'integration-adapter-iot') return <AdapterIotWorkbench />;
     if (tabId === 'mobile-portal') return <MobilePortalWorkbench />;
+    if (tabId === 'platform-operations') return <OperationsWorkbench />;
     return (
       <section className="workspace-placeholder">
         <Typography.Title level={2}>
