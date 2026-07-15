@@ -335,6 +335,7 @@ databaseDescribe('Control SLA and alert governance', () => {
       severity: 'CRITICAL',
       status: 'OPEN',
       supervisorRef,
+      lastTriggeredAt: new Date('2030-07-07T10:03:00.000Z'),
       triggerCount: 5,
     });
     const overrideCase = cases.find(({ severity }) => severity === 'CRITICAL');

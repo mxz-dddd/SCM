@@ -18,6 +18,9 @@ import {
   EventService,
   type ClaimEventsInput,
   type ConsumeEventInput,
+  type DeliveryClaimInput,
+  type DeliveryCompleteInput,
+  type DeliveryFailInput,
   type EventLeaseInput,
 } from './event.service';
 
@@ -44,6 +47,28 @@ export class EventController {
     return this.events.listInbox(request.tenantContext, consumer);
   }
 
+  @Get('deliveries')
+  @RequirePermission('platform.event.read')
+  listDeliveries(
+    @Query('consumer') consumer: string | undefined,
+    @Query('status') status: string | undefined,
+    @Req() request: TenantRequest,
+  ) {
+    return this.events.listDeliveries(request.tenantContext, {
+      ...(consumer ? { consumer } : {}),
+      ...(status ? { status } : {}),
+    });
+  }
+
+  @Get('checkpoints')
+  @RequirePermission('platform.event.read')
+  listCheckpoints(
+    @Query('consumer') consumer: string | undefined,
+    @Req() request: TenantRequest,
+  ) {
+    return this.events.listCheckpoints(request.tenantContext, consumer);
+  }
+
   @Post('relay/claim')
   @HttpCode(200)
   @RequirePermission('platform.event.process')
@@ -54,6 +79,23 @@ export class EventController {
     @Req() request: TenantRequest,
   ) {
     return this.events.claim(input, request.tenantContext, {
+      correlationId,
+      idempotencyKey,
+      ipAddress: request.ip,
+    });
+  }
+
+  @Post('outbox/:eventId/publish')
+  @HttpCode(200)
+  @RequirePermission('platform.event.process')
+  publish(
+    @Param('eventId') eventId: string,
+    @Body() input: EventLeaseInput,
+    @Headers('idempotency-key') idempotencyKey: string | undefined,
+    @Headers('x-correlation-id') correlationId: string,
+    @Req() request: TenantRequest,
+  ) {
+    return this.events.publish(eventId, input, request.tenantContext, {
       correlationId,
       idempotencyKey,
       ipAddress: request.ip,
@@ -110,6 +152,93 @@ export class EventController {
       request.tenantContext,
       { correlationId, idempotencyKey, ipAddress: request.ip },
     );
+  }
+
+  @Post('deliveries/claim')
+  @HttpCode(200)
+  @RequirePermission('platform.event.process')
+  claimDeliveries(
+    @Body() input: DeliveryClaimInput,
+    @Headers('idempotency-key') idempotencyKey: string | undefined,
+    @Headers('x-correlation-id') correlationId: string,
+    @Req() request: TenantRequest,
+  ) {
+    return this.events.claimDeliveries(input, request.tenantContext, {
+      correlationId,
+      idempotencyKey,
+      ipAddress: request.ip,
+    });
+  }
+
+  @Post('deliveries/:deliveryId/complete')
+  @HttpCode(200)
+  @RequirePermission('platform.event.process')
+  completeDelivery(
+    @Param('deliveryId') deliveryId: string,
+    @Body() input: DeliveryCompleteInput,
+    @Headers('idempotency-key') idempotencyKey: string | undefined,
+    @Headers('x-correlation-id') correlationId: string,
+    @Req() request: TenantRequest,
+  ) {
+    return this.events.completeDelivery(
+      deliveryId,
+      input,
+      request.tenantContext,
+      { correlationId, idempotencyKey, ipAddress: request.ip },
+    );
+  }
+
+  @Post('deliveries/:deliveryId/fail')
+  @HttpCode(200)
+  @RequirePermission('platform.event.process')
+  failDelivery(
+    @Param('deliveryId') deliveryId: string,
+    @Body() input: DeliveryFailInput,
+    @Headers('idempotency-key') idempotencyKey: string | undefined,
+    @Headers('x-correlation-id') correlationId: string,
+    @Req() request: TenantRequest,
+  ) {
+    return this.events.failDelivery(deliveryId, input, request.tenantContext, {
+      correlationId,
+      idempotencyKey,
+      ipAddress: request.ip,
+    });
+  }
+
+  @Post('deliveries/:deliveryId/replay')
+  @HttpCode(200)
+  @RequirePermission('platform.event.replay')
+  replayDelivery(
+    @Param('deliveryId') deliveryId: string,
+    @Body() input: { readonly expectedVersion: number },
+    @Headers('idempotency-key') idempotencyKey: string | undefined,
+    @Headers('x-correlation-id') correlationId: string,
+    @Req() request: TenantRequest,
+  ) {
+    return this.events.replayDelivery(
+      deliveryId,
+      input.expectedVersion,
+      request.tenantContext,
+      { correlationId, idempotencyKey, ipAddress: request.ip },
+    );
+  }
+
+  @Post('deliveries/:deliveryId/skip')
+  @HttpCode(200)
+  @RequirePermission('platform.event.replay')
+  skipDelivery(
+    @Param('deliveryId') deliveryId: string,
+    @Body()
+    input: { readonly expectedVersion: number; readonly reason: string },
+    @Headers('idempotency-key') idempotencyKey: string | undefined,
+    @Headers('x-correlation-id') correlationId: string,
+    @Req() request: TenantRequest,
+  ) {
+    return this.events.skipDelivery(deliveryId, input, request.tenantContext, {
+      correlationId,
+      idempotencyKey,
+      ipAddress: request.ip,
+    });
   }
 
   @Post('consume')

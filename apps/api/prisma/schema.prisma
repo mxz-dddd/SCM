@@ -148,6 +148,24 @@ enum EventInboxStatus {
   @@schema("platform")
 }
 
+enum EventConsumerMode {
+  EVERY_EVENT
+  LATEST_STATE
+
+  @@schema("platform")
+}
+
+enum EventDeliveryStatus {
+  PENDING
+  PROCESSING
+  PROCESSED
+  FAILED
+  IGNORED
+  DEAD_LETTER
+
+  @@schema("platform")
+}
+
 enum FeatureFlagStatus {
   DRAFT
   PUBLISHED
@@ -5738,6 +5756,43 @@ model EventInbox {
   @@index([tenantId, consumer, status, createdAt], map: "event_inbox_consumer_status_idx")
   @@index([tenantId, consumer, aggregateType, aggregateId, aggregateVersion], map: "event_inbox_aggregate_version_idx")
   @@map("event_inbox")
+  @@schema("platform")
+}
+
+model EventDelivery {
+  id                   String              @id @default(uuid()) @db.Uuid
+  tenantId             String              @map("tenant_id") @db.Uuid
+  createdAt            DateTime            @default(now()) @map("created_at") @db.Timestamptz(3)
+  createdBy            String              @map("created_by") @db.Uuid
+  updatedAt            DateTime            @updatedAt @map("updated_at") @db.Timestamptz(3)
+  updatedBy            String              @map("updated_by") @db.Uuid
+  version              Int                 @default(1)
+  status               EventDeliveryStatus @default(PENDING)
+  eventId              String              @map("event_id") @db.Uuid
+  consumer             String              @db.VarChar(150)
+  endpoint             String              @db.VarChar(500)
+  partitionKey         String              @map("partition_key") @db.VarChar(250)
+  aggregateType        String              @map("aggregate_type") @db.VarChar(100)
+  aggregateId          String              @map("aggregate_id") @db.Uuid
+  aggregateVersion     Int                 @map("aggregate_version")
+  sourceOccurredAt     DateTime            @map("source_occurred_at") @db.Timestamptz(3)
+  sourceEventCreatedAt DateTime            @map("source_event_created_at") @db.Timestamptz(3)
+  mode                 EventConsumerMode
+  required             Boolean             @default(false)
+  attemptCount         Int                 @default(0) @map("attempt_count")
+  maxAttempts          Int                 @default(8) @map("max_attempts")
+  availableAt          DateTime            @default(now()) @map("available_at") @db.Timestamptz(3)
+  leaseOwner           String?             @map("lease_owner") @db.VarChar(200)
+  leaseExpiresAt       DateTime?           @map("lease_expires_at") @db.Timestamptz(3)
+  processedAt          DateTime?           @map("processed_at") @db.Timestamptz(3)
+  lastError            String?             @map("last_error") @db.VarChar(1000)
+  responseSnapshot     Json?               @map("response_snapshot") @db.JsonB
+
+  @@unique([tenantId, eventId, consumer], map: "event_delivery_tenant_event_consumer_key")
+  @@index([tenantId, status, availableAt, leaseExpiresAt], map: "event_delivery_claim_idx")
+  @@index([tenantId, consumer, partitionKey, sourceOccurredAt, sourceEventCreatedAt, eventId], map: "event_delivery_partition_order_idx")
+  @@index([tenantId, eventId, status], map: "event_delivery_event_status_idx")
+  @@map("event_delivery")
   @@schema("platform")
 }
 

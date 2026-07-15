@@ -99,7 +99,7 @@
 ## V2 运行闭环改造
 
 - [x] V2-01 事件目录、订阅清单与消费模式 〔依赖：P5-07〕
-- [ ] V2-02 持久化 EventDelivery、按 consumer+partition 顺序投递、重试/死信/重放
+- [x] V2-02 持久化 EventDelivery、按 consumer+partition 顺序投递、重试/死信/重放
 - [ ] V2-03 OMS→WMS/TMS 履约过程管理器与自包含事件合同
 - [ ] V2-04 多租户 Worker Principal、租户发现与后台端点 allowlist
 - [ ] V2-05 入口硬化、真实 External Gateway Guard 与 Webhook SSRF 防护

@@ -264,6 +264,7 @@ databaseDescribe(
         );
         expect(restored.status).toBe('PENDING');
       } finally {
+        await prisma.eventDelivery.deleteMany({ where: { tenantId } });
         await prisma.$executeRawUnsafe(
           'ALTER TABLE "platform"."event_inbox" DISABLE TRIGGER event_inbox_terminal_immutable',
         );

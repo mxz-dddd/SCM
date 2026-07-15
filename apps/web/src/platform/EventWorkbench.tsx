@@ -28,6 +28,26 @@ interface InboxRow {
   status: string;
 }
 
+interface DeliveryRow {
+  attemptCount: number;
+  consumer: string;
+  endpoint: string;
+  eventId: string;
+  id: string;
+  partitionKey: string;
+  status: string;
+  version: number;
+}
+
+interface CheckpointRow {
+  aggregateId: string;
+  aggregateType: string;
+  consumer: string;
+  id: string;
+  lastEventId: string;
+  lastVersion: number;
+}
+
 const registry = createActionRegistry<string>([
   {
     allowedStatuses: ['DEAD_LETTER'],
@@ -38,13 +58,29 @@ const registry = createActionRegistry<string>([
   },
 ]);
 
+const deliveryRegistry = createActionRegistry<string>([
+  {
+    allowedStatuses: ['DEAD_LETTER'],
+    confirmMessage: '确认恢复该消费者死信并重新进入分区有序投递队列？',
+    id: 'replay',
+    label: '恢复消费者死信',
+    requiredPermissions: ['platform.event.replay'],
+  },
+]);
+
 export function EventWorkbench() {
   const accessToken = useSessionStore((state) => state.accessToken);
   const claims = useSessionStore((state) => state.claims);
   const [outbox, setOutbox] = useState<readonly OutboxRow[]>([]);
+  const [deliveries, setDeliveries] = useState<readonly DeliveryRow[]>([]);
   const [inbox, setInbox] = useState<readonly InboxRow[]>([]);
+  const [checkpoints, setCheckpoints] = useState<readonly CheckpointRow[]>([]);
   const [selectedIds, setSelectedIds] = useState<readonly string[]>([]);
+  const [selectedDeliveryIds, setSelectedDeliveryIds] = useState<
+    readonly string[]
+  >([]);
   const [outboxStatus, setOutboxStatus] = useState('');
+  const [deliveryStatus, setDeliveryStatus] = useState('');
   const [consumer, setConsumer] = useState('');
   const [notice, setNotice] = useState<string>();
   const [error, setError] = useState<string>();
@@ -77,9 +113,14 @@ export function EventWorkbench() {
           ...init?.headers,
         },
       });
-      const body = (await response.json()) as { code?: string; message?: string };
+      const body = (await response.json()) as {
+        code?: string;
+        message?: string;
+      };
       if (!response.ok) {
-        throw new Error(`${body.code ?? 'REQUEST_FAILED'}: ${body.message ?? '请求失败'}`);
+        throw new Error(
+          `${body.code ?? 'REQUEST_FAILED'}: ${body.message ?? '请求失败'}`,
+        );
       }
       return body;
     },
@@ -89,32 +130,57 @@ export function EventWorkbench() {
   const refresh = useCallback(async () => {
     if (!accessToken || !claims) return;
     try {
-      const [outboxRows, inboxRows] = await Promise.all([
-        request(`/api/v1/platform/events/outbox${outboxStatus ? `?status=${outboxStatus}` : ''}`),
-        request(`/api/v1/platform/events/inbox${consumer ? `?consumer=${encodeURIComponent(consumer)}` : ''}`),
-      ]);
+      const [outboxRows, deliveryRows, inboxRows, checkpointRows] =
+        await Promise.all([
+          request(
+            `/api/v1/platform/events/outbox${outboxStatus ? `?status=${outboxStatus}` : ''}`,
+          ),
+          request(
+            `/api/v1/platform/events/deliveries${deliveryStatus || consumer ? `?${new URLSearchParams({ ...(deliveryStatus ? { status: deliveryStatus } : {}), ...(consumer ? { consumer } : {}) }).toString()}` : ''}`,
+          ),
+          request(
+            `/api/v1/platform/events/inbox${consumer ? `?consumer=${encodeURIComponent(consumer)}` : ''}`,
+          ),
+          request(
+            `/api/v1/platform/events/checkpoints${consumer ? `?consumer=${encodeURIComponent(consumer)}` : ''}`,
+          ),
+        ]);
       setOutbox(outboxRows as unknown as OutboxRow[]);
+      setDeliveries(deliveryRows as unknown as DeliveryRow[]);
       setInbox(inboxRows as unknown as InboxRow[]);
+      setCheckpoints(checkpointRows as unknown as CheckpointRow[]);
       setError(undefined);
     } catch (caught) {
       setError(caught instanceof Error ? caught.message : '事件数据查询失败');
     }
-  }, [accessToken, claims, consumer, outboxStatus, request]);
+  }, [accessToken, claims, consumer, deliveryStatus, outboxStatus, request]);
 
   useEffect(() => {
     void refresh();
   }, [refresh]);
 
   const selected = outbox.find(({ id }) => id === selectedIds[0]);
+  const selectedDelivery = deliveries.find(
+    ({ id }) => id === selectedDeliveryIds[0],
+  );
   const replayDecision = registry.decide('replay', {
     dataScopeAllowed: true,
     permissions,
     status: selected?.status ?? 'NONE',
   });
+  const deliveryReplayDecision = deliveryRegistry.decide('replay', {
+    dataScopeAllowed: true,
+    permissions,
+    status: selectedDelivery?.status ?? 'NONE',
+  });
 
   async function replay() {
     if (!selected || !replayDecision.enabled) return;
-    if (replayDecision.confirmMessage && !window.confirm(replayDecision.confirmMessage)) return;
+    if (
+      replayDecision.confirmMessage &&
+      !window.confirm(replayDecision.confirmMessage)
+    )
+      return;
     try {
       await request(`/api/v1/platform/events/outbox/${selected.id}/replay`, {
         body: JSON.stringify({ expectedVersion: selected.version }),
@@ -127,11 +193,34 @@ export function EventWorkbench() {
     }
   }
 
+  async function replayDelivery() {
+    if (!selectedDelivery || !deliveryReplayDecision.enabled) return;
+    if (
+      deliveryReplayDecision.confirmMessage &&
+      !window.confirm(deliveryReplayDecision.confirmMessage)
+    )
+      return;
+    try {
+      await request(
+        `/api/v1/platform/events/deliveries/${selectedDelivery.id}/replay`,
+        {
+          body: JSON.stringify({ expectedVersion: selectedDelivery.version }),
+          method: 'POST',
+        },
+      );
+      setNotice('消费者死信已恢复；已成功的其他订阅不会重复执行');
+      await refresh();
+    } catch (caught) {
+      setError(caught instanceof Error ? caught.message : '消费者死信恢复失败');
+    }
+  }
+
   return (
     <section className="event-workbench">
       <Typography.Title level={2}>业务事件与投递运维中心</Typography.Title>
       <Typography.Paragraph>
-        BusinessEvent 使用统一版本化信封；Outbox relay 按聚合键顺序投递，消费者 Inbox 先去重再处理。
+        Outbox 记录事件发布，Delivery 按 tenant + consumer + partitionKey
+        严格排序；每个消费者独立重试、死信与回放，Inbox 负责副作用去重。
       </Typography.Paragraph>
       {notice ? <Alert message={notice} showIcon type="success" /> : null}
       {error ? <Alert message={error} showIcon type="error" /> : null}
@@ -150,7 +239,11 @@ export function EventWorkbench() {
             { key: 'aggregateId', label: '聚合 ID' },
             { key: 'aggregateVersion', label: '聚合版本' },
             { key: 'attemptCount', label: '尝试次数' },
-            { key: 'status', label: '状态', render: (value) => <StatusBadge status={String(value)} /> },
+            {
+              key: 'status',
+              label: '状态',
+              render: (value) => <StatusBadge status={String(value)} />,
+            },
           ]}
           onPageChange={() => undefined}
           onSelectionChange={(ids) => setSelectedIds(ids.slice(-1))}
@@ -159,6 +252,39 @@ export function EventWorkbench() {
           rows={outbox}
           selectedIds={selectedIds}
           total={outbox.length}
+        />
+      </Card>
+
+      <Card title="消费者 Delivery、死信与重放">
+        <QueryPanel
+          fields={[{ label: 'Delivery 状态', name: 'status', quick: true }]}
+          onQuery={(values) => setDeliveryStatus(values.status ?? '')}
+          onReset={() => setDeliveryStatus('')}
+        />
+        <CommandBar
+          actions={[deliveryReplayDecision]}
+          onAction={() => void replayDelivery()}
+        />
+        <DataGrid
+          columns={[
+            { key: 'consumer', label: '消费者' },
+            { key: 'eventId', label: '事件 ID' },
+            { key: 'partitionKey', label: '分区键' },
+            { key: 'endpoint', label: '内部处理端点' },
+            { key: 'attemptCount', label: '尝试次数' },
+            {
+              key: 'status',
+              label: '状态',
+              render: (value) => <StatusBadge status={String(value)} />,
+            },
+          ]}
+          onPageChange={() => undefined}
+          onSelectionChange={(ids) => setSelectedDeliveryIds(ids.slice(-1))}
+          page={1}
+          pageSize={300}
+          rows={deliveries}
+          selectedIds={selectedDeliveryIds}
+          total={deliveries.length}
         />
       </Card>
 
@@ -173,7 +299,11 @@ export function EventWorkbench() {
             { key: 'consumer', label: '消费者' },
             { key: 'eventType', label: '事件类型' },
             { key: 'aggregateVersion', label: '聚合版本' },
-            { key: 'status', label: '状态', render: (value) => <StatusBadge status={String(value)} /> },
+            {
+              key: 'status',
+              label: '状态',
+              render: (value) => <StatusBadge status={String(value)} />,
+            },
           ]}
           onPageChange={() => undefined}
           onSelectionChange={() => undefined}
@@ -182,6 +312,25 @@ export function EventWorkbench() {
           rows={inbox}
           selectedIds={[]}
           total={inbox.length}
+        />
+      </Card>
+
+      <Card title="消费者 Checkpoint">
+        <DataGrid
+          columns={[
+            { key: 'consumer', label: '消费者' },
+            { key: 'aggregateType', label: '聚合类型' },
+            { key: 'aggregateId', label: '聚合 ID' },
+            { key: 'lastVersion', label: '最后版本' },
+            { key: 'lastEventId', label: '最后事件 ID' },
+          ]}
+          onPageChange={() => undefined}
+          onSelectionChange={() => undefined}
+          page={1}
+          pageSize={300}
+          rows={checkpoints}
+          selectedIds={[]}
+          total={checkpoints.length}
         />
       </Card>
     </section>

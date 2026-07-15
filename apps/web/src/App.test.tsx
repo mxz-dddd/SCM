@@ -102,15 +102,21 @@ describe('App', () => {
 
     fireEvent.click(screen.getByRole('button', { name: '生产运维' }));
 
-    expect(screen.getByRole('heading', { name: '生产运维与数据治理' })).toBeInTheDocument();
+    expect(
+      screen.getByRole('heading', { name: '生产运维与数据治理' }),
+    ).toBeInTheDocument();
     expect(screen.getByText('业务与技术告警')).toBeInTheDocument();
     expect(screen.getByText('备份与容灾演练')).toBeInTheDocument();
     expect(screen.getByText('发布与迁移')).toBeInTheDocument();
     expect(screen.getByText('保留、归档与隐私')).toBeInTheDocument();
     expect(screen.getByText('容量、配额与成本')).toBeInTheDocument();
     expect(screen.getByText('租户迁移与对账')).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: '登记 PITR 备份' })).toBeDisabled();
-    expect(screen.getByRole('button', { name: '创建租户迁移计划 · 异步' })).toBeDisabled();
+    expect(
+      screen.getByRole('button', { name: '登记 PITR 备份' }),
+    ).toBeDisabled();
+    expect(
+      screen.getByRole('button', { name: '创建租户迁移计划 · 异步' }),
+    ).toBeDisabled();
   });
 
   it('opens scoped customer mobile and partner portals', () => {
@@ -128,8 +134,12 @@ describe('App', () => {
     expect(
       screen.getByText('承运商门户：委托、车辆司机、跟踪、回单、对账'),
     ).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: '初始化客户移动端' })).toBeDisabled();
-    expect(screen.getByRole('button', { name: '提交所选业务动作' })).toBeDisabled();
+    expect(
+      screen.getByRole('button', { name: '初始化客户移动端' }),
+    ).toBeDisabled();
+    expect(
+      screen.getByRole('button', { name: '提交所选业务动作' }),
+    ).toBeDisabled();
   });
 
   it('opens P4 acceptance and daily reconciliation governance', () => {
@@ -158,14 +168,30 @@ describe('App', () => {
 
     fireEvent.click(screen.getByRole('button', { name: 'AI 优化' }));
 
-    expect(screen.getByRole('heading', { name: 'AI 优化与情景模拟' })).toBeInTheDocument();
-    expect(screen.getByText('车辆路径：时间窗、容量、工时与可解释结果')).toBeInTheDocument();
-    expect(screen.getByText('装载建议：人工确认与实际偏差反馈')).toBeInTheDocument();
-    expect(screen.getByText('需求预测：训练窗口、版本与置信区间')).toBeInTheDocument();
-    expect(screen.getByText('库存策略建议：只建议、不直接改库存')).toBeInTheDocument();
-    expect(screen.getByText('供应链网络：独立基线、情景比较与导出')).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: '提交车辆路径优化' })).toBeDisabled();
-    expect(screen.getByRole('button', { name: '人工确认装载建议' })).toBeDisabled();
+    expect(
+      screen.getByRole('heading', { name: 'AI 优化与情景模拟' }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText('车辆路径：时间窗、容量、工时与可解释结果'),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText('装载建议：人工确认与实际偏差反馈'),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText('需求预测：训练窗口、版本与置信区间'),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText('库存策略建议：只建议、不直接改库存'),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText('供应链网络：独立基线、情景比较与导出'),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole('button', { name: '提交车辆路径优化' }),
+    ).toBeDisabled();
+    expect(
+      screen.getByRole('button', { name: '人工确认装载建议' }),
+    ).toBeDisabled();
     expect(screen.getByRole('button', { name: '生成补货建议' })).toBeDisabled();
   });
 
@@ -295,8 +321,13 @@ describe('App', () => {
       screen.getByRole('heading', { name: '业务事件与投递运维中心' }),
     ).toBeInTheDocument();
     expect(screen.getByText('事务 Outbox 与死信')).toBeInTheDocument();
+    expect(screen.getByText('消费者 Delivery、死信与重放')).toBeInTheDocument();
     expect(screen.getByText('消费者 Inbox 去重回执')).toBeInTheDocument();
+    expect(screen.getByText('消费者 Checkpoint')).toBeInTheDocument();
     expect(screen.getByRole('button', { name: '恢复死信' })).toBeDisabled();
+    expect(
+      screen.getByRole('button', { name: '恢复消费者死信' }),
+    ).toBeDisabled();
   });
 
   it('opens localization, flags, collaboration and print operations', () => {

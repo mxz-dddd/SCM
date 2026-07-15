@@ -134,6 +134,9 @@ importers:
 
   apps/worker:
     dependencies:
+      '@scm/shared':
+        specifier: workspace:*
+        version: link:../../packages/shared
       bullmq:
         specifier: ^5.56.0
         version: 5.80.2

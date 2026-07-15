@@ -1,23 +1,14 @@
 import { Worker } from 'bullmq';
 import { getRedisConnection } from './connection';
+import { runEventDeliveriesOnce } from './event-delivery';
 import { HttpWorkerApi, processSystemJob } from './job-runner';
-import {
-  BullEventPublisher,
-  consumeBusinessEvent,
-  runRelayOnce,
-} from './outbox-relay';
+import { runRelayOnce } from './outbox-relay';
 import { processPrintJob } from './print-runner';
 import { deliverWebhooksOnce } from './webhook-delivery';
 
 const worker = new Worker('scm-system', async (job) => processSystemJob(job), {
   connection: getRedisConnection(),
 });
-
-const eventWorker = new Worker(
-  'scm-events',
-  async (job) => consumeBusinessEvent(job),
-  { connection: getRedisConnection(), concurrency: 10 },
-);
 
 const printWorker = new Worker(
   'scm-print',
@@ -26,9 +17,9 @@ const printWorker = new Worker(
 );
 
 const relayApi = new HttpWorkerApi();
-const relayPublisher = new BullEventPublisher();
 const relayTenantId = process.env.WORKER_TENANT_ID;
 const relayOwner = `relay:${process.pid}`;
+const deliveryOwner = `delivery:${process.pid}`;
 const webhookOwner = `webhook:${process.pid}`;
 let relayRunning = false;
 const relayTimer =
@@ -36,7 +27,7 @@ const relayTimer =
     ? setInterval(() => {
         if (relayRunning) return;
         relayRunning = true;
-        void runRelayOnce(relayTenantId, relayOwner, relayApi, relayPublisher)
+        void runRelayOnce(relayTenantId, relayOwner, relayApi)
           .catch((error: unknown) => {
             console.error('worker.outbox-relay.failed', {
               message: error instanceof Error ? error.message : String(error),
@@ -46,6 +37,24 @@ const relayTimer =
             relayRunning = false;
           });
       }, 1000)
+    : undefined;
+let deliveryRunning = false;
+const deliveryTimer =
+  relayTenantId && process.env.WORKER_API_TOKEN
+    ? setInterval(() => {
+        if (deliveryRunning) return;
+        deliveryRunning = true;
+        void runEventDeliveriesOnce(relayTenantId, deliveryOwner, relayApi)
+          .catch((error: unknown) => {
+            console.error('worker.event-delivery-loop.failed', {
+              message: error instanceof Error ? error.message : String(error),
+              tenantId: relayTenantId,
+            });
+          })
+          .finally(() => {
+            deliveryRunning = false;
+          });
+      }, 500)
     : undefined;
 let webhookRunning = false;
 const webhookTimer =
@@ -74,9 +83,8 @@ worker.on('failed', (job, error) => {
 
 async function shutdown() {
   if (relayTimer) clearInterval(relayTimer);
+  if (deliveryTimer) clearInterval(deliveryTimer);
   if (webhookTimer) clearInterval(webhookTimer);
-  await relayPublisher.close();
-  await eventWorker.close();
   await printWorker.close();
   await worker.close();
 }

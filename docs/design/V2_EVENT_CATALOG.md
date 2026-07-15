@@ -19,7 +19,7 @@
 
 ## 代码扫描目录
 
-已发现 392 个静态事件名。动态事件名仍必须符合 `{domain}.{event}.v{n}` 并在代码评审中核对。
+已发现 393 个静态事件名。动态事件名仍必须符合 `{domain}.{event}.v{n}` 并在代码评审中核对。
 
 | 事件 | 匹配消费者 | 发现位置 |
 | --- | --- | --- |
@@ -86,6 +86,7 @@
 | `control.demand-forecast-deviation-recorded.v1` | control.projection.v1, control.alert-engine.v1, control.data-lake.v1 | `apps/api/src/modules/control/ai-optimization.service.ts` |
 | `control.demand-forecast-published.v1` | control.projection.v1, control.alert-engine.v1, control.data-lake.v1 | `apps/api/src/modules/control/ai-optimization.service.ts` |
 | `control.demand-forecast-retired.v1` | control.projection.v1, control.alert-engine.v1, control.data-lake.v1 | `apps/api/src/modules/control/ai-optimization.service.ts` |
+| `control.event-delivery-dead-lettered.v1` | control.projection.v1, control.alert-engine.v1, control.data-lake.v1 | `apps/api/src/modules/platform/event.service.ts` |
 | `control.inventory-policy-recommendation-created.v1` | control.projection.v1, control.alert-engine.v1, control.data-lake.v1 | `apps/api/src/modules/control/ai-optimization.service.ts` |
 | `control.knowledge-published.v1` | control.projection.v1, control.alert-engine.v1, control.data-lake.v1 | `apps/api/src/modules/control/alert-governance.service.ts` |
 | `control.lake-recomputed.v1` | control.projection.v1, control.alert-engine.v1, control.data-lake.v1 | `apps/api/src/modules/control/bi-analytics.service.ts` |
