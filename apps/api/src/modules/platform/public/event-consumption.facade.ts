@@ -103,4 +103,20 @@ export class EventConsumptionFacade {
       handler,
     );
   }
+  consumePortalProjection(
+    event: BusinessEventInput,
+    context: TenantContext,
+    metadata: CommandMetadata,
+    handler: (
+      event: BusinessEventInput,
+      transaction: Prisma.TransactionClient,
+    ) => Promise<Readonly<Record<string, unknown>>>,
+  ) {
+    return this.events.consume(
+      { consumer: 'integration.portal-projection.v1', event },
+      context,
+      metadata,
+      handler,
+    );
+  }
 }

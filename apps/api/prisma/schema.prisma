@@ -12985,3 +12985,109 @@ model IntegrationTelemetryUsageBucket {
   @@map("telemetry_usage_bucket")
   @@schema("integration")
 }
+
+enum IntegrationPortalPrincipalType {
+  CUSTOMER
+  SUPPLIER
+  CARRIER
+  @@schema("integration")
+}
+
+enum IntegrationPortalProjectionType {
+  ORDER
+  INVENTORY
+  APPOINTMENT
+  SHIPMENT
+  DELIVERY
+  RECONCILIATION
+  MESSAGE
+  ATTACHMENT
+  TENDER
+  VEHICLE
+  DRIVER
+  TRACKING
+  POD
+  ASN
+  @@schema("integration")
+}
+
+enum IntegrationPortalCommandStatus {
+  ACCEPTED
+  DISPATCHED
+  ACKNOWLEDGED
+  FAILED
+  @@schema("integration")
+}
+
+model IntegrationPortalAccessGrant {
+  id String @id @default(uuid()) @db.Uuid
+  tenantId String @map("tenant_id") @db.Uuid
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  createdBy String @map("created_by") @db.Uuid
+  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
+  updatedBy String @map("updated_by") @db.Uuid
+  version Int @default(1)
+  status IntegrationRecordStatus @default(ACTIVE)
+  accountId String @map("account_id") @db.Uuid
+  principalType IntegrationPortalPrincipalType @map("principal_type")
+  principalRef String @map("principal_ref") @db.VarChar(200)
+  displayName String @map("display_name") @db.VarChar(200)
+  permissions Json @db.JsonB
+  @@unique([tenantId,accountId,principalType,principalRef],map:"integration_portal_access_grant_key")
+  @@index([tenantId,accountId,status],map:"integration_portal_access_account_idx")
+  @@map("portal_access_grant")
+  @@schema("integration")
+}
+
+model IntegrationPortalProjection {
+  id String @id @default(uuid()) @db.Uuid
+  tenantId String @map("tenant_id") @db.Uuid
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  createdBy String @map("created_by") @db.Uuid
+  updatedAt DateTime @default(now()) @map("updated_at") @db.Timestamptz(3)
+  updatedBy String @map("updated_by") @db.Uuid
+  version Int @default(1)
+  status IntegrationRecordStatus @default(ACTIVE)
+  principalType IntegrationPortalPrincipalType @map("principal_type")
+  principalRef String @map("principal_ref") @db.VarChar(200)
+  projectionType IntegrationPortalProjectionType @map("projection_type")
+  projectionKey String @map("projection_key") @db.VarChar(200)
+  businessRef String @map("business_ref") @db.VarChar(200)
+  sourceEventId String @map("source_event_id") @db.Uuid
+  sourceDomain String @map("source_domain") @db.VarChar(30)
+  sourceAggregateId String @map("source_aggregate_id") @db.Uuid
+  sourceVersion Int @map("source_version")
+  snapshot Json @db.JsonB
+  occurredAt DateTime @map("occurred_at") @db.Timestamptz(3)
+  @@unique([tenantId,sourceEventId],map:"integration_portal_projection_event_key")
+  @@index([tenantId,principalType,principalRef,projectionType,occurredAt],map:"integration_portal_projection_scope_idx")
+  @@index([tenantId,principalType,principalRef,projectionKey,sourceVersion],map:"integration_portal_projection_version_idx")
+  @@map("portal_projection")
+  @@schema("integration")
+}
+
+model IntegrationPortalCommand {
+  id String @id @default(uuid()) @db.Uuid
+  tenantId String @map("tenant_id") @db.Uuid
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  createdBy String @map("created_by") @db.Uuid
+  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
+  updatedBy String @map("updated_by") @db.Uuid
+  version Int @default(1)
+  status IntegrationPortalCommandStatus @default(ACCEPTED)
+  accountId String @map("account_id") @db.Uuid
+  principalType IntegrationPortalPrincipalType @map("principal_type")
+  principalRef String @map("principal_ref") @db.VarChar(200)
+  commandType String @map("command_type") @db.VarChar(100)
+  targetDomain String @map("target_domain") @db.VarChar(30)
+  businessRef String @map("business_ref") @db.VarChar(200)
+  payloadSnapshot Json @map("payload_snapshot") @db.JsonB
+  dispatchedAt DateTime? @map("dispatched_at") @db.Timestamptz(3)
+  completedAt DateTime? @map("completed_at") @db.Timestamptz(3)
+  errorCode String? @map("error_code") @db.VarChar(100)
+  errorMessage String? @map("error_message") @db.VarChar(1000)
+  @@index([tenantId,accountId,status,createdAt],map:"integration_portal_command_account_idx")
+  @@index([tenantId,principalType,principalRef,businessRef],map:"integration_portal_command_scope_idx")
+  @@map("portal_command")
+  @@schema("integration")
+}

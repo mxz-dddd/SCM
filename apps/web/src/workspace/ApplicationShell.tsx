@@ -24,6 +24,7 @@ import { ReconciliationWorkbench } from '../control/ReconciliationWorkbench';
 import { ApiGatewayWorkbench } from '../integration/ApiGatewayWorkbench';
 import { AdapterIotWorkbench } from '../integration/AdapterIotWorkbench';
 import { MessageExchangeWorkbench } from '../integration/MessageExchangeWorkbench';
+import { MobilePortalWorkbench } from '../integration/MobilePortalWorkbench';
 import { AuditWorkbench } from '../platform/AuditWorkbench';
 import { AttachmentWorkbench } from '../platform/AttachmentWorkbench';
 import { ConfigurationWorkbench } from '../platform/ConfigurationWorkbench';
@@ -200,6 +201,12 @@ const pageRegistry: readonly WorkspaceTab[] = [
     route: '/integration/adapter-iot',
     title: '适配器与 IoT',
   },
+  {
+    dirty: false,
+    id: 'mobile-portal',
+    route: '/mobile/portal',
+    title: '移动与伙伴门户',
+  },
 ];
 
 const modules = [
@@ -235,6 +242,7 @@ const modules = [
   ['集成', 'integration-gateway'],
   ['消息集成', 'integration-exchange'],
   ['适配器与 IoT', 'integration-adapter-iot'],
+  ['移动与门户', 'mobile-portal'],
 ] as const;
 
 interface WorkspaceCatalogItem {
@@ -398,6 +406,7 @@ export function ApplicationShell() {
     if (tabId === 'integration-gateway') return <ApiGatewayWorkbench />;
     if (tabId === 'integration-exchange') return <MessageExchangeWorkbench />;
     if (tabId === 'integration-adapter-iot') return <AdapterIotWorkbench />;
+    if (tabId === 'mobile-portal') return <MobilePortalWorkbench />;
     return (
       <section className="workspace-placeholder">
         <Typography.Title level={2}>

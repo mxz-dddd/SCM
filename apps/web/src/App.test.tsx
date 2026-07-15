@@ -97,6 +97,25 @@ describe('App', () => {
     ).toBeDisabled();
   });
 
+  it('opens scoped customer mobile and partner portals', () => {
+    render(<App />);
+
+    fireEvent.click(screen.getByRole('button', { name: '移动与门户' }));
+
+    expect(
+      screen.getByRole('heading', { name: '客户移动端与合作伙伴门户' }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText('客户移动端：订单、库存、预约、运输、签收、对账'),
+    ).toBeInTheDocument();
+    expect(screen.getByText('供应商门户：订单、ASN、预约')).toBeInTheDocument();
+    expect(
+      screen.getByText('承运商门户：委托、车辆司机、跟踪、回单、对账'),
+    ).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: '初始化客户移动端' })).toBeDisabled();
+    expect(screen.getByRole('button', { name: '提交所选业务动作' })).toBeDisabled();
+  });
+
   it('opens P4 acceptance and daily reconciliation governance', () => {
     render(<App />);
 

@@ -8,6 +8,8 @@ import { AdapterIotService } from './adapter-iot.service';
 import { GatewayService } from './gateway.service';
 import { MessageExchangeController } from './message-exchange.controller';
 import { MessageExchangeService } from './message-exchange.service';
+import { MobilePortalController } from './mobile-portal.controller';
+import { MobilePortalService } from './mobile-portal.service';
 import {
   ExternalGatewayController,
   IntegrationController,
@@ -21,6 +23,7 @@ import {
     ExternalIotController,
     IntegrationController,
     MessageExchangeController,
+    MobilePortalController,
     PublicApiContractController,
   ],
   imports: [PlatformModule],
@@ -29,6 +32,7 @@ import {
     ApiContractService,
     GatewayService,
     MessageExchangeService,
+    MobilePortalService,
     PermissionGuard,
     PermissionService,
   ],
