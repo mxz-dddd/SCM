@@ -14,6 +14,7 @@ import type { Response } from 'express';
 import type { TenantRequest } from './auth/tenant-context.middleware';
 import { RequirePermission } from './auth/permission.decorator';
 import { PermissionGuard } from './auth/permission.guard';
+import { WorkerAccessible } from './auth/worker-access.decorator';
 import { Idempotent } from './idempotent.decorator';
 import {
   type BackupInput,
@@ -370,6 +371,7 @@ export class OperationsController {
   }
 
   @Post('jobs/execute')
+  @WorkerAccessible('OPERATIONS_JOB_EXECUTE')
   @Idempotent('platform.ops.job.execute.v1')
   @RequirePermission('platform.operations.job.process')
   execute(

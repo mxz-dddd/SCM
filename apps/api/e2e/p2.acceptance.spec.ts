@@ -489,9 +489,9 @@ test('场景① ERP 订单贯通审核、分配、波次、拣包、装运与事
       cwd: process.cwd(),
       env: {
         ...process.env,
-        WORKER_API_TOKEN: token,
         WORKER_API_URL: 'http://127.0.0.1:3100',
-        WORKER_TENANT_ID: tenantId,
+        WORKER_ACTOR_ID: process.env.WORKER_ACTOR_ID,
+        WORKER_CONTROL_TOKEN: process.env.WORKER_CONTROL_TOKEN,
       },
       stdio: 'pipe',
     },

@@ -3,6 +3,9 @@ import { spawnSync } from 'node:child_process';
 const databaseName = 'scm_p2_e2e';
 const jwtSecret = 'scm-p2-e2e-jwt-secret-at-least-32-characters';
 const seedPassword = 'scm-p2-e2e-admin-password';
+const workerActorId = '10000000-0000-4000-8000-000000000099';
+const workerControlToken =
+  'scm-p2-e2e-worker-control-token-at-least-32-characters';
 
 function run(command, args, environment = process.env, capture = false) {
   const result = spawnSync(command, args, {
@@ -65,6 +68,8 @@ try {
     DATABASE_URL: databaseUrl,
     JWT_SECRET: jwtSecret,
     SEED_ADMIN_PASSWORD: seedPassword,
+    WORKER_ACTOR_ID: workerActorId,
+    WORKER_CONTROL_TOKEN: workerControlToken,
   };
   run(
     'pnpm',

@@ -10,6 +10,7 @@ import {
 import type { TenantRequest } from '../platform/auth/tenant-context.middleware';
 import { RequirePermission } from '../platform/auth/permission.decorator';
 import { PermissionGuard } from '../platform/auth/permission.guard';
+import { WorkerAccessible } from '../platform/auth/worker-access.decorator';
 import type { BusinessEventInput } from '../platform/event.service';
 import { WmsEventConsumerService } from './wms-event-consumer.service';
 
@@ -22,6 +23,7 @@ export class WmsEventConsumerController {
   ) {}
 
   @Post('fulfillment-released')
+  @WorkerAccessible('WMS_FULFILLMENT_EVENT_CONSUME')
   @RequirePermission('wms.outbound.write')
   consume(
     @Body() event: BusinessEventInput,

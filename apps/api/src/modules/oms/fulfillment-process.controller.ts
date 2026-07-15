@@ -13,6 +13,7 @@ import {
 import type { TenantRequest } from '../platform/auth/tenant-context.middleware';
 import { RequirePermission } from '../platform/auth/permission.decorator';
 import { PermissionGuard } from '../platform/auth/permission.guard';
+import { WorkerAccessible } from '../platform/auth/worker-access.decorator';
 import { Idempotent } from '../platform/idempotent.decorator';
 import type { BusinessEventInput } from '../platform/event.service';
 import { FulfillmentProcessService } from './fulfillment-process.service';
@@ -47,6 +48,7 @@ export class FulfillmentProcessController {
   }
 
   @Post('fulfillment-process/events')
+  @WorkerAccessible('OMS_FULFILLMENT_EVENT_CONSUME')
   @Idempotent('oms.fulfillment-process.consume.v2')
   @RequirePermission('oms.fulfillment.project')
   consume(

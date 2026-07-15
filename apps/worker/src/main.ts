@@ -1,92 +1,96 @@
 import { Worker } from 'bullmq';
 import { getRedisConnection } from './connection';
+import { startWorkerHealthServer } from './health-server';
 import { runEventDeliveriesOnce } from './event-delivery';
 import { HttpWorkerApi, processSystemJob } from './job-runner';
 import { runRelayOnce } from './outbox-relay';
 import { processPrintJob } from './print-runner';
+import { TenantSupervisor } from './tenant-supervisor';
 import { deliverWebhooksOnce } from './webhook-delivery';
 
-const worker = new Worker('scm-system', async (job) => processSystemJob(job), {
+const token = process.env.WORKER_CONTROL_TOKEN;
+const actorId = process.env.WORKER_ACTOR_ID;
+if (!token || token.length < 32)
+  throw new Error('WORKER_CONTROL_TOKEN must contain at least 32 characters');
+if (
+  !actorId ||
+  !/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(
+    actorId,
+  )
+)
+  throw new Error('WORKER_ACTOR_ID must be a UUID');
+
+const api = new HttpWorkerApi();
+const supervisor = new TenantSupervisor(
+  api,
+  Number(process.env.WORKER_TENANT_CONCURRENCY ?? 4),
+);
+const healthServer = startWorkerHealthServer(() => supervisor.health());
+const worker = new Worker('scm-system', (job) => processSystemJob(job, api), {
   connection: getRedisConnection(),
 });
-
 const printWorker = new Worker(
   'scm-print',
-  async (job) => processPrintJob(job),
+  (job) => processPrintJob(job, api),
   { connection: getRedisConnection(), concurrency: 4 },
 );
+const owner = (operation: string, tenantId: string) =>
+  `${operation}:${process.pid}:${tenantId}`;
+const timers: ReturnType<typeof setInterval>[] = [];
+let stopping = false;
 
-const relayApi = new HttpWorkerApi();
-const relayTenantId = process.env.WORKER_TENANT_ID;
-const relayOwner = `relay:${process.pid}`;
-const deliveryOwner = `delivery:${process.pid}`;
-const webhookOwner = `webhook:${process.pid}`;
-let relayRunning = false;
-const relayTimer =
-  relayTenantId && process.env.WORKER_API_TOKEN
-    ? setInterval(() => {
-        if (relayRunning) return;
-        relayRunning = true;
-        void runRelayOnce(relayTenantId, relayOwner, relayApi)
-          .catch((error: unknown) => {
-            console.error('worker.outbox-relay.failed', {
-              message: error instanceof Error ? error.message : String(error),
-            });
-          })
-          .finally(() => {
-            relayRunning = false;
-          });
-      }, 1000)
-    : undefined;
-let deliveryRunning = false;
-const deliveryTimer =
-  relayTenantId && process.env.WORKER_API_TOKEN
-    ? setInterval(() => {
-        if (deliveryRunning) return;
-        deliveryRunning = true;
-        void runEventDeliveriesOnce(relayTenantId, deliveryOwner, relayApi)
-          .catch((error: unknown) => {
-            console.error('worker.event-delivery-loop.failed', {
-              message: error instanceof Error ? error.message : String(error),
-              tenantId: relayTenantId,
-            });
-          })
-          .finally(() => {
-            deliveryRunning = false;
-          });
-      }, 500)
-    : undefined;
-let webhookRunning = false;
-const webhookTimer =
-  relayTenantId && process.env.WORKER_API_TOKEN
-    ? setInterval(() => {
-        if (webhookRunning) return;
-        webhookRunning = true;
-        void deliverWebhooksOnce(relayTenantId, webhookOwner, relayApi)
-          .catch((error: unknown) => {
-            console.error('worker.webhook-delivery.failed', {
-              message: error instanceof Error ? error.message : String(error),
-            });
-          })
-          .finally(() => {
-            webhookRunning = false;
-          });
-      }, 2000)
-    : undefined;
+const periodic = (milliseconds: number, task: () => Promise<unknown>) => {
+  const run = () => {
+    if (stopping) return;
+    void task().catch((error: unknown) =>
+      console.error('worker.loop.failed', {
+        message: error instanceof Error ? error.message : String(error),
+      }),
+    );
+  };
+  run();
+  const timer = setInterval(run, milliseconds);
+  timers.push(timer);
+};
+
+periodic(30_000, async () => {
+  await supervisor.refresh();
+  console.info('worker.health', supervisor.health());
+});
+periodic(1_000, () =>
+  supervisor.run('relay', (tenantId) =>
+    runRelayOnce(tenantId, owner('relay', tenantId), api),
+  ),
+);
+periodic(500, () =>
+  supervisor.run('event-delivery', (tenantId) =>
+    runEventDeliveriesOnce(tenantId, owner('delivery', tenantId), api),
+  ),
+);
+periodic(2_000, () =>
+  supervisor.run('webhook', (tenantId) =>
+    deliverWebhooksOnce(tenantId, owner('webhook', tenantId), api),
+  ),
+);
 
 worker.on('failed', (job, error) => {
   console.error('worker.job.failed', {
     jobId: job?.id,
     message: error.message,
+    tenantId: job?.data?.tenantId,
   });
 });
 
 async function shutdown() {
-  if (relayTimer) clearInterval(relayTimer);
-  if (deliveryTimer) clearInterval(deliveryTimer);
-  if (webhookTimer) clearInterval(webhookTimer);
-  await printWorker.close();
-  await worker.close();
+  if (stopping) return;
+  stopping = true;
+  for (const timer of timers) clearInterval(timer);
+  await supervisor.shutdown();
+  await Promise.all([
+    healthServer.close(),
+    printWorker.close(),
+    worker.close(),
+  ]);
 }
 
 process.once('SIGINT', () => void shutdown());

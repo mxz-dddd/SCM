@@ -238,6 +238,47 @@ test('cross-tenant header and resource references are denied', async ({
   expect(foreignBackup).toMatchObject({ status: 'PLANNED', version: 1 });
 });
 
+test('worker control identity is tenant-discovering but route-restricted', async ({
+  request,
+}) => {
+  const userToken = await login(request);
+  const deniedDiscovery = await request.get('/api/v1/internal/worker/tenants', {
+    headers: { Authorization: `Bearer ${userToken}` },
+  });
+  expect(deniedDiscovery.status()).toBe(401);
+
+  const workerToken = process.env.WORKER_CONTROL_TOKEN!;
+  const discovery = await request.get('/api/v1/internal/worker/tenants', {
+    headers: { Authorization: `Bearer ${workerToken}` },
+  });
+  expect(discovery.ok()).toBe(true);
+  expect(
+    ((await responseBody(discovery)).items as JsonObject[]).map(
+      (item) => item.tenantId,
+    ),
+  ).toContain(tenantId);
+
+  const forbidden = await request.get('/api/v1/oms/orders', {
+    headers: headers(workerToken),
+  });
+  expect(forbidden.status()).toBe(403);
+  expect(await responseBody(forbidden)).toMatchObject({
+    code: 'WORKER_OPERATION_FORBIDDEN',
+  });
+
+  const backlog = await request.get('/api/v1/internal/worker/backlog', {
+    headers: headers(workerToken),
+  });
+  expect(backlog.ok()).toBe(true);
+  expect(await responseBody(backlog)).toMatchObject({
+    eventDeliveries: expect.any(Number),
+    jobs: expect.any(Number),
+    outbox: expect.any(Number),
+    printJobs: expect.any(Number),
+    webhooks: expect.any(Number),
+  });
+});
+
 test('dead-letter replay is state-safe and idempotent', async ({ request }) => {
   const token = await login(request);
   const event = await prisma.platformOutbox.create({

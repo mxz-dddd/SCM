@@ -5,7 +5,7 @@ export function requireAccountKind(
   context: TenantContext,
   allowed: readonly AccountKind[],
 ): void {
-  if (!allowed.includes(context.accountKind)) {
+  if (!allowed.some((kind) => context.accountKind === kind)) {
     throw new AppError(
       'AUTH_PERMISSION_DENIED',
       'The current account is not allowed to perform this action',

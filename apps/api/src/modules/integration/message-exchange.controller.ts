@@ -12,6 +12,7 @@ import {
 import type { TenantRequest } from '../platform/auth/tenant-context.middleware';
 import { RequirePermission } from '../platform/auth/permission.decorator';
 import { PermissionGuard } from '../platform/auth/permission.guard';
+import { WorkerAccessible } from '../platform/auth/worker-access.decorator';
 import { Idempotent } from '../platform/idempotent.decorator';
 import {
   MessageExchangeService,
@@ -247,6 +248,7 @@ export class MessageExchangeController {
   }
 
   @Post('deliveries/:id/complete')
+  @WorkerAccessible('WEBHOOK_DELIVERY_COMPLETE')
   @Idempotent('integration.webhook.delivery.complete.v1')
   @RequirePermission('integration.exchange.process')
   completeDelivery(
@@ -272,6 +274,7 @@ export class MessageExchangeController {
   }
 
   @Post('deliveries/claim')
+  @WorkerAccessible('WEBHOOK_DELIVERY_CLAIM')
   @Idempotent('integration.webhook.delivery.claim.v1')
   @RequirePermission('integration.exchange.process')
   claimDeliveries(

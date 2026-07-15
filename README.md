@@ -21,7 +21,7 @@ SEED_ADMIN_PASSWORD='<local-password>' pnpm db:seed
 pnpm dev
 ```
 
-本地 JWT 和 API 凭证还需要在 `.env` 中配置至少 32 个字符的独立密钥。种子账号为 `PLATFORM / platform-admin`，密码由 `SEED_ADMIN_PASSWORD` 提供，仓库不保存明文密码。
+本地 JWT、API 凭证和 `WORKER_CONTROL_TOKEN` 需要在 `.env` 中配置彼此独立、至少 32 个字符的随机密钥；`WORKER_ACTOR_ID` 使用专用 UUID，不对应任何可登录账号。Worker 每 30 秒从 API 发现 ACTIVE 租户，不再配置单一 `WORKER_TENANT_ID`；`http://localhost:3001/health` 展示租户数量、刷新时间、各租户 backlog、失败租户和 in-flight 数量。种子账号为 `PLATFORM / platform-admin`，密码由 `SEED_ADMIN_PASSWORD` 提供，仓库不保存明文密码。
 
 提交前运行统一门禁：
 

@@ -20,19 +20,40 @@ export interface WorkerApi {
   request<T>(tenantId: string, path: string, init?: RequestInit): Promise<T>;
 }
 
+export interface WorkerTenantPage {
+  readonly items: readonly {
+    readonly code: string;
+    readonly id: string;
+    readonly name: string;
+    readonly tenantId: string;
+  }[];
+  readonly nextCursor?: string;
+}
+
 export class HttpWorkerApi implements WorkerApi {
   constructor(
     private readonly baseUrl = process.env.WORKER_API_URL ??
       'http://localhost:3000',
-    private readonly token = process.env.WORKER_API_TOKEN,
+    private readonly token = process.env.WORKER_CONTROL_TOKEN,
   ) {}
+
+  discoverTenants(cursor?: string) {
+    const query = new URLSearchParams({ limit: '100' });
+    if (cursor) query.set('cursor', cursor);
+    return this.controlRequest<WorkerTenantPage>(
+      `/api/v1/internal/worker/tenants?${query.toString()}`,
+    );
+  }
 
   async request<T>(
     tenantId: string,
     path: string,
     init?: RequestInit,
   ): Promise<T> {
-    if (!this.token) throw new Error('WORKER_API_TOKEN is required');
+    if (!this.token || this.token.length < 32)
+      throw new Error(
+        'WORKER_CONTROL_TOKEN must contain at least 32 characters',
+      );
     const response = await fetch(`${this.baseUrl}${path}`, {
       ...init,
       headers: {
@@ -53,6 +74,28 @@ export class HttpWorkerApi implements WorkerApi {
         `${body.code ?? 'WORKER_API_FAILED'}: ${body.message ?? response.statusText}`,
       );
     }
+    return body;
+  }
+
+  private async controlRequest<T>(path: string): Promise<T> {
+    if (!this.token || this.token.length < 32)
+      throw new Error(
+        'WORKER_CONTROL_TOKEN must contain at least 32 characters',
+      );
+    const response = await fetch(`${this.baseUrl}${path}`, {
+      headers: {
+        Authorization: `Bearer ${this.token}`,
+        'X-Correlation-Id': crypto.randomUUID(),
+      },
+    });
+    const body = (await response.json()) as T & {
+      code?: string;
+      message?: string;
+    };
+    if (!response.ok)
+      throw new Error(
+        `${body.code ?? 'WORKER_DISCOVERY_FAILED'}: ${body.message ?? response.statusText}`,
+      );
     return body;
   }
 }

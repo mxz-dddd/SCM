@@ -14,6 +14,7 @@ import {
 import type { TenantRequest } from './auth/tenant-context.middleware';
 import { RequirePermission } from './auth/permission.decorator';
 import { PermissionGuard } from './auth/permission.guard';
+import { WorkerAccessible } from './auth/worker-access.decorator';
 import {
   EventService,
   type ClaimEventsInput,
@@ -70,6 +71,7 @@ export class EventController {
   }
 
   @Post('relay/claim')
+  @WorkerAccessible('EVENT_RELAY_CLAIM')
   @HttpCode(200)
   @RequirePermission('platform.event.process')
   claim(
@@ -86,6 +88,7 @@ export class EventController {
   }
 
   @Post('outbox/:eventId/publish')
+  @WorkerAccessible('EVENT_OUTBOX_PUBLISH')
   @HttpCode(200)
   @RequirePermission('platform.event.process')
   publish(
@@ -120,6 +123,7 @@ export class EventController {
   }
 
   @Post('outbox/:eventId/fail')
+  @WorkerAccessible('EVENT_OUTBOX_FAIL')
   @HttpCode(200)
   @RequirePermission('platform.event.process')
   fail(
@@ -155,6 +159,7 @@ export class EventController {
   }
 
   @Post('deliveries/claim')
+  @WorkerAccessible('EVENT_DELIVERY_CLAIM')
   @HttpCode(200)
   @RequirePermission('platform.event.process')
   claimDeliveries(
@@ -171,6 +176,7 @@ export class EventController {
   }
 
   @Post('deliveries/:deliveryId/complete')
+  @WorkerAccessible('EVENT_DELIVERY_COMPLETE')
   @HttpCode(200)
   @RequirePermission('platform.event.process')
   completeDelivery(
@@ -189,6 +195,7 @@ export class EventController {
   }
 
   @Post('deliveries/:deliveryId/fail')
+  @WorkerAccessible('EVENT_DELIVERY_FAIL')
   @HttpCode(200)
   @RequirePermission('platform.event.process')
   failDelivery(

@@ -12,6 +12,7 @@ import {
 import type { TenantRequest } from '../platform/auth/tenant-context.middleware';
 import { RequirePermission } from '../platform/auth/permission.decorator';
 import { PermissionGuard } from '../platform/auth/permission.guard';
+import { WorkerAccessible } from '../platform/auth/worker-access.decorator';
 import { Idempotent } from '../platform/idempotent.decorator';
 import type { BusinessEventInput } from '../platform/event.service';
 import {
@@ -57,6 +58,7 @@ export class ChargeFactRateController {
   }
 
   @Post('events/consume')
+  @WorkerAccessible('BILLING_EVENT_CONSUME')
   @Idempotent('billing.charge-fact.consume.v1')
   @RequirePermission('billing.fact.ingest')
   consume(

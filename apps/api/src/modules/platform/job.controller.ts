@@ -14,6 +14,7 @@ import {
 import type { TenantRequest } from './auth/tenant-context.middleware';
 import { RequirePermission } from './auth/permission.decorator';
 import { PermissionGuard } from './auth/permission.guard';
+import { WorkerAccessible } from './auth/worker-access.decorator';
 import {
   JobService,
   type CancelJobInput,
@@ -61,24 +62,20 @@ export class JobController {
   }
 
   @Get('runs/:jobRunId')
+  @WorkerAccessible('JOB_GET')
   @RequirePermission('platform.job.read')
-  getRun(
-    @Param('jobRunId') jobRunId: string,
-    @Req() request: TenantRequest,
-  ) {
+  getRun(@Param('jobRunId') jobRunId: string, @Req() request: TenantRequest) {
     return this.jobs.getRun(jobRunId, request.tenantContext);
   }
 
   @Get('runs/:jobRunId/logs')
   @RequirePermission('platform.job.read')
-  listLogs(
-    @Param('jobRunId') jobRunId: string,
-    @Req() request: TenantRequest,
-  ) {
+  listLogs(@Param('jobRunId') jobRunId: string, @Req() request: TenantRequest) {
     return this.jobs.listLogs(jobRunId, request.tenantContext);
   }
 
   @Post('definitions/:jobDefinitionId/runs')
+  @WorkerAccessible('JOB_TRIGGER')
   @HttpCode(202)
   @RequirePermission('platform.job.trigger')
   trigger(
@@ -113,6 +110,7 @@ export class JobController {
   }
 
   @Post('runs/:jobRunId/claim')
+  @WorkerAccessible('JOB_RUN_CLAIM')
   @HttpCode(200)
   @RequirePermission('platform.job.process')
   claim(
@@ -130,6 +128,7 @@ export class JobController {
   }
 
   @Post('runs/:jobRunId/heartbeat')
+  @WorkerAccessible('JOB_HEARTBEAT')
   @HttpCode(200)
   @RequirePermission('platform.job.process')
   heartbeat(
@@ -147,6 +146,7 @@ export class JobController {
   }
 
   @Post('runs/:jobRunId/progress')
+  @WorkerAccessible('JOB_PROGRESS')
   @HttpCode(200)
   @RequirePermission('platform.job.process')
   progress(
@@ -164,6 +164,7 @@ export class JobController {
   }
 
   @Post('runs/:jobRunId/complete')
+  @WorkerAccessible('JOB_COMPLETE')
   @HttpCode(200)
   @RequirePermission('platform.job.process')
   complete(
