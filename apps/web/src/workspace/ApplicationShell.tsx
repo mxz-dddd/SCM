@@ -22,6 +22,7 @@ import { AlertGovernanceWorkbench } from '../control/AlertGovernanceWorkbench';
 import { BiAnalyticsWorkbench } from '../control/BiAnalyticsWorkbench';
 import { ReconciliationWorkbench } from '../control/ReconciliationWorkbench';
 import { ApiGatewayWorkbench } from '../integration/ApiGatewayWorkbench';
+import { MessageExchangeWorkbench } from '../integration/MessageExchangeWorkbench';
 import { AuditWorkbench } from '../platform/AuditWorkbench';
 import { AttachmentWorkbench } from '../platform/AttachmentWorkbench';
 import { ConfigurationWorkbench } from '../platform/ConfigurationWorkbench';
@@ -186,6 +187,12 @@ const pageRegistry: readonly WorkspaceTab[] = [
     route: '/integration/gateway',
     title: '开放 API',
   },
+  {
+    dirty: false,
+    id: 'integration-exchange',
+    route: '/integration/exchange',
+    title: '消息集成',
+  },
 ];
 
 const modules = [
@@ -219,6 +226,7 @@ const modules = [
   ['BI', 'control-bi'],
   ['验收', 'control-acceptance'],
   ['集成', 'integration-gateway'],
+  ['消息集成', 'integration-exchange'],
 ] as const;
 
 interface WorkspaceCatalogItem {
@@ -380,6 +388,7 @@ export function ApplicationShell() {
     if (tabId === 'control-bi') return <BiAnalyticsWorkbench />;
     if (tabId === 'control-acceptance') return <ReconciliationWorkbench />;
     if (tabId === 'integration-gateway') return <ApiGatewayWorkbench />;
+    if (tabId === 'integration-exchange') return <MessageExchangeWorkbench />;
     return (
       <section className="workspace-placeholder">
         <Typography.Title level={2}>

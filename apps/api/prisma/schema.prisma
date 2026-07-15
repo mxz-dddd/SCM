@@ -12403,3 +12403,291 @@ model IntegrationDeprecationNotice {
   @@map("deprecation_notice")
   @@schema("integration")
 }
+
+enum IntegrationExchangeStatus {
+  RECEIVED
+  PROCESSING
+  PROCESSED
+  PARTIAL
+  FAILED
+  ACKNOWLEDGED
+  ARCHIVED
+  @@schema("integration")
+}
+
+enum IntegrationLineStatus {
+  PENDING
+  PROCESSED
+  REJECTED
+  @@schema("integration")
+}
+
+enum IntegrationDirection {
+  INBOUND
+  OUTBOUND
+  @@schema("integration")
+}
+
+enum IntegrationMappingStatus {
+  DRAFT
+  TESTED
+  PUBLISHED
+  RETIRED
+  @@schema("integration")
+}
+
+enum IntegrationWebhookStatus {
+  ACTIVE
+  DISABLED
+  @@schema("integration")
+}
+
+enum IntegrationDeliveryStatus {
+  PENDING
+  PROCESSING
+  DELIVERED
+  FAILED
+  RETRY_WAIT
+  DEAD_LETTER
+  @@schema("integration")
+}
+
+enum IntegrationMessageStatus {
+  RECEIVED
+  PROCESSING
+  PROCESSED
+  FAILED
+  DEAD_LETTER
+  REPLAYED
+  @@schema("integration")
+}
+
+model IntegrationFileExchange {
+  id String @id @default(uuid()) @db.Uuid
+  tenantId String @map("tenant_id") @db.Uuid
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  createdBy String @map("created_by") @db.Uuid
+  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
+  updatedBy String @map("updated_by") @db.Uuid
+  version Int @default(1)
+  status IntegrationExchangeStatus @default(RECEIVED)
+  direction IntegrationDirection
+  channel String @db.VarChar(20)
+  partnerRef String @map("partner_ref") @db.VarChar(200)
+  businessRef String? @map("business_ref") @db.VarChar(200)
+  fileName String @map("file_name") @db.VarChar(255)
+  directory String @db.VarChar(500)
+  format String @db.VarChar(30)
+  encryption String @db.VarChar(30)
+  contentDigest String @map("content_digest") @db.Char(64)
+  objectRef String @map("object_ref") @db.VarChar(500)
+  lineCount Int @map("line_count")
+  processedCount Int @default(0) @map("processed_count")
+  rejectedCount Int @default(0) @map("rejected_count")
+  acknowledgedAt DateTime? @map("acknowledged_at") @db.Timestamptz(3)
+  archivedAt DateTime? @map("archived_at") @db.Timestamptz(3)
+  @@unique([tenantId,partnerRef,contentDigest],map:"integration_file_exchange_digest_key")
+  @@index([tenantId,status,createdAt],map:"integration_file_exchange_status_idx")
+  @@map("file_exchange")
+  @@schema("integration")
+}
+
+model IntegrationFileLine {
+  id String @id @default(uuid()) @db.Uuid
+  tenantId String @map("tenant_id") @db.Uuid
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  createdBy String @map("created_by") @db.Uuid
+  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
+  updatedBy String @map("updated_by") @db.Uuid
+  version Int @default(1)
+  status IntegrationLineStatus @default(PENDING)
+  fileExchangeId String @map("file_exchange_id") @db.Uuid
+  lineNumber Int @map("line_number")
+  businessRef String? @map("business_ref") @db.VarChar(200)
+  sourcePayload Json @map("source_payload") @db.JsonB
+  resultPayload Json? @map("result_payload") @db.JsonB
+  errorCode String? @map("error_code") @db.VarChar(100)
+  errorMessage String? @map("error_message") @db.VarChar(1000)
+  @@unique([tenantId,fileExchangeId,lineNumber],map:"integration_file_line_number_key")
+  @@index([tenantId,fileExchangeId,status],map:"integration_file_line_status_idx")
+  @@map("file_line")
+  @@schema("integration")
+}
+
+model IntegrationAckMessage {
+  id String @id @default(uuid()) @db.Uuid
+  tenantId String @map("tenant_id") @db.Uuid
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  createdBy String @map("created_by") @db.Uuid
+  updatedAt DateTime @default(now()) @map("updated_at") @db.Timestamptz(3)
+  updatedBy String @map("updated_by") @db.Uuid
+  version Int @default(1)
+  status IntegrationRecordStatus @default(ACTIVE)
+  fileExchangeId String @map("file_exchange_id") @db.Uuid
+  ackType String @map("ack_type") @db.VarChar(30)
+  payload Json @db.JsonB
+  sentAt DateTime? @map("sent_at") @db.Timestamptz(3)
+  @@unique([tenantId,fileExchangeId,ackType],map:"integration_ack_message_type_key")
+  @@index([tenantId,createdAt],map:"integration_ack_message_created_idx")
+  @@map("ack_message")
+  @@schema("integration")
+}
+
+model IntegrationWebhookSubscription {
+  id String @id @default(uuid()) @db.Uuid
+  tenantId String @map("tenant_id") @db.Uuid
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  createdBy String @map("created_by") @db.Uuid
+  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
+  updatedBy String @map("updated_by") @db.Uuid
+  version Int @default(1)
+  status IntegrationWebhookStatus @default(ACTIVE)
+  name String @db.VarChar(200)
+  endpointUrl String @map("endpoint_url") @db.VarChar(500)
+  eventTypes Json @map("event_types") @db.JsonB
+  objectScopes Json @default("[]") @map("object_scopes") @db.JsonB
+  secretHash String @map("secret_hash") @db.Char(64)
+  maxAttempts Int @default(5) @map("max_attempts")
+  baseDelaySeconds Int @default(30) @map("base_delay_seconds")
+  disabledAt DateTime? @map("disabled_at") @db.Timestamptz(3)
+  @@index([tenantId,status,createdAt],map:"integration_webhook_subscription_status_idx")
+  @@map("webhook_subscription")
+  @@schema("integration")
+}
+
+model IntegrationDeliveryAttempt {
+  id String @id @default(uuid()) @db.Uuid
+  tenantId String @map("tenant_id") @db.Uuid
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  createdBy String @map("created_by") @db.Uuid
+  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
+  updatedBy String @map("updated_by") @db.Uuid
+  version Int @default(1)
+  status IntegrationDeliveryStatus @default(PENDING)
+  subscriptionId String @map("subscription_id") @db.Uuid
+  messageId String @map("message_id") @db.Uuid
+  attemptNumber Int @map("attempt_number")
+  signature String @db.VarChar(128)
+  availableAt DateTime @default(now()) @map("available_at") @db.Timestamptz(3)
+  leaseOwner String? @map("lease_owner") @db.VarChar(200)
+  leaseExpiresAt DateTime? @map("lease_expires_at") @db.Timestamptz(3)
+  responseStatus Int? @map("response_status")
+  responseDigest String? @map("response_digest") @db.Char(64)
+  errorMessage String? @map("error_message") @db.VarChar(1000)
+  deliveredAt DateTime? @map("delivered_at") @db.Timestamptz(3)
+  @@unique([tenantId,subscriptionId,messageId,attemptNumber],map:"integration_delivery_attempt_number_key")
+  @@index([tenantId,status,availableAt],map:"integration_delivery_attempt_due_idx")
+  @@map("delivery_attempt")
+  @@schema("integration")
+}
+
+model IntegrationMappingDefinition {
+  id String @id @default(uuid()) @db.Uuid
+  tenantId String @map("tenant_id") @db.Uuid
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  createdBy String @map("created_by") @db.Uuid
+  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
+  updatedBy String @map("updated_by") @db.Uuid
+  version Int @default(1)
+  status IntegrationMappingStatus @default(DRAFT)
+  code String @db.VarChar(100)
+  name String @db.VarChar(200)
+  sourceSystem String @map("source_system") @db.VarChar(100)
+  targetObject String @map("target_object") @db.VarChar(100)
+  activeVersionNumber Int? @map("active_version_number")
+  @@unique([tenantId,code],map:"integration_mapping_definition_code_key")
+  @@index([tenantId,status,updatedAt],map:"integration_mapping_definition_status_idx")
+  @@map("mapping_definition")
+  @@schema("integration")
+}
+
+model IntegrationMappingVersion {
+  id String @id @default(uuid()) @db.Uuid
+  tenantId String @map("tenant_id") @db.Uuid
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  createdBy String @map("created_by") @db.Uuid
+  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
+  updatedBy String @map("updated_by") @db.Uuid
+  version Int @default(1)
+  status IntegrationMappingStatus @default(DRAFT)
+  definitionId String @map("definition_id") @db.Uuid
+  versionNumber Int @map("version_number")
+  rules Json @db.JsonB
+  sampleInput Json @map("sample_input") @db.JsonB
+  expectedOutput Json @map("expected_output") @db.JsonB
+  testResult Json? @map("test_result") @db.JsonB
+  testedAt DateTime? @map("tested_at") @db.Timestamptz(3)
+  publishedAt DateTime? @map("published_at") @db.Timestamptz(3)
+  @@unique([tenantId,definitionId,versionNumber],map:"integration_mapping_version_number_key")
+  @@index([tenantId,definitionId,status],map:"integration_mapping_version_status_idx")
+  @@map("mapping_version")
+  @@schema("integration")
+}
+
+model IntegrationTransformResult {
+  id String @id @default(uuid()) @db.Uuid
+  tenantId String @map("tenant_id") @db.Uuid
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  createdBy String @map("created_by") @db.Uuid
+  updatedAt DateTime @default(now()) @map("updated_at") @db.Timestamptz(3)
+  updatedBy String @map("updated_by") @db.Uuid
+  version Int @default(1)
+  status IntegrationRecordStatus @default(ACTIVE)
+  mappingVersionId String @map("mapping_version_id") @db.Uuid
+  messageId String? @map("message_id") @db.Uuid
+  sourcePayload Json @map("source_payload") @db.JsonB
+  outputPayload Json @map("output_payload") @db.JsonB
+  success Boolean
+  errorSnapshot Json @default("[]") @map("error_snapshot") @db.JsonB
+  @@index([tenantId,mappingVersionId,createdAt],map:"integration_transform_result_mapping_idx")
+  @@map("transform_result")
+  @@schema("integration")
+}
+
+model IntegrationMessage {
+  id String @id @default(uuid()) @db.Uuid
+  tenantId String @map("tenant_id") @db.Uuid
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  createdBy String @map("created_by") @db.Uuid
+  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
+  updatedBy String @map("updated_by") @db.Uuid
+  version Int @default(1)
+  status IntegrationMessageStatus @default(RECEIVED)
+  direction IntegrationDirection
+  channel String @db.VarChar(30)
+  messageType String @map("message_type") @db.VarChar(200)
+  businessRef String? @map("business_ref") @db.VarChar(200)
+  correlationId String @map("correlation_id") @db.VarChar(100)
+  sourceRef String? @map("source_ref") @db.Uuid
+  replayOfMessageId String? @map("replay_of_message_id") @db.Uuid
+  mappingVersionId String? @map("mapping_version_id") @db.Uuid
+  originalPayload Json @map("original_payload") @db.JsonB
+  processedPayload Json? @map("processed_payload") @db.JsonB
+  attemptCount Int @default(0) @map("attempt_count")
+  durationMs Int? @map("duration_ms")
+  errorCode String? @map("error_code") @db.VarChar(100)
+  errorMessage String? @map("error_message") @db.VarChar(1000)
+  completedAt DateTime? @map("completed_at") @db.Timestamptz(3)
+  @@index([tenantId,status,createdAt],map:"integration_message_status_idx")
+  @@index([tenantId,businessRef,createdAt],map:"integration_message_business_idx")
+  @@map("integration_message")
+  @@schema("integration")
+}
+
+model IntegrationReplayRecord {
+  id String @id @default(uuid()) @db.Uuid
+  tenantId String @map("tenant_id") @db.Uuid
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  createdBy String @map("created_by") @db.Uuid
+  updatedAt DateTime @default(now()) @map("updated_at") @db.Timestamptz(3)
+  updatedBy String @map("updated_by") @db.Uuid
+  version Int @default(1)
+  status IntegrationRecordStatus @default(ACTIVE)
+  originalMessageId String @map("original_message_id") @db.Uuid
+  replayMessageId String @map("replay_message_id") @db.Uuid
+  reason String @db.VarChar(1000)
+  mappingVersionId String? @map("mapping_version_id") @db.Uuid
+  @@index([tenantId,originalMessageId,createdAt],map:"integration_replay_record_original_idx")
+  @@map("replay_record")
+  @@schema("integration")
+}

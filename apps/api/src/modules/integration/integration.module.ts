@@ -4,6 +4,8 @@ import { PermissionService } from '../platform/auth/permission.service';
 import { PlatformModule } from '../platform/platform.module';
 import { ApiContractService } from './api-contract.service';
 import { GatewayService } from './gateway.service';
+import { MessageExchangeController } from './message-exchange.controller';
+import { MessageExchangeService } from './message-exchange.service';
 import {
   ExternalGatewayController,
   IntegrationController,
@@ -14,12 +16,14 @@ import {
   controllers: [
     ExternalGatewayController,
     IntegrationController,
+    MessageExchangeController,
     PublicApiContractController,
   ],
   imports: [PlatformModule],
   providers: [
     ApiContractService,
     GatewayService,
+    MessageExchangeService,
     PermissionGuard,
     PermissionService,
   ],
