@@ -105,4 +105,4 @@
 - [x] V2-05 入口硬化、真实 External Gateway Guard 与 Webhook SSRF 防护
 - [x] V2-06 全域业务单号统一与静态门禁
 - [x] V2-07 Browser Router、多终端 Shell 与原创 Design Tokens 基线
-- [ ] V2-08 真实 Worker E2E、CI、运维文档与架构图更新
+- [x] V2-08 真实 Worker E2E、CI、运维文档与架构图更新
