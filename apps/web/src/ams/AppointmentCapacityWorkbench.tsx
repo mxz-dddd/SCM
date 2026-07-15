@@ -8,6 +8,7 @@ import {
 } from '@scm/ui';
 import { Alert, Card, Col, Row, Tag, Typography } from 'antd';
 import { useSessionStore } from '../platform/session-store';
+import { AppointmentIntakePanel } from './AppointmentIntakePanel';
 
 interface RowBase {
   id: string;
@@ -306,6 +307,7 @@ export function AppointmentCapacityWorkbench() {
           </Card>
         </Col>
       </Row>
+      <AppointmentIntakePanel />
     </section>
   );
 }

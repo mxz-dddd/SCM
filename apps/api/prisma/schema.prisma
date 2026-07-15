@@ -9234,3 +9234,192 @@ model WorkloadEstimate {
   @@map("workload_estimate")
   @@schema("ams")
 }
+
+enum AppointmentStatus {
+  DRAFT
+  SUBMITTED
+  PENDING
+  CONFIRMED
+  REJECTED
+  @@schema("ams")
+}
+enum AppointmentType {
+  ORDER_LINKED
+  UNLINKED
+  RECURRING
+  @@schema("ams")
+}
+enum AppointmentReservationStatus {
+  ACTIVE
+  RELEASED
+  @@schema("ams")
+}
+enum RecurringAppointmentStatus {
+  ACTIVE
+  COMPLETED
+  @@schema("ams")
+}
+enum AppointmentOccurrenceStatus {
+  RESERVED
+  PENDING
+  @@schema("ams")
+}
+
+model Appointment {
+  id String @id @default(uuid()) @db.Uuid
+  tenantId String @map("tenant_id") @db.Uuid
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  createdBy String @map("created_by") @db.Uuid
+  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
+  updatedBy String @map("updated_by") @db.Uuid
+  version Int @default(1)
+  status AppointmentStatus @default(DRAFT)
+  appointmentNo String @map("appointment_no") @db.VarChar(100)
+  type AppointmentType
+  warehouseRef String @map("warehouse_ref") @db.Uuid
+  requesterPartyRef String @map("requester_party_ref") @db.VarChar(200)
+  requesterSnapshot Json @map("requester_snapshot") @db.JsonB
+  serviceType String @map("service_type") @db.VarChar(50)
+  timeSlotId String @map("time_slot_id") @db.Uuid
+  workloadEstimateId String? @map("workload_estimate_id") @db.Uuid
+  workloadQuantity Decimal @map("workload_quantity") @db.Decimal(24,6)
+  workloadQuantityUom String @map("workload_quantity_uom") @db.VarChar(20)
+  workloadPallets Decimal @map("workload_pallets") @db.Decimal(24,6)
+  workloadVehicles Decimal @map("workload_vehicles") @db.Decimal(24,6)
+  workloadLaborHours Decimal @map("workload_labor_hours") @db.Decimal(24,6)
+  vehicleSnapshot Json @map("vehicle_snapshot") @db.JsonB
+  requestedWindowFrom DateTime @map("requested_window_from") @db.Timestamptz(3)
+  requestedWindowTo DateTime @map("requested_window_to") @db.Timestamptz(3)
+  urgent Boolean @default(false)
+  approvalPolicySnapshot Json @map("approval_policy_snapshot") @db.JsonB
+  recurringAppointmentId String? @map("recurring_appointment_id") @db.Uuid
+  submittedAt DateTime? @map("submitted_at") @db.Timestamptz(3)
+  decidedAt DateTime? @map("decided_at") @db.Timestamptz(3)
+  @@unique([tenantId,appointmentNo],map:"appointment_tenant_no_key")
+  @@index([tenantId,warehouseRef,serviceType,status,requestedWindowFrom],map:"appointment_search_idx")
+  @@index([tenantId,requesterPartyRef,status,createdAt],map:"appointment_requester_idx")
+  @@map("appointment")
+  @@schema("ams")
+}
+
+model AmsAppointmentOrderLink {
+  id String @id @default(uuid()) @db.Uuid
+  tenantId String @map("tenant_id") @db.Uuid
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  createdBy String @map("created_by") @db.Uuid
+  updatedAt DateTime @default(now()) @map("updated_at") @db.Timestamptz(3)
+  updatedBy String @map("updated_by") @db.Uuid
+  version Int @default(1)
+  status AmsRecordStatus @default(ACTIVE)
+  appointmentId String @map("appointment_id") @db.Uuid
+  sourceType String @map("source_type") @db.VarChar(50)
+  sourceRef String @map("source_ref") @db.VarChar(200)
+  sourceLineRef String @map("source_line_ref") @db.VarChar(200)
+  sourceSnapshot Json @map("source_snapshot") @db.JsonB
+  quantity Decimal @db.Decimal(24,6)
+  quantityUom String @map("quantity_uom") @db.VarChar(20)
+  quantityBase Decimal @map("quantity_base") @db.Decimal(24,6)
+  quantityBaseUom String @map("quantity_base_uom") @db.VarChar(20)
+  bookableQuantityBase Decimal @map("bookable_quantity_base") @db.Decimal(24,6)
+  packageSpecSnapshot Json @map("package_spec_snapshot") @db.JsonB
+  @@unique([tenantId,appointmentId,sourceType,sourceRef,sourceLineRef],map:"appointment_order_link_appointment_line_key")
+  @@index([tenantId,sourceType,sourceRef,sourceLineRef],map:"appointment_order_link_source_idx")
+  @@map("appointment_order_link")
+  @@schema("ams")
+}
+
+model AppointmentCapacityReservation {
+  id String @id @default(uuid()) @db.Uuid
+  tenantId String @map("tenant_id") @db.Uuid
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  createdBy String @map("created_by") @db.Uuid
+  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
+  updatedBy String @map("updated_by") @db.Uuid
+  version Int @default(1)
+  status AppointmentReservationStatus @default(ACTIVE)
+  appointmentId String @map("appointment_id") @db.Uuid
+  timeSlotId String @map("time_slot_id") @db.Uuid
+  slotVersionAtReserve Int @map("slot_version_at_reserve")
+  allocationType String @map("allocation_type") @db.VarChar(20)
+  quantity Decimal @db.Decimal(24,6)
+  pallets Decimal @db.Decimal(24,6)
+  vehicles Decimal @db.Decimal(24,6)
+  laborHours Decimal @map("labor_hours") @db.Decimal(24,6)
+  releasedAt DateTime? @map("released_at") @db.Timestamptz(3)
+  releaseReason String? @map("release_reason") @db.VarChar(1000)
+  @@index([tenantId,appointmentId,status],map:"capacity_reservation_appointment_status_idx")
+  @@index([tenantId,timeSlotId,status,createdAt],map:"capacity_reservation_slot_idx")
+  @@map("capacity_reservation")
+  @@schema("ams")
+}
+
+model AppointmentDecision {
+  id String @id @default(uuid()) @db.Uuid
+  tenantId String @map("tenant_id") @db.Uuid
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  createdBy String @map("created_by") @db.Uuid
+  updatedAt DateTime @default(now()) @map("updated_at") @db.Timestamptz(3)
+  updatedBy String @map("updated_by") @db.Uuid
+  version Int @default(1)
+  status AmsRecordStatus @default(ACTIVE)
+  appointmentId String @map("appointment_id") @db.Uuid
+  sequence Int
+  fromStatus AppointmentStatus @map("from_status")
+  toStatus AppointmentStatus @map("to_status")
+  decision String @db.VarChar(50)
+  reason String @db.VarChar(1000)
+  suggestedTimeSlotId String? @map("suggested_time_slot_id") @db.Uuid
+  policySnapshot Json @map("policy_snapshot") @db.JsonB
+  occurredAt DateTime @default(now()) @map("occurred_at") @db.Timestamptz(3)
+  @@unique([tenantId,appointmentId,sequence],map:"appointment_decision_sequence_key")
+  @@index([tenantId,appointmentId,occurredAt],map:"appointment_decision_time_idx")
+  @@map("appointment_decision")
+  @@schema("ams")
+}
+
+model RecurringAppointment {
+  id String @id @default(uuid()) @db.Uuid
+  tenantId String @map("tenant_id") @db.Uuid
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  createdBy String @map("created_by") @db.Uuid
+  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
+  updatedBy String @map("updated_by") @db.Uuid
+  version Int @default(1)
+  status RecurringAppointmentStatus @default(ACTIVE)
+  recurringNo String @map("recurring_no") @db.VarChar(100)
+  warehouseRef String @map("warehouse_ref") @db.Uuid
+  requesterPartyRef String @map("requester_party_ref") @db.VarChar(200)
+  requesterSnapshot Json @map("requester_snapshot") @db.JsonB
+  serviceType String @map("service_type") @db.VarChar(50)
+  weekdays Json @db.JsonB
+  intervalWeeks Int @map("interval_weeks")
+  effectiveFrom DateTime @map("effective_from") @db.Date
+  effectiveUntil DateTime @map("effective_until") @db.Date
+  slotStartTime String @map("slot_start_time") @db.VarChar(5)
+  workloadSnapshot Json @map("workload_snapshot") @db.JsonB
+  vehicleSnapshot Json @map("vehicle_snapshot") @db.JsonB
+  @@unique([tenantId,recurringNo],map:"recurring_appointment_tenant_no_key")
+  @@index([tenantId,warehouseRef,serviceType,status,effectiveFrom],map:"recurring_appointment_search_idx")
+  @@map("recurring_appointment")
+  @@schema("ams")
+}
+
+model AppointmentOccurrence {
+  id String @id @default(uuid()) @db.Uuid
+  tenantId String @map("tenant_id") @db.Uuid
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  createdBy String @map("created_by") @db.Uuid
+  updatedAt DateTime @default(now()) @map("updated_at") @db.Timestamptz(3)
+  updatedBy String @map("updated_by") @db.Uuid
+  version Int @default(1)
+  status AppointmentOccurrenceStatus @default(PENDING)
+  recurringAppointmentId String @map("recurring_appointment_id") @db.Uuid
+  occurrenceDate DateTime @map("occurrence_date") @db.Date
+  appointmentId String? @map("appointment_id") @db.Uuid
+  timeSlotId String? @map("time_slot_id") @db.Uuid
+  conflictReason String? @map("conflict_reason") @db.VarChar(1000)
+  @@unique([tenantId,recurringAppointmentId,occurrenceDate],map:"appointment_occurrence_date_key")
+  @@index([tenantId,occurrenceDate,status,recurringAppointmentId],map:"appointment_occurrence_search_idx")
+  @@map("appointment_occurrence")
+  @@schema("ams")
+}
