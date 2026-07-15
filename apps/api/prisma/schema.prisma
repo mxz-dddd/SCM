@@ -12152,3 +12152,254 @@ model ControlReconciliationCase {
   @@map("reconciliation_case")
   @@schema("control")
 }
+
+enum IntegrationRecordStatus {
+  ACTIVE
+  INACTIVE
+  @@schema("integration")
+}
+
+enum GatewayPolicyStatus {
+  DRAFT
+  ACTIVE
+  RETIRED
+  @@schema("integration")
+}
+
+enum IntegrationCredentialType {
+  OAUTH2_CLIENT
+  API_KEY
+  HMAC
+  MTLS
+  @@schema("integration")
+}
+
+enum IntegrationCredentialStatus {
+  ACTIVE
+  ROTATED
+  REVOKED
+  EXPIRED
+  @@schema("integration")
+}
+
+enum ApiDefinitionStatus {
+  DRAFT
+  PUBLISHED
+  DEPRECATED
+  RETIRED
+  @@schema("integration")
+}
+
+enum GatewayDecisionOutcome {
+  ALLOWED
+  REJECTED
+  @@schema("integration")
+}
+
+model IntegrationGatewayPolicy {
+  id String @id @default(uuid()) @db.Uuid
+  tenantId String @map("tenant_id") @db.Uuid
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  createdBy String @map("created_by") @db.Uuid
+  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
+  updatedBy String @map("updated_by") @db.Uuid
+  version Int @default(1)
+  status GatewayPolicyStatus @default(DRAFT)
+  code String @db.VarChar(100)
+  name String @db.VarChar(200)
+  routePattern String @map("route_pattern") @db.VarChar(300)
+  requiredScopes Json @default("[]") @map("required_scopes") @db.JsonB
+  allowedIps Json @default("[]") @map("allowed_ips") @db.JsonB
+  maxRequestBytes Int @default(1048576) @map("max_request_bytes")
+  perMinuteLimit Int @default(60) @map("per_minute_limit")
+  dailyLimit Int @default(10000) @map("daily_limit")
+  sensitiveDailyLimit Int @default(1000) @map("sensitive_daily_limit")
+  activatedAt DateTime? @map("activated_at") @db.Timestamptz(3)
+  retiredAt DateTime? @map("retired_at") @db.Timestamptz(3)
+  @@unique([tenantId,code],map:"integration_gateway_policy_code_key")
+  @@index([tenantId,status,routePattern],map:"integration_gateway_policy_route_idx")
+  @@map("gateway_policy")
+  @@schema("integration")
+}
+
+model IntegrationApiCredential {
+  id String @id @default(uuid()) @db.Uuid
+  tenantId String @map("tenant_id") @db.Uuid
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  createdBy String @map("created_by") @db.Uuid
+  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
+  updatedBy String @map("updated_by") @db.Uuid
+  version Int @default(1)
+  status IntegrationCredentialStatus @default(ACTIVE)
+  credentialType IntegrationCredentialType @map("credential_type")
+  name String @db.VarChar(200)
+  keyId String @map("key_id") @db.VarChar(100)
+  secretHash String? @map("secret_hash") @db.Char(64)
+  certificateFingerprint String? @map("certificate_fingerprint") @db.VarChar(128)
+  scopes Json @default("[]") @db.JsonB
+  allowedIps Json @default("[]") @map("allowed_ips") @db.JsonB
+  validFrom DateTime @default(now()) @map("valid_from") @db.Timestamptz(3)
+  validUntil DateTime? @map("valid_until") @db.Timestamptz(3)
+  rotatedToCredentialId String? @map("rotated_to_credential_id") @db.Uuid
+  lastUsedAt DateTime? @map("last_used_at") @db.Timestamptz(3)
+  @@unique([tenantId,keyId],map:"integration_api_credential_key_id_key")
+  @@index([tenantId,credentialType,status],map:"integration_api_credential_type_status_idx")
+  @@map("api_credential")
+  @@schema("integration")
+}
+
+model IntegrationAccessToken {
+  id String @id @default(uuid()) @db.Uuid
+  tenantId String @map("tenant_id") @db.Uuid
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  createdBy String @map("created_by") @db.Uuid
+  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
+  updatedBy String @map("updated_by") @db.Uuid
+  version Int @default(1)
+  status IntegrationCredentialStatus @default(ACTIVE)
+  credentialId String @map("credential_id") @db.Uuid
+  tokenHash String @map("token_hash") @db.Char(64)
+  scopes Json @default("[]") @db.JsonB
+  expiresAt DateTime @map("expires_at") @db.Timestamptz(3)
+  revokedAt DateTime? @map("revoked_at") @db.Timestamptz(3)
+  @@unique([tenantId,tokenHash],map:"integration_access_token_hash_key")
+  @@index([tenantId,credentialId,status],map:"integration_access_token_credential_idx")
+  @@map("access_token")
+  @@schema("integration")
+}
+
+model IntegrationGatewayUsageBucket {
+  id String @id @default(uuid()) @db.Uuid
+  tenantId String @map("tenant_id") @db.Uuid
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  createdBy String @map("created_by") @db.Uuid
+  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
+  updatedBy String @map("updated_by") @db.Uuid
+  version Int @default(1)
+  status IntegrationRecordStatus @default(ACTIVE)
+  policyId String @map("policy_id") @db.Uuid
+  credentialId String @map("credential_id") @db.Uuid
+  bucketKind String @map("bucket_kind") @db.VarChar(20)
+  bucketStart DateTime @map("bucket_start") @db.Timestamptz(3)
+  requestCount Int @default(0) @map("request_count")
+  @@unique([tenantId,policyId,credentialId,bucketKind,bucketStart],map:"integration_gateway_usage_bucket_key")
+  @@index([tenantId,credentialId,bucketStart],map:"integration_gateway_usage_credential_idx")
+  @@map("gateway_usage_bucket")
+  @@schema("integration")
+}
+
+model IntegrationRateLimitDecision {
+  id String @id @default(uuid()) @db.Uuid
+  tenantId String @map("tenant_id") @db.Uuid
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  createdBy String @map("created_by") @db.Uuid
+  updatedAt DateTime @default(now()) @map("updated_at") @db.Timestamptz(3)
+  updatedBy String @map("updated_by") @db.Uuid
+  version Int @default(1)
+  status IntegrationRecordStatus @default(ACTIVE)
+  policyId String @map("policy_id") @db.Uuid
+  credentialId String @map("credential_id") @db.Uuid
+  correlationId String @map("correlation_id") @db.VarChar(100)
+  route String @db.VarChar(300)
+  outcome GatewayDecisionOutcome
+  reasonCode String @map("reason_code") @db.VarChar(100)
+  minuteCount Int @map("minute_count")
+  dailyCount Int @map("daily_count")
+  appliedLimit Int @map("applied_limit")
+  sensitive Boolean @default(false)
+  decidedAt DateTime @default(now()) @map("decided_at") @db.Timestamptz(3)
+  @@index([tenantId,credentialId,decidedAt],map:"integration_rate_limit_decision_credential_idx")
+  @@index([tenantId,outcome,decidedAt],map:"integration_rate_limit_decision_outcome_idx")
+  @@map("rate_limit_decision")
+  @@schema("integration")
+}
+
+model IntegrationGatewayLog {
+  id String @id @default(uuid()) @db.Uuid
+  tenantId String @map("tenant_id") @db.Uuid
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  createdBy String @map("created_by") @db.Uuid
+  updatedAt DateTime @default(now()) @map("updated_at") @db.Timestamptz(3)
+  updatedBy String @map("updated_by") @db.Uuid
+  version Int @default(1)
+  status IntegrationRecordStatus @default(ACTIVE)
+  credentialId String @map("credential_id") @db.Uuid
+  policyId String @map("policy_id") @db.Uuid
+  correlationId String @map("correlation_id") @db.VarChar(100)
+  route String @db.VarChar(300)
+  method String @db.VarChar(10)
+  authType IntegrationCredentialType @map("auth_type")
+  ipAddress String @map("ip_address") @db.VarChar(64)
+  requestBytes Int @map("request_bytes")
+  requestHash String @map("request_hash") @db.Char(64)
+  outcome GatewayDecisionOutcome
+  reasonCode String @map("reason_code") @db.VarChar(100)
+  occurredAt DateTime @default(now()) @map("occurred_at") @db.Timestamptz(3)
+  @@index([tenantId,correlationId,occurredAt],map:"integration_gateway_log_correlation_idx")
+  @@index([tenantId,credentialId,occurredAt],map:"integration_gateway_log_credential_idx")
+  @@map("gateway_log")
+  @@schema("integration")
+}
+
+model IntegrationApiDefinition {
+  id String @id @default(uuid()) @db.Uuid
+  tenantId String @map("tenant_id") @db.Uuid
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  createdBy String @map("created_by") @db.Uuid
+  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
+  updatedBy String @map("updated_by") @db.Uuid
+  version Int @default(1)
+  status ApiDefinitionStatus @default(DRAFT)
+  name String @db.VarChar(100)
+  title String @db.VarChar(200)
+  routeBase String @map("route_base") @db.VarChar(200)
+  @@unique([tenantId,name],map:"integration_api_definition_name_key")
+  @@index([tenantId,status,updatedAt],map:"integration_api_definition_status_idx")
+  @@map("api_definition")
+  @@schema("integration")
+}
+
+model IntegrationApiDefinitionVersion {
+  id String @id @default(uuid()) @db.Uuid
+  tenantId String @map("tenant_id") @db.Uuid
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  createdBy String @map("created_by") @db.Uuid
+  updatedAt DateTime @default(now()) @map("updated_at") @db.Timestamptz(3)
+  updatedBy String @map("updated_by") @db.Uuid
+  version Int @default(1)
+  status ApiDefinitionStatus @default(DRAFT)
+  definitionId String @map("definition_id") @db.Uuid
+  semanticVersion String @map("semantic_version") @db.VarChar(30)
+  majorVersion Int @map("major_version")
+  breakingChange Boolean @default(false) @map("breaking_change")
+  specification Json @db.JsonB
+  examples Json @db.JsonB
+  errorCodes Json @map("error_codes") @db.JsonB
+  specHash String @map("spec_hash") @db.Char(64)
+  publishedAt DateTime? @map("published_at") @db.Timestamptz(3)
+  deprecatedAt DateTime? @map("deprecated_at") @db.Timestamptz(3)
+  @@unique([tenantId,definitionId,semanticVersion],map:"integration_api_definition_version_key")
+  @@index([tenantId,definitionId,status,majorVersion],map:"integration_api_definition_version_status_idx")
+  @@map("api_definition_version")
+  @@schema("integration")
+}
+
+model IntegrationDeprecationNotice {
+  id String @id @default(uuid()) @db.Uuid
+  tenantId String @map("tenant_id") @db.Uuid
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  createdBy String @map("created_by") @db.Uuid
+  updatedAt DateTime @default(now()) @map("updated_at") @db.Timestamptz(3)
+  updatedBy String @map("updated_by") @db.Uuid
+  version Int @default(1)
+  status IntegrationRecordStatus @default(ACTIVE)
+  definitionVersionId String @map("definition_version_id") @db.Uuid
+  summary String @db.VarChar(1000)
+  deprecationDate DateTime @map("deprecation_date") @db.Timestamptz(3)
+  sunsetDate DateTime @map("sunset_date") @db.Timestamptz(3)
+  replacementVersion String? @map("replacement_version") @db.VarChar(30)
+  @@unique([tenantId,definitionVersionId],map:"integration_deprecation_notice_version_key")
+  @@index([tenantId,deprecationDate,sunsetDate],map:"integration_deprecation_notice_dates_idx")
+  @@map("deprecation_notice")
+  @@schema("integration")
+}

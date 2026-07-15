@@ -11,6 +11,11 @@ export type PermissionEffect = 'ALLOW' | 'DENY';
 export type PermissionResourceType = (typeof PERMISSION_RESOURCE_TYPES)[number];
 
 const MODULE_ADMIN_PERMISSION_CODES = [
+  'integration.gateway.read',
+  'integration.gateway.manage',
+  'integration.credential.manage',
+  'integration.contract.read',
+  'integration.contract.manage',
   'control.location.precise',
   'control.alert.assign',
   'control.alert.consume',

@@ -49,6 +49,8 @@ import { WorkspaceService } from './workspace.service';
 import { WatermarkService } from './watermark.service';
 import { WorkflowController } from './workflow.controller';
 import { WorkflowService } from './workflow.service';
+import { ChangeRecordingFacade } from './public/change-recording.facade';
+import { IdempotencyExecutionFacade } from './public/idempotency-execution.facade';
 
 @Module({
   controllers: [
@@ -75,12 +77,14 @@ import { WorkflowService } from './workflow.service';
     AttachmentReferenceFacade,
     AuditService,
     CollaborationPrintService,
+    ChangeRecordingFacade,
     ConfigurationService,
     DataPolicyService,
     ExportService,
     EventService,
     FeatureFlagService,
     IdempotencyService,
+    IdempotencyExecutionFacade,
     ImportService,
     JobQueueService,
     JobSchedulingFacade,
@@ -97,6 +101,7 @@ import { WorkflowService } from './workflow.service';
     RuleEngineService,
     RuleEvaluationFacade,
     EventConsumptionFacade,
+    IdempotencyExecutionFacade,
     PermissionDecisionFacade,
     SearchService,
     ServiceAccountService,
@@ -107,6 +112,7 @@ import { WorkflowService } from './workflow.service';
   ],
   exports: [
     AttachmentReferenceFacade,
+    ChangeRecordingFacade,
     EventConsumptionFacade,
     JobSchedulingFacade,
     PermissionDecisionFacade,

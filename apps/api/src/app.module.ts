@@ -12,6 +12,7 @@ import { AmsModule } from './modules/ams/ams.module';
 import { BillingModule } from './modules/billing/billing.module';
 import { ControlModule } from './modules/control/control.module';
 import { MdmModule } from './modules/mdm/mdm.module';
+import { IntegrationModule } from './modules/integration/integration.module';
 import { OmsModule } from './modules/oms/oms.module';
 import { AuthModule } from './modules/platform/auth/auth.module';
 import { TenantContextMiddleware } from './modules/platform/auth/tenant-context.middleware';
@@ -26,6 +27,7 @@ import { WmsModule } from './modules/wms/wms.module';
     BillingModule,
     ControlModule,
     DatabaseModule,
+    IntegrationModule,
     AuthModule,
     MdmModule,
     OmsModule,
@@ -50,6 +52,15 @@ export class AppModule implements NestModule {
           path: 'api/v1/public/tracking/:token',
         },
         { method: RequestMethod.POST, path: 'api/v1/auth/login' },
+        { method: RequestMethod.POST, path: 'api/v1/external/oauth/token' },
+        {
+          method: RequestMethod.POST,
+          path: 'api/v1/external/gateway/authorize',
+        },
+        {
+          method: RequestMethod.GET,
+          path: 'api/v1/public/openapi/:tenantId/:name/:version',
+        },
       )
       .forRoutes('*');
   }
