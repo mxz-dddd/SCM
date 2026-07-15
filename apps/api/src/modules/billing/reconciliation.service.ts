@@ -67,6 +67,12 @@ export class ReconciliationService {
   ) {
     const input = this.normalizeStatement(raw);
     return this.prisma.$transaction(async (tx) => {
+      await this.ensurePeriodOpen(
+        tx,
+        input.periodFrom,
+        input.periodTo,
+        context.tenantId,
+      );
       await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtextextended(${`${context.tenantId}:statement:${[...input.voucherIds].sort().join(':')}`}, 0))`;
       const vouchers = await tx.settlementVoucher.findMany({
         where: {
@@ -266,6 +272,12 @@ export class ReconciliationService {
     this.uuid(id, 'statementId');
     return this.prisma.$transaction(async (tx) => {
       const statement = await this.lockStatement(tx, id, context.tenantId);
+      await this.ensurePeriodOpen(
+        tx,
+        statement.periodFrom,
+        statement.periodTo,
+        context.tenantId,
+      );
       if (
         !['PUBLISHED', 'DISPUTED', 'ADJUSTED'].includes(statement.status) ||
         statement.version !== input.expectedVersion
@@ -389,6 +401,12 @@ export class ReconciliationService {
       const statement = await this.lockStatement(
         tx,
         statementId,
+        context.tenantId,
+      );
+      await this.ensurePeriodOpen(
+        tx,
+        statement.periodFrom,
+        statement.periodTo,
         context.tenantId,
       );
       if (
@@ -517,6 +535,15 @@ export class ReconciliationService {
           'Reconciliation dispute was not found',
           404,
         );
+      const statement = await tx.reconciliationStatement.findUniqueOrThrow({
+        where: { id: dispute.statementId },
+      });
+      await this.ensurePeriodOpen(
+        tx,
+        statement.periodFrom,
+        statement.periodTo,
+        context.tenantId,
+      );
       const next = transitions[dispute.status]?.[raw.action];
       if (!next || dispute.version !== raw.expectedVersion)
         this.conflict(
@@ -595,6 +622,12 @@ export class ReconciliationService {
           'BILLING_ADJUSTMENT_SOURCE_INVALID',
           'An approved or reconciled source voucher is required',
         );
+      await this.ensurePeriodOpen(
+        tx,
+        voucher.periodFrom,
+        voucher.periodTo,
+        context.tenantId,
+      );
       let dispute:
         | { id: string; statementId: string; statementLineId: string | null }
         | null = null;
@@ -695,6 +728,11 @@ export class ReconciliationService {
     this.uuid(id, 'adjustmentId');
     return this.prisma.$transaction(async (tx) => {
       const adjustment = await this.lockAdjustment(tx, id, context.tenantId);
+      await this.ensureAdjustmentPeriodOpen(
+        tx,
+        adjustment.sourceVoucherId,
+        context.tenantId,
+      );
       this.requireAdjustment(adjustment, 'DRAFT', input.expectedVersion, 'submit');
       const changed = await tx.billingAdjustmentVoucher.update({
         data: {
@@ -776,6 +814,11 @@ export class ReconciliationService {
         task.adjustmentId,
         context.tenantId,
       );
+      await this.ensureAdjustmentPeriodOpen(
+        tx,
+        adjustment.sourceVoucherId,
+        context.tenantId,
+      );
       this.requireAdjustment(
         adjustment,
         'PENDING_APPROVAL',
@@ -850,6 +893,11 @@ export class ReconciliationService {
     this.uuid(id, 'adjustmentId');
     return this.prisma.$transaction(async (tx) => {
       const adjustment = await this.lockAdjustment(tx, id, context.tenantId);
+      await this.ensureAdjustmentPeriodOpen(
+        tx,
+        adjustment.sourceVoucherId,
+        context.tenantId,
+      );
       this.requireAdjustment(adjustment, 'APPROVED', input.expectedVersion, 'post');
       const allocations = await tx.billingAllocationDetail.findMany({
         where: { adjustmentId: id, tenantId: context.tenantId },
@@ -977,6 +1025,12 @@ export class ReconciliationService {
     this.uuid(id, 'statementId');
     return this.prisma.$transaction(async (tx) => {
       const statement = await this.lockStatement(tx, id, context.tenantId);
+      await this.ensurePeriodOpen(
+        tx,
+        statement.periodFrom,
+        statement.periodTo,
+        context.tenantId,
+      );
       if (!from.includes(statement.status) || statement.version !== expectedVersion)
         this.transitionConflict(command.toLowerCase(), statement.status, statement.version);
       const changed = await tx.reconciliationStatement.update({
@@ -1180,6 +1234,48 @@ export class ReconciliationService {
         404,
       );
     return adjustment;
+  }
+
+  private async ensureAdjustmentPeriodOpen(
+    tx: Prisma.TransactionClient,
+    voucherId: string,
+    tenantId: string,
+  ) {
+    const voucher = await tx.settlementVoucher.findFirst({
+      where: { id: voucherId, tenantId },
+    });
+    if (!voucher)
+      this.conflict(
+        'BILLING_ADJUSTMENT_SOURCE_INVALID',
+        'Adjustment source voucher was not found',
+      );
+    await this.ensurePeriodOpen(
+      tx,
+      voucher.periodFrom,
+      voucher.periodTo,
+      tenantId,
+    );
+  }
+
+  private async ensurePeriodOpen(
+    tx: Prisma.TransactionClient,
+    from: Date,
+    to: Date,
+    tenantId: string,
+  ) {
+    const closed = await tx.billingAccountingPeriod.findFirst({
+      where: {
+        periodFrom: { lte: to },
+        periodTo: { gte: from },
+        status: 'CLOSED',
+        tenantId,
+      },
+    });
+    if (closed)
+      this.conflict(
+        'BILLING_PERIOD_CLOSED',
+        `Accounting period ${closed.periodKey} is closed`,
+      );
   }
 
   private requireAdjustment(

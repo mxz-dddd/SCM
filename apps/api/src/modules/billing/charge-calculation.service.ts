@@ -92,6 +92,20 @@ export class ChargeCalculationService {
           'Charge fact was not found',
           404,
         );
+      const closedPeriod = await tx.billingAccountingPeriod.findFirst({
+        where: {
+          periodFrom: { lte: fact.occurredAt },
+          periodTo: { gte: fact.occurredAt },
+          status: 'CLOSED',
+          tenantId: context.tenantId,
+        },
+      });
+      if (closedPeriod)
+        throw new AppError(
+          'BILLING_PERIOD_CLOSED',
+          `Accounting period ${closedPeriod.periodKey} is closed`,
+          409,
+        );
       const correction = await tx.factCorrection.findFirst({
         orderBy: [{ occurredAt: 'desc' }, { id: 'desc' }],
         where: { chargeFactId: fact.id, tenantId: context.tenantId },

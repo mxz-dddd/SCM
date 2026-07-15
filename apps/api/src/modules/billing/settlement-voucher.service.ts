@@ -13,7 +13,10 @@ type Direction = 'PAYABLE' | 'RECEIVABLE';
 type VoucherStatus =
   | 'APPROVED'
   | 'CALCULATED'
+  | 'CLOSED'
   | 'DRAFT'
+  | 'INVOICED'
+  | 'PAID'
   | 'RECONCILED'
   | 'VALIDATED'
   | 'VOIDED';
@@ -87,6 +90,7 @@ export class SettlementVoucherService {
       });
       const from = this.date(input.periodFrom, 'periodFrom');
       const to = this.endOfDay(input.periodTo, 'periodTo');
+      await this.ensurePeriodOpen(tx, from, to, context.tenantId);
       if (
         facts.length !== calculations.length ||
         facts.some(
@@ -160,6 +164,12 @@ export class SettlementVoucherService {
     this.uuid(id, 'voucherId');
     return this.prisma.$transaction(async (tx) => {
       const voucher = await this.lockVoucher(tx, id, context.tenantId);
+      await this.ensurePeriodOpen(
+        tx,
+        voucher.periodFrom,
+        voucher.periodTo,
+        context.tenantId,
+      );
       this.requireState(voucher, 'DRAFT', input.expectedVersion, 'CALCULATE');
       const selections = await tx.voucherCalculationSelection.findMany({
         where: { tenantId: context.tenantId, voucherId: id },
@@ -270,6 +280,12 @@ export class SettlementVoucherService {
     this.uuid(id, 'voucherId');
     return this.prisma.$transaction(async (tx) => {
       const voucher = await this.lockVoucher(tx, id, context.tenantId);
+      await this.ensurePeriodOpen(
+        tx,
+        voucher.periodFrom,
+        voucher.periodTo,
+        context.tenantId,
+      );
       this.requireState(
         voucher,
         'CALCULATED',
@@ -487,6 +503,12 @@ export class SettlementVoucherService {
         task.voucherId,
         context.tenantId,
       );
+      await this.ensurePeriodOpen(
+        tx,
+        voucher.periodFrom,
+        voucher.periodTo,
+        context.tenantId,
+      );
       this.requireState(
         voucher,
         'VALIDATED',
@@ -575,9 +597,16 @@ export class SettlementVoucherService {
         calculation,
         context.tenantId,
       );
+      const accountingDate = this.date(input.accountingDate, 'accountingDate');
+      await this.ensurePeriodOpen(
+        tx,
+        accountingDate,
+        accountingDate,
+        context.tenantId,
+      );
       const accrual = await tx.billingAccrualVoucher.create({
         data: {
-          accountingDate: this.date(input.accountingDate, 'accountingDate'),
+          accountingDate,
           accrualNo: `ACR-${new Date().toISOString().replace(/\D/g, '').slice(0, 14)}-${randomUUID().slice(0, 8).toUpperCase()}`,
           amount: calculation.totalAmount,
           basisSnapshot: json({
@@ -645,6 +674,12 @@ export class SettlementVoucherService {
           'BILLING_ACCRUAL_STATE_INVALID',
           'A matching draft accrual version is required',
         );
+      await this.ensurePeriodOpen(
+        tx,
+        accrual.accountingDate,
+        accrual.accountingDate,
+        context.tenantId,
+      );
       const changed = await tx.billingAccrualVoucher.update({
         data: {
           postedAt: new Date(),
@@ -1062,6 +1097,27 @@ export class SettlementVoucherService {
         404,
       );
     return voucher;
+  }
+
+  private async ensurePeriodOpen(
+    tx: Prisma.TransactionClient,
+    from: Date,
+    to: Date,
+    tenantId: string,
+  ) {
+    const closed = await tx.billingAccountingPeriod.findFirst({
+      where: {
+        periodFrom: { lte: to },
+        periodTo: { gte: from },
+        status: 'CLOSED',
+        tenantId,
+      },
+    });
+    if (closed)
+      this.conflict(
+        'BILLING_PERIOD_CLOSED',
+        `Accounting period ${closed.periodKey} is closed`,
+      );
   }
 
   private requireState(

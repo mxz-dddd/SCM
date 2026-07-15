@@ -74,6 +74,9 @@ interface VoucherRow {
     | 'APPROVED'
     | 'CALCULATED'
     | 'DRAFT'
+    | 'CLOSED'
+    | 'INVOICED'
+    | 'PAID'
     | 'RECONCILED'
     | 'VALIDATED'
     | 'VOIDED';
@@ -108,6 +111,40 @@ interface AdjustmentRow {
   id: string;
   sourceVoucherId: string;
   status: 'APPROVED' | 'DRAFT' | 'PENDING_APPROVAL' | 'POSTED' | 'REJECTED';
+  version: number;
+}
+
+interface InvoiceRow {
+  direction: 'PAYABLE' | 'RECEIVABLE';
+  id: string;
+  invoiceDate: string;
+  invoiceNo: string;
+  kind: 'CREDIT_NOTE' | 'STANDARD';
+  statementId: string;
+  status: 'ISSUED' | 'PARTIALLY_REVERSED' | 'REVERSED';
+  totalAmount: string;
+  version: number;
+}
+
+interface PaymentRow {
+  amount: string;
+  currency: string;
+  direction: 'PAYABLE' | 'RECEIVABLE';
+  id: string;
+  paymentNo: string;
+  paymentType: 'FEE' | 'NORMAL' | 'REFUND' | 'UNMATCHED';
+  status: 'ALLOCATED' | 'PARTIALLY_ALLOCATED' | 'UNMATCHED';
+  transactionDate: string;
+  unallocatedAmount: string;
+  version: number;
+}
+
+interface AccountingPeriodRow {
+  id: string;
+  periodFrom: string;
+  periodKey: string;
+  periodTo: string;
+  status: 'CLOSED' | 'CLOSING' | 'OPEN' | 'REOPENED';
   version: number;
 }
 
@@ -197,6 +234,26 @@ interface BillingView {
   }[];
   reconciliationStatements: readonly ReconciliationRow[];
   reconciliationVersions: readonly { id: string; statementId: string }[];
+  accountingPeriods: readonly AccountingPeriodRow[];
+  invoiceLines: readonly {
+    amount: string;
+    id: string;
+    invoiceId: string;
+    originalInvoiceLineId: string | null;
+  }[];
+  invoices: readonly InvoiceRow[];
+  payments: readonly PaymentRow[];
+  periodCloseChecks: readonly { id: string; passed: boolean; periodId: string }[];
+  periodHistories: readonly { id: string; periodId: string }[];
+  settlementAllocations: readonly { id: string; paymentId: string }[];
+  settlementMetricTraces: readonly { id: string; metricId: string }[];
+  settlementMetrics: readonly { id: string; reportId: string }[];
+  settlementReports: readonly {
+    dimensionType: string;
+    id: string;
+    marginAmount: string;
+    reportVersion: number;
+  }[];
 }
 
 const actions = createActionRegistry<'ACTIVE' | 'NONE'>([
@@ -299,6 +356,12 @@ const reconciliationActions = createActionRegistry<
     label: '确认对账',
     requiredPermissions: ['billing.reconciliation.manage'],
   },
+  {
+    allowedStatuses: ['RECONCILED'],
+    id: 'createInvoice',
+    label: '登记部分发票',
+    requiredPermissions: ['billing.invoice.manage'],
+  },
 ]);
 
 const adjustmentActions = createActionRegistry<AdjustmentRow['status'] | 'NONE'>([
@@ -328,11 +391,71 @@ const adjustmentActions = createActionRegistry<AdjustmentRow['status'] | 'NONE'>
   },
 ]);
 
+const invoiceActions = createActionRegistry<InvoiceRow['status'] | 'NONE'>([
+  {
+    allowedStatuses: ['ISSUED', 'PARTIALLY_REVERSED'],
+    id: 'creditInvoice',
+    label: '红冲原票',
+    requiredPermissions: ['billing.invoice.manage'],
+  },
+]);
+
+const paymentActions = createActionRegistry<PaymentRow['status'] | 'NONE'>([
+  {
+    allowedStatuses: ['UNMATCHED', 'PARTIALLY_ALLOCATED'],
+    id: 'allocatePayment',
+    label: '部分核销',
+    requiredPermissions: ['billing.payment.manage'],
+  },
+]);
+
+const periodActions = createActionRegistry<
+  AccountingPeriodRow['status'] | 'NONE'
+>([
+  {
+    allowedStatuses: ['OPEN', 'REOPENED'],
+    id: 'startPeriodClose',
+    label: '启动关账',
+    requiredPermissions: ['billing.period.close'],
+  },
+  {
+    allowedStatuses: ['CLOSING'],
+    id: 'closePeriod',
+    label: '执行关账检查',
+    requiredPermissions: ['billing.period.close'],
+  },
+  {
+    allowedStatuses: ['CLOSED'],
+    id: 'reopenPeriod',
+    label: '高权限重开',
+    requiredPermissions: ['billing.period.reopen'],
+  },
+]);
+
+const financeActions = createActionRegistry<'NONE'>([
+  {
+    id: 'registerPayment',
+    label: '登记收付款',
+    requiredPermissions: ['billing.payment.manage'],
+  },
+  {
+    id: 'createPeriod',
+    label: '新建会计期间',
+    requiredPermissions: ['billing.period.close'],
+  },
+  {
+    id: 'generateReport',
+    label: '生成毛利报表',
+    requiredPermissions: ['billing.report.generate'],
+  },
+]);
+
 export function BillingFactWorkbench() {
   const accessToken = useSessionStore((state) => state.accessToken);
   const claims = useSessionStore((state) => state.claims);
   const [view, setView] = useState<BillingView>({
     accessorialCharges: [],
+    accountingPeriods: [],
     accrualLines: [],
     accrualVouchers: [],
     adjustmentApprovals: [],
@@ -345,7 +468,12 @@ export function BillingFactWorkbench() {
     corrections: [],
     exceptions: [],
     facts: [],
+    invoiceLines: [],
+    invoices: [],
     matches: [],
+    payments: [],
+    periodCloseChecks: [],
+    periodHistories: [],
     reconciliationAttachments: [],
     reconciliationCommunications: [],
     reconciliationDisputes: [],
@@ -354,6 +482,10 @@ export function BillingFactWorkbench() {
     reconciliationVersions: [],
     reversalLines: [],
     reversalVouchers: [],
+    settlementAllocations: [],
+    settlementMetricTraces: [],
+    settlementMetrics: [],
+    settlementReports: [],
     fxConversions: [],
     taxDetails: [],
     voucherApprovals: [],
@@ -372,6 +504,15 @@ export function BillingFactWorkbench() {
   const [selectedAdjustmentIds, setSelectedAdjustmentIds] = useState<
     readonly string[]
   >([]);
+  const [selectedInvoiceIds, setSelectedInvoiceIds] = useState<
+    readonly string[]
+  >([]);
+  const [selectedPaymentIds, setSelectedPaymentIds] = useState<
+    readonly string[]
+  >([]);
+  const [selectedPeriodIds, setSelectedPeriodIds] = useState<
+    readonly string[]
+  >([]);
   const [query, setQuery] = useState('');
   const [error, setError] = useState<string>();
   const [notice, setNotice] = useState<string>();
@@ -385,12 +526,25 @@ export function BillingFactWorkbench() {
   const selectedAdjustment = view.adjustmentVouchers.find(
     ({ id }) => id === selectedAdjustmentIds[0],
   );
+  const selectedInvoice = view.invoices.find(
+    ({ id }) => id === selectedInvoiceIds[0],
+  );
+  const selectedPayment = view.payments.find(
+    ({ id }) => id === selectedPaymentIds[0],
+  );
+  const selectedPeriod = view.accountingPeriods.find(
+    ({ id }) => id === selectedPeriodIds[0],
+  );
   const permissions = useMemo(
     () =>
       new Set(
         claims
           ? [
               'billing.fact.read',
+              'billing.invoice.manage',
+              'billing.payment.manage',
+              'billing.period.close',
+              'billing.period.reopen',
               'billing.fact.ingest',
               'billing.fact.correct',
               'billing.calculation.execute',
@@ -402,6 +556,7 @@ export function BillingFactWorkbench() {
               'billing.adjustment.manage',
               'billing.reconciliation.manage',
               'billing.reconciliation.respond',
+              'billing.report.generate',
             ]
           : [],
       ),
@@ -433,6 +588,34 @@ export function BillingFactWorkbench() {
       dataScopeAllowed: true,
       permissions,
       status: selectedAdjustment?.status ?? 'NONE',
+    }),
+  );
+  const invoiceDecisions = invoiceActions.list().map(({ id }) =>
+    invoiceActions.decide(id, {
+      dataScopeAllowed: true,
+      permissions,
+      status: selectedInvoice?.status ?? 'NONE',
+    }),
+  );
+  const paymentDecisions = paymentActions.list().map(({ id }) =>
+    paymentActions.decide(id, {
+      dataScopeAllowed: true,
+      permissions,
+      status: selectedPayment?.status ?? 'NONE',
+    }),
+  );
+  const periodDecisions = periodActions.list().map(({ id }) =>
+    periodActions.decide(id, {
+      dataScopeAllowed: true,
+      permissions,
+      status: selectedPeriod?.status ?? 'NONE',
+    }),
+  );
+  const financeDecisions = financeActions.list().map(({ id }) =>
+    financeActions.decide(id, {
+      dataScopeAllowed: true,
+      permissions,
+      status: 'NONE',
     }),
   );
   const facts = useMemo(() => {
@@ -743,6 +926,27 @@ export function BillingFactWorkbench() {
           }),
           method: 'POST',
         });
+      } else if (actionId === 'createInvoice') {
+        const line = view.reconciliationLines.find(
+          (item) => item.statementId === selectedStatement.id,
+        );
+        if (!line) throw new Error('对账单没有可开票明细');
+        await request('/api/v1/billing/invoices', {
+          body: JSON.stringify({
+            invoiceDate: new Date().toISOString().slice(0, 10),
+            invoiceNo: `WORKBENCH-INV-${Date.now()}`,
+            invoicePartyRef: selectedStatement.partnerRef,
+            lines: [
+              {
+                amount: String(Number(line.amount) / 2),
+                sourceRef: line.id,
+                sourceType: 'STATEMENT_LINE',
+              },
+            ],
+            statementId: selectedStatement.id,
+          }),
+          method: 'POST',
+        });
       } else
         await request(
           `/api/v1/billing/reconciliation-statements/${selectedStatement.id}/reconcile`,
@@ -804,6 +1008,161 @@ export function BillingFactWorkbench() {
       await refresh();
     } catch (caught) {
       setError(caught instanceof Error ? caught.message : '调整动作失败');
+    }
+  }
+
+  async function executeInvoice(actionId: string) {
+    const decision = invoiceDecisions.find(({ id }) => id === actionId);
+    if (!decision?.enabled || !selectedInvoice) return;
+    try {
+      const line = view.invoiceLines.find(
+        (item) => item.invoiceId === selectedInvoice.id,
+      );
+      if (!line || selectedInvoice.kind !== 'STANDARD')
+        throw new Error('请选择仍可红冲的原始发票');
+      await request(
+        `/api/v1/billing/invoices/${selectedInvoice.id}/credit-notes`,
+        {
+          body: JSON.stringify({
+            invoiceDate: new Date().toISOString().slice(0, 10),
+            invoiceNo: `WORKBENCH-CN-${Date.now()}`,
+            lines: [{ amount: '1', originalInvoiceLineId: line.id }],
+            reason: '工作台红冲演示，逐行引用原票',
+          }),
+          method: 'POST',
+        },
+      );
+      setNotice('红冲发票已追加，累计红冲金额未超过原票行');
+      setSelectedInvoiceIds([]);
+      await refresh();
+    } catch (caught) {
+      setError(caught instanceof Error ? caught.message : '发票动作失败');
+    }
+  }
+
+  async function executePayment(actionId: string) {
+    const decision = paymentDecisions.find(({ id }) => id === actionId);
+    if (!decision?.enabled || !selectedPayment) return;
+    try {
+      const invoice = view.invoices.find(
+        (item) =>
+          item.direction === selectedPayment.direction &&
+          (Number(item.totalAmount) < 0) ===
+            (Number(selectedPayment.amount) < 0),
+      );
+      if (!invoice) throw new Error('没有方向与符号匹配的待核销发票');
+      const amount = Math.min(
+        Math.abs(Number(selectedPayment.unallocatedAmount)),
+        Math.abs(Number(invoice.totalAmount)),
+      );
+      await request(
+        `/api/v1/billing/payments/${selectedPayment.id}/allocations`,
+        {
+          body: JSON.stringify({
+            allocations: [
+              {
+                amount: String(amount),
+                targetRef: invoice.id,
+                targetType: 'INVOICE',
+              },
+            ],
+            expectedVersion: selectedPayment.version,
+          }),
+          method: 'POST',
+        },
+      );
+      setNotice('收付款已部分核销，退款与手续费按独立金额保留');
+      setSelectedPaymentIds([]);
+      await refresh();
+    } catch (caught) {
+      setError(caught instanceof Error ? caught.message : '核销动作失败');
+    }
+  }
+
+  async function executePeriod(actionId: string) {
+    const decision = periodDecisions.find(({ id }) => id === actionId);
+    if (!decision?.enabled || !selectedPeriod) return;
+    try {
+      if (actionId === 'startPeriodClose')
+        await request(`/api/v1/billing/periods/${selectedPeriod.id}/start-close`, {
+          body: JSON.stringify({ expectedVersion: selectedPeriod.version }),
+          method: 'POST',
+        });
+      else if (actionId === 'closePeriod')
+        await request(`/api/v1/billing/periods/${selectedPeriod.id}/close`, {
+          body: JSON.stringify({ expectedVersion: selectedPeriod.version }),
+          method: 'POST',
+        });
+      else
+        await request(`/api/v1/billing/periods/${selectedPeriod.id}/reopen`, {
+          body: JSON.stringify({
+            expectedVersion: selectedPeriod.version,
+            reason: '财务主管批准补录迟到 ERP 数据',
+          }),
+          method: 'POST',
+        });
+      setNotice('会计期间状态已推进并保存关闭检查与高权限审计');
+      setSelectedPeriodIds([]);
+      await refresh();
+    } catch (caught) {
+      setError(caught instanceof Error ? caught.message : '期间动作失败');
+    }
+  }
+
+  async function executeFinance(actionId: string) {
+    const decision = financeDecisions.find(({ id }) => id === actionId);
+    if (!decision?.enabled) return;
+    try {
+      const today = new Date();
+      if (actionId === 'registerPayment') {
+        const invoice = view.invoices[0];
+        if (!invoice) throw new Error('请先登记一张发票');
+        const statement = view.reconciliationStatements.find(
+          (item) => item.id === invoice.statementId,
+        );
+        await request('/api/v1/billing/payments', {
+          body: JSON.stringify({
+            amount: String(Math.abs(Number(invoice.totalAmount))),
+            counterpartyRef: statement?.partnerRef ?? 'WORKBENCH-PARTNER',
+            currency: statement?.currency ?? 'CNY',
+            direction: invoice.direction,
+            externalRef: `WORKBENCH-PAY-${Date.now()}`,
+            paymentType: Number(invoice.totalAmount) < 0 ? 'REFUND' : 'NORMAL',
+            source: 'MANUAL',
+            transactionDate: today.toISOString().slice(0, 10),
+          }),
+          method: 'POST',
+        });
+      } else if (actionId === 'createPeriod') {
+        const year = today.getUTCFullYear();
+        const month = String(today.getUTCMonth() + 1).padStart(2, '0');
+        const last = new Date(Date.UTC(year, today.getUTCMonth() + 1, 0));
+        await request('/api/v1/billing/periods', {
+          body: JSON.stringify({
+            periodFrom: `${year}-${month}-01`,
+            periodKey: `${year}-${month}`,
+            periodTo: last.toISOString().slice(0, 10),
+          }),
+          method: 'POST',
+        });
+      } else {
+        const voucher = view.vouchers[0];
+        const periodFrom = voucher?.periodFrom.slice(0, 10) ?? `${today.getUTCFullYear()}-01-01`;
+        const periodTo = voucher?.periodTo.slice(0, 10) ?? today.toISOString().slice(0, 10);
+        await request('/api/v1/billing/settlement-reports', {
+          body: JSON.stringify({
+            currency: voucher?.currency ?? 'CNY',
+            dimensionType: 'ORDER',
+            periodFrom,
+            periodTo,
+          }),
+          method: 'POST',
+        });
+      }
+      setNotice('财务闭环命令已执行，报表可追溯到计算来源行');
+      await refresh();
+    } catch (caught) {
+      setError(caught instanceof Error ? caught.message : '财务闭环动作失败');
     }
   }
 
@@ -987,6 +1346,109 @@ export function BillingFactWorkbench() {
         <Typography.Paragraph>
           分摊明细 {view.allocationDetails.length} 条、审批任务{' '}
           {view.adjustmentApprovals.length} 条；调整始终引用原凭证并保持分摊金额守恒。
+        </Typography.Paragraph>
+      </Card>
+      <Card title="开票收票、红冲与收付款核销">
+        <CommandBar
+          actions={financeDecisions}
+          onAction={(action) => void executeFinance(action.id)}
+        />
+        <CommandBar
+          actions={invoiceDecisions}
+          onAction={(action) => void executeInvoice(action.id)}
+        />
+        <DataGrid
+          columns={[
+            { key: 'invoiceNo', label: '发票号码' },
+            { key: 'kind', label: '票据类型' },
+            { key: 'direction', label: '收 / 开票' },
+            { key: 'invoiceDate', label: '票据日期' },
+            { key: 'totalAmount', label: '含税金额' },
+            {
+              key: 'status',
+              label: '状态',
+              render: (value) => <StatusBadge status={String(value)} />,
+            },
+          ]}
+          onPageChange={() => undefined}
+          onSelectionChange={(ids) => setSelectedInvoiceIds(ids.slice(-1))}
+          page={1}
+          pageSize={50}
+          rows={view.invoices}
+          selectedIds={selectedInvoiceIds}
+          total={view.invoices.length}
+        />
+        <CommandBar
+          actions={paymentDecisions}
+          onAction={(action) => void executePayment(action.id)}
+        />
+        <DataGrid
+          columns={[
+            { key: 'paymentNo', label: '收付款号' },
+            { key: 'paymentType', label: '类型' },
+            { key: 'direction', label: '方向' },
+            { key: 'amount', label: '金额' },
+            { key: 'unallocatedAmount', label: '未核销' },
+            { key: 'currency', label: '币种' },
+            {
+              key: 'status',
+              label: '状态',
+              render: (value) => <StatusBadge status={String(value)} />,
+            },
+          ]}
+          onPageChange={() => undefined}
+          onSelectionChange={(ids) => setSelectedPaymentIds(ids.slice(-1))}
+          page={1}
+          pageSize={50}
+          rows={view.payments}
+          selectedIds={selectedPaymentIds}
+          total={view.payments.length}
+        />
+        <Typography.Paragraph>
+          发票行 {view.invoiceLines.length} 条、核销事实{' '}
+          {view.settlementAllocations.length} 条；部分、多票、红冲、退款与手续费均不覆盖原记录。
+        </Typography.Paragraph>
+      </Card>
+      <Card title="会计期间关闭、重开与毛利追溯">
+        <CommandBar
+          actions={periodDecisions}
+          onAction={(action) => void executePeriod(action.id)}
+        />
+        <DataGrid
+          columns={[
+            { key: 'periodKey', label: '期间' },
+            { key: 'periodFrom', label: '开始' },
+            { key: 'periodTo', label: '结束' },
+            {
+              key: 'status',
+              label: '状态',
+              render: (value) => <StatusBadge status={String(value)} />,
+            },
+          ]}
+          onPageChange={() => undefined}
+          onSelectionChange={(ids) => setSelectedPeriodIds(ids.slice(-1))}
+          page={1}
+          pageSize={50}
+          rows={view.accountingPeriods}
+          selectedIds={selectedPeriodIds}
+          total={view.accountingPeriods.length}
+        />
+        <DataGrid
+          columns={[
+            { key: 'dimensionType', label: '分析维度' },
+            { key: 'reportVersion', label: '报表版本' },
+            { key: 'marginAmount', label: '毛利' },
+          ]}
+          onPageChange={() => undefined}
+          page={1}
+          pageSize={50}
+          rows={view.settlementReports}
+          total={view.settlementReports.length}
+        />
+        <Typography.Paragraph>
+          关闭检查 {view.periodCloseChecks.length} 次；毛利指标{' '}
+          {view.settlementMetrics.length} 条，可下钻计算来源{' '}
+          {view.settlementMetricTraces.length} 条。
         </Typography.Paragraph>
       </Card>
       <Card title="RateMatch 与 MatchTrace">

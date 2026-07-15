@@ -10237,6 +10237,9 @@ enum SettlementVoucherStatus {
   VALIDATED
   APPROVED
   RECONCILED
+  INVOICED
+  PAID
+  CLOSED
   VOIDED
   @@schema("billing")
 }
@@ -10802,5 +10805,324 @@ model BillingAdjustmentStatusHistory {
   @@unique([tenantId,adjustmentId,sequence],map:"billing_adjustment_history_sequence_key")
   @@index([tenantId,adjustmentId,createdAt],map:"billing_adjustment_history_idx")
   @@map("billing_adjustment_status_history")
+  @@schema("billing")
+}
+
+enum BillingInvoiceStatus {
+  ISSUED
+  PARTIALLY_REVERSED
+  REVERSED
+  @@schema("billing")
+}
+
+enum BillingInvoiceKind {
+  STANDARD
+  CREDIT_NOTE
+  @@schema("billing")
+}
+
+enum BillingInvoiceSourceType {
+  STATEMENT_LINE
+  ADJUSTMENT
+  @@schema("billing")
+}
+
+enum BillingPaymentStatus {
+  UNMATCHED
+  PARTIALLY_ALLOCATED
+  ALLOCATED
+  @@schema("billing")
+}
+
+enum BillingPaymentType {
+  NORMAL
+  REFUND
+  FEE
+  UNMATCHED
+  @@schema("billing")
+}
+
+enum BillingSettlementTargetType {
+  INVOICE
+  VOUCHER
+  @@schema("billing")
+}
+
+enum AccountingPeriodStatus {
+  OPEN
+  CLOSING
+  CLOSED
+  REOPENED
+  @@schema("billing")
+}
+
+enum BillingPeriodRecordStatus {
+  ACTIVE
+  @@schema("billing")
+}
+
+enum SettlementReportStatus {
+  GENERATED
+  @@schema("billing")
+}
+
+enum SettlementDimensionType {
+  PARTNER
+  WAREHOUSE
+  ROUTE
+  ORDER
+  SERVICE
+  @@schema("billing")
+}
+
+model BillingInvoice {
+  id String @id @default(uuid()) @db.Uuid
+  tenantId String @map("tenant_id") @db.Uuid
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  createdBy String @map("created_by") @db.Uuid
+  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
+  updatedBy String @map("updated_by") @db.Uuid
+  version Int @default(1)
+  status BillingInvoiceStatus @default(ISSUED)
+  invoiceNo String @map("invoice_no") @db.VarChar(200)
+  kind BillingInvoiceKind
+  originalInvoiceId String? @map("original_invoice_id") @db.Uuid
+  statementId String @map("statement_id") @db.Uuid
+  direction BillingDirection
+  invoicePartyRef String @map("invoice_party_ref") @db.VarChar(200)
+  invoiceDate DateTime @map("invoice_date") @db.Date
+  subtotalAmount Decimal @map("subtotal_amount") @db.Decimal(24,6)
+  taxAmount Decimal @map("tax_amount") @db.Decimal(24,6)
+  totalAmount Decimal @map("total_amount") @db.Decimal(24,6)
+  reversedAmount Decimal @default(0) @map("reversed_amount") @db.Decimal(24,6)
+  currency String @db.Char(3)
+  attachmentSnapshot Json @map("attachment_snapshot") @db.JsonB
+  sourceSnapshot Json @map("source_snapshot") @db.JsonB
+  issuedAt DateTime @default(now()) @map("issued_at") @db.Timestamptz(3)
+  @@unique([tenantId,invoiceNo],map:"billing_invoice_tenant_no_key")
+  @@index([tenantId,statementId,kind,status],map:"billing_invoice_statement_idx")
+  @@index([tenantId,originalInvoiceId,createdAt],map:"billing_invoice_credit_idx")
+  @@map("billing_invoice")
+  @@schema("billing")
+}
+
+model BillingInvoiceLine {
+  id String @id @default(uuid()) @db.Uuid
+  tenantId String @map("tenant_id") @db.Uuid
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  createdBy String @map("created_by") @db.Uuid
+  updatedAt DateTime @default(now()) @map("updated_at") @db.Timestamptz(3)
+  updatedBy String @map("updated_by") @db.Uuid
+  version Int @default(1)
+  status BillingPeriodRecordStatus @default(ACTIVE)
+  invoiceId String @map("invoice_id") @db.Uuid
+  lineNo Int @map("line_no")
+  sourceType BillingInvoiceSourceType @map("source_type")
+  sourceRef String @map("source_ref") @db.Uuid
+  originalInvoiceLineId String? @map("original_invoice_line_id") @db.Uuid
+  amount Decimal @db.Decimal(24,6)
+  currency String @db.Char(3)
+  taxComponent Boolean @default(false) @map("tax_component")
+  sourceSnapshot Json @map("source_snapshot") @db.JsonB
+  @@unique([tenantId,invoiceId,lineNo],map:"billing_invoice_line_no_key")
+  @@index([tenantId,sourceType,sourceRef,createdAt],map:"billing_invoice_line_source_idx")
+  @@index([tenantId,originalInvoiceLineId,createdAt],map:"billing_invoice_line_credit_idx")
+  @@map("billing_invoice_line")
+  @@schema("billing")
+}
+
+model BillingPayment {
+  id String @id @default(uuid()) @db.Uuid
+  tenantId String @map("tenant_id") @db.Uuid
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  createdBy String @map("created_by") @db.Uuid
+  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
+  updatedBy String @map("updated_by") @db.Uuid
+  version Int @default(1)
+  status BillingPaymentStatus @default(UNMATCHED)
+  paymentNo String @map("payment_no") @db.VarChar(100)
+  externalRef String @map("external_ref") @db.VarChar(200)
+  direction BillingDirection
+  paymentType BillingPaymentType @map("payment_type")
+  transactionDate DateTime @map("transaction_date") @db.Date
+  amount Decimal @db.Decimal(24,6)
+  allocatedAmount Decimal @default(0) @map("allocated_amount") @db.Decimal(24,6)
+  feeAmount Decimal @default(0) @map("fee_amount") @db.Decimal(24,6)
+  unallocatedAmount Decimal @map("unallocated_amount") @db.Decimal(24,6)
+  currency String @db.Char(3)
+  counterpartyRef String @map("counterparty_ref") @db.VarChar(200)
+  source String @db.VarChar(30)
+  sourceSnapshot Json @map("source_snapshot") @db.JsonB
+  @@unique([tenantId,paymentNo],map:"billing_payment_tenant_no_key")
+  @@unique([tenantId,externalRef],map:"billing_payment_external_key")
+  @@index([tenantId,status,transactionDate],map:"billing_payment_workbench_idx")
+  @@index([tenantId,counterpartyRef,direction,status],map:"billing_payment_counterparty_idx")
+  @@map("billing_payment")
+  @@schema("billing")
+}
+
+model BillingSettlementAllocation {
+  id String @id @default(uuid()) @db.Uuid
+  tenantId String @map("tenant_id") @db.Uuid
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  createdBy String @map("created_by") @db.Uuid
+  updatedAt DateTime @default(now()) @map("updated_at") @db.Timestamptz(3)
+  updatedBy String @map("updated_by") @db.Uuid
+  version Int @default(1)
+  status BillingPeriodRecordStatus @default(ACTIVE)
+  paymentId String @map("payment_id") @db.Uuid
+  lineNo Int @map("line_no")
+  targetType BillingSettlementTargetType @map("target_type")
+  targetRef String @map("target_ref") @db.Uuid
+  amount Decimal @db.Decimal(24,6)
+  feeAmount Decimal @default(0) @map("fee_amount") @db.Decimal(24,6)
+  currency String @db.Char(3)
+  targetSnapshot Json @map("target_snapshot") @db.JsonB
+  @@unique([tenantId,paymentId,lineNo],map:"billing_settlement_allocation_line_key")
+  @@index([tenantId,targetType,targetRef,createdAt],map:"billing_settlement_allocation_target_idx")
+  @@map("billing_settlement_allocation")
+  @@schema("billing")
+}
+
+model BillingAccountingPeriod {
+  id String @id @default(uuid()) @db.Uuid
+  tenantId String @map("tenant_id") @db.Uuid
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  createdBy String @map("created_by") @db.Uuid
+  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
+  updatedBy String @map("updated_by") @db.Uuid
+  version Int @default(1)
+  status AccountingPeriodStatus @default(OPEN)
+  periodKey String @map("period_key") @db.VarChar(20)
+  periodFrom DateTime @map("period_from") @db.Date
+  periodTo DateTime @map("period_to") @db.Date
+  closingStartedAt DateTime? @map("closing_started_at") @db.Timestamptz(3)
+  closingStartedBy String? @map("closing_started_by") @db.Uuid
+  closedAt DateTime? @map("closed_at") @db.Timestamptz(3)
+  closedBy String? @map("closed_by") @db.Uuid
+  reopenedAt DateTime? @map("reopened_at") @db.Timestamptz(3)
+  reopenedBy String? @map("reopened_by") @db.Uuid
+  reopenReason String? @map("reopen_reason") @db.VarChar(2000)
+  @@unique([tenantId,periodKey],map:"billing_accounting_period_key")
+  @@index([tenantId,status,periodFrom,periodTo],map:"billing_accounting_period_status_idx")
+  @@map("billing_accounting_period")
+  @@schema("billing")
+}
+
+model BillingPeriodCloseCheck {
+  id String @id @default(uuid()) @db.Uuid
+  tenantId String @map("tenant_id") @db.Uuid
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  createdBy String @map("created_by") @db.Uuid
+  updatedAt DateTime @default(now()) @map("updated_at") @db.Timestamptz(3)
+  updatedBy String @map("updated_by") @db.Uuid
+  version Int @default(1)
+  status BillingPeriodRecordStatus @default(ACTIVE)
+  periodId String @map("period_id") @db.Uuid
+  attempt Int
+  passed Boolean
+  checkSnapshot Json @map("check_snapshot") @db.JsonB
+  errorSnapshot Json @map("error_snapshot") @db.JsonB
+  @@unique([tenantId,periodId,attempt],map:"billing_period_close_check_attempt_key")
+  @@index([tenantId,periodId,createdAt],map:"billing_period_close_check_idx")
+  @@map("billing_period_close_check")
+  @@schema("billing")
+}
+
+model BillingPeriodStatusHistory {
+  id String @id @default(uuid()) @db.Uuid
+  tenantId String @map("tenant_id") @db.Uuid
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  createdBy String @map("created_by") @db.Uuid
+  updatedAt DateTime @default(now()) @map("updated_at") @db.Timestamptz(3)
+  updatedBy String @map("updated_by") @db.Uuid
+  version Int @default(1)
+  status BillingPeriodRecordStatus @default(ACTIVE)
+  periodId String @map("period_id") @db.Uuid
+  sequence Int
+  fromStatus AccountingPeriodStatus? @map("from_status")
+  toStatus AccountingPeriodStatus @map("to_status")
+  command String @db.VarChar(50)
+  snapshot Json @db.JsonB
+  @@unique([tenantId,periodId,sequence],map:"billing_period_status_history_key")
+  @@index([tenantId,periodId,createdAt],map:"billing_period_status_history_idx")
+  @@map("billing_period_status_history")
+  @@schema("billing")
+}
+
+model BillingSettlementReport {
+  id String @id @default(uuid()) @db.Uuid
+  tenantId String @map("tenant_id") @db.Uuid
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  createdBy String @map("created_by") @db.Uuid
+  updatedAt DateTime @default(now()) @map("updated_at") @db.Timestamptz(3)
+  updatedBy String @map("updated_by") @db.Uuid
+  version Int @default(1)
+  status SettlementReportStatus @default(GENERATED)
+  reportKey String @map("report_key") @db.VarChar(100)
+  reportVersion Int @map("report_version")
+  dimensionType SettlementDimensionType @map("dimension_type")
+  periodFrom DateTime @map("period_from") @db.Date
+  periodTo DateTime @map("period_to") @db.Date
+  currency String @db.Char(3)
+  revenueAmount Decimal @map("revenue_amount") @db.Decimal(24,6)
+  costAmount Decimal @map("cost_amount") @db.Decimal(24,6)
+  accrualAmount Decimal @map("accrual_amount") @db.Decimal(24,6)
+  adjustmentAmount Decimal @map("adjustment_amount") @db.Decimal(24,6)
+  paidAmount Decimal @map("paid_amount") @db.Decimal(24,6)
+  marginAmount Decimal @map("margin_amount") @db.Decimal(24,6)
+  inputSnapshot Json @map("input_snapshot") @db.JsonB
+  @@unique([tenantId,reportKey,reportVersion],map:"billing_settlement_report_version_key")
+  @@index([tenantId,dimensionType,periodFrom,periodTo],map:"billing_settlement_report_period_idx")
+  @@map("billing_settlement_report")
+  @@schema("billing")
+}
+
+model BillingSettlementMetric {
+  id String @id @default(uuid()) @db.Uuid
+  tenantId String @map("tenant_id") @db.Uuid
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  createdBy String @map("created_by") @db.Uuid
+  updatedAt DateTime @default(now()) @map("updated_at") @db.Timestamptz(3)
+  updatedBy String @map("updated_by") @db.Uuid
+  version Int @default(1)
+  status BillingPeriodRecordStatus @default(ACTIVE)
+  reportId String @map("report_id") @db.Uuid
+  dimensionRef String @map("dimension_ref") @db.VarChar(200)
+  dimensionSnapshot Json @map("dimension_snapshot") @db.JsonB
+  revenueAmount Decimal @map("revenue_amount") @db.Decimal(24,6)
+  costAmount Decimal @map("cost_amount") @db.Decimal(24,6)
+  accrualAmount Decimal @map("accrual_amount") @db.Decimal(24,6)
+  adjustmentAmount Decimal @map("adjustment_amount") @db.Decimal(24,6)
+  paidAmount Decimal @map("paid_amount") @db.Decimal(24,6)
+  marginAmount Decimal @map("margin_amount") @db.Decimal(24,6)
+  currency String @db.Char(3)
+  @@unique([tenantId,reportId,dimensionRef],map:"billing_settlement_metric_dimension_key")
+  @@index([tenantId,reportId,createdAt],map:"billing_settlement_metric_idx")
+  @@map("billing_settlement_metric")
+  @@schema("billing")
+}
+
+model BillingSettlementMetricTrace {
+  id String @id @default(uuid()) @db.Uuid
+  tenantId String @map("tenant_id") @db.Uuid
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  createdBy String @map("created_by") @db.Uuid
+  updatedAt DateTime @default(now()) @map("updated_at") @db.Timestamptz(3)
+  updatedBy String @map("updated_by") @db.Uuid
+  version Int @default(1)
+  status BillingPeriodRecordStatus @default(ACTIVE)
+  metricId String @map("metric_id") @db.Uuid
+  voucherId String @map("voucher_id") @db.Uuid
+  voucherLineId String @map("voucher_line_id") @db.Uuid
+  calculationId String @map("calculation_id") @db.Uuid
+  calculationSourceType String @map("calculation_source_type") @db.VarChar(40)
+  calculationSourceRef String @map("calculation_source_ref") @db.Uuid
+  amount Decimal @db.Decimal(24,6)
+  direction BillingDirection
+  traceSnapshot Json @map("trace_snapshot") @db.JsonB
+  @@unique([tenantId,metricId,voucherLineId],map:"billing_settlement_metric_trace_line_key")
+  @@index([tenantId,metricId,calculationId],map:"billing_settlement_metric_trace_idx")
+  @@map("billing_settlement_metric_trace")
   @@schema("billing")
 }

@@ -518,6 +518,12 @@ describe('App', () => {
     expect(
       screen.getByText('调整、索赔扣款与跨订单 / 成本中心分摊'),
     ).toBeInTheDocument();
+    expect(
+      screen.getByText('开票收票、红冲与收付款核销'),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText('会计期间关闭、重开与毛利追溯'),
+    ).toBeInTheDocument();
     expect(screen.getByText('零命中计费异常')).toBeInTheDocument();
     expect(screen.getByRole('button', { name: '接收计费事实' })).toBeDisabled();
     expect(screen.getByRole('button', { name: '追加事实更正' })).toBeDisabled();
@@ -531,5 +537,12 @@ describe('App', () => {
     expect(screen.getByRole('button', { name: '逐行提出差异' })).toBeDisabled();
     expect(screen.getByRole('button', { name: '创建调整分摊' })).toBeDisabled();
     expect(screen.getByRole('button', { name: '提交调整审批' })).toBeDisabled();
+    expect(screen.getByRole('button', { name: '登记部分发票' })).toBeDisabled();
+    expect(screen.getByRole('button', { name: '红冲原票' })).toBeDisabled();
+    expect(screen.getByRole('button', { name: '登记收付款' })).toBeDisabled();
+    expect(screen.getByRole('button', { name: '部分核销' })).toBeDisabled();
+    expect(screen.getByRole('button', { name: '启动关账' })).toBeDisabled();
+    expect(screen.getByRole('button', { name: '高权限重开' })).toBeDisabled();
+    expect(screen.getByRole('button', { name: '生成毛利报表' })).toBeDisabled();
   });
 });

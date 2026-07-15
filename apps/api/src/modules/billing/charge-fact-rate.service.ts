@@ -114,6 +114,16 @@ export class ChargeFactRateService {
       allocationDetails,
       adjustmentApprovals,
       adjustmentHistories,
+      invoices,
+      invoiceLines,
+      payments,
+      settlementAllocations,
+      accountingPeriods,
+      periodCloseChecks,
+      periodHistories,
+      settlementReports,
+      settlementMetrics,
+      settlementMetricTraces,
     ] = await Promise.all([
       this.prisma.chargeFact.findMany({
         orderBy: [{ occurredAt: 'desc' }, { id: 'desc' }],
@@ -265,9 +275,60 @@ export class ChargeFactRateService {
         take: 500,
         where,
       }),
+      this.prisma.billingInvoice.findMany({
+        orderBy: [{ invoiceDate: 'desc' }, { id: 'desc' }],
+        take: 200,
+        where,
+      }),
+      this.prisma.billingInvoiceLine.findMany({
+        orderBy: [{ createdAt: 'desc' }, { lineNo: 'asc' }],
+        take: 500,
+        where,
+      }),
+      this.prisma.billingPayment.findMany({
+        orderBy: [{ transactionDate: 'desc' }, { id: 'desc' }],
+        take: 200,
+        where,
+      }),
+      this.prisma.billingSettlementAllocation.findMany({
+        orderBy: [{ createdAt: 'desc' }, { lineNo: 'asc' }],
+        take: 500,
+        where,
+      }),
+      this.prisma.billingAccountingPeriod.findMany({
+        orderBy: [{ periodFrom: 'desc' }, { id: 'desc' }],
+        take: 200,
+        where,
+      }),
+      this.prisma.billingPeriodCloseCheck.findMany({
+        orderBy: [{ createdAt: 'desc' }, { attempt: 'asc' }],
+        take: 200,
+        where,
+      }),
+      this.prisma.billingPeriodStatusHistory.findMany({
+        orderBy: [{ createdAt: 'desc' }, { sequence: 'asc' }],
+        take: 500,
+        where,
+      }),
+      this.prisma.billingSettlementReport.findMany({
+        orderBy: [{ createdAt: 'desc' }, { reportVersion: 'desc' }],
+        take: 200,
+        where,
+      }),
+      this.prisma.billingSettlementMetric.findMany({
+        orderBy: [{ createdAt: 'desc' }, { dimensionRef: 'asc' }],
+        take: 500,
+        where,
+      }),
+      this.prisma.billingSettlementMetricTrace.findMany({
+        orderBy: [{ createdAt: 'desc' }, { id: 'asc' }],
+        take: 1000,
+        where,
+      }),
     ]);
     return toHttpJson({
       accessorialCharges,
+      accountingPeriods,
       adjustmentApprovals,
       adjustmentHistories,
       adjustmentVouchers,
@@ -281,7 +342,12 @@ export class ChargeFactRateService {
       exceptions,
       facts,
       fxConversions,
+      invoiceLines,
+      invoices,
       matches,
+      payments,
+      periodCloseChecks,
+      periodHistories,
       reconciliationAttachments,
       reconciliationCommunications,
       reconciliationDisputes,
@@ -290,6 +356,10 @@ export class ChargeFactRateService {
       reconciliationVersions,
       reversalLines,
       reversalVouchers,
+      settlementAllocations,
+      settlementMetricTraces,
+      settlementMetrics,
+      settlementReports,
       taxDetails,
       traces,
       voucherApprovals,
@@ -467,6 +537,20 @@ export class ChargeFactRateService {
           'BILLING_CHARGE_FACT_NOT_FOUND',
           'Charge fact was not found',
           404,
+        );
+      const closedPeriod = await tx.billingAccountingPeriod.findFirst({
+        where: {
+          periodFrom: { lte: fact.occurredAt },
+          periodTo: { gte: fact.occurredAt },
+          status: 'CLOSED',
+          tenantId: context.tenantId,
+        },
+      });
+      if (closedPeriod)
+        throw new AppError(
+          'BILLING_PERIOD_CLOSED',
+          `Accounting period ${closedPeriod.periodKey} is closed`,
+          409,
         );
       const latest = await tx.factCorrection.findFirst({
         orderBy: [{ occurredAt: 'desc' }, { id: 'desc' }],
