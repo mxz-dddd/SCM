@@ -1,4 +1,5 @@
 import type { WorkerApi } from './job-runner';
+import { safeWebhookFetch } from './safe-webhook-http';
 
 interface ClaimedDelivery {
   readonly attemptId: string;
@@ -14,11 +15,13 @@ interface ClaimResponse {
   readonly leaseOwner: string;
 }
 
+type WebhookFetcher = (input: string, init: RequestInit) => Promise<Response>;
+
 export async function deliverWebhooksOnce(
   tenantId: string,
   leaseOwner: string,
   api: WorkerApi,
-  fetcher: typeof fetch = fetch,
+  fetcher: WebhookFetcher = safeWebhookFetch,
 ) {
   const claimed = await api.request<ClaimResponse>(
     tenantId,

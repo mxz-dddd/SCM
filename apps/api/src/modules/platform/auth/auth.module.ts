@@ -4,12 +4,14 @@ import { AuthService } from './auth.service';
 import { JwtTokenService } from './jwt-token.service';
 import { SessionContextService } from './session-context.service';
 import { WorkerController } from './worker.controller';
+import { RateLimitService } from './rate-limit.service';
 
 @Module({
   controllers: [AuthController, WorkerController],
-  exports: [JwtTokenService, SessionContextService],
+  exports: [JwtTokenService, RateLimitService, SessionContextService],
   providers: [
     AuthService,
+    RateLimitService,
     SessionContextService,
     {
       provide: JwtTokenService,

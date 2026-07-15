@@ -76,4 +76,42 @@ describe('Webhook delivery worker', () => {
       leaseOwner: 'worker-2',
     });
   });
+
+  it('does not follow a redirect to a private address', async () => {
+    const request = vi
+      .fn()
+      .mockResolvedValueOnce({
+        deliveries: [
+          {
+            attemptId: 'attempt-3',
+            endpointUrl: 'https://public.example/hooks',
+            messageId: 'message-3',
+            payload: {},
+            signature: 'c'.repeat(64),
+            version: 1,
+          },
+        ],
+        leaseOwner: 'worker-3',
+      })
+      .mockResolvedValueOnce({ status: 'FAILED' });
+    const fetcher = vi
+      .fn()
+      .mockResolvedValue(
+        new Response('', {
+          headers: { location: 'https://127.0.0.1/private' },
+          status: 302,
+        }),
+      );
+    await deliverWebhooksOnce(
+      'tenant-1',
+      'worker-3',
+      { request } as never,
+      fetcher,
+    );
+    expect(fetcher).toHaveBeenCalledTimes(1);
+    expect(JSON.parse(request.mock.calls[1]![2].body)).toMatchObject({
+      errorMessage: 'Webhook returned HTTP 302',
+      responseStatus: 302,
+    });
+  });
 });

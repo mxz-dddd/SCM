@@ -45,6 +45,33 @@ export class ApiExceptionFilter implements ExceptionFilter {
       return;
     }
 
+    const parserError =
+      exception && typeof exception === 'object'
+        ? (exception as { status?: unknown; type?: unknown })
+        : undefined;
+    if (
+      parserError &&
+      typeof parserError.status === 'number' &&
+      typeof parserError.type === 'string' &&
+      [
+        'encoding.unsupported',
+        'entity.parse.failed',
+        'entity.too.large',
+      ].includes(parserError.type)
+    ) {
+      const statusCode = parserError.status;
+      response.status(statusCode).json({
+        code: `HTTP_${statusCode}`,
+        correlationId,
+        message:
+          statusCode === 413
+            ? 'Request body exceeds the configured limit'
+            : 'Request body is invalid',
+        retryable: false,
+      } satisfies ApiError);
+      return;
+    }
+
     console.error('api.request.failed', {
       correlationId,
       errorName: exception instanceof Error ? exception.name : 'UnknownError',

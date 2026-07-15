@@ -149,6 +149,61 @@ test.beforeAll(async () => {
 
 test.afterAll(async () => prisma.$disconnect());
 
+test('API entry security headers, body limits and real external guard are active', async ({
+  request,
+}) => {
+  const health = await request.get('/health', {
+    headers: { 'X-Correlation-Id': 'p5-entry-security' },
+  });
+  expect(health.ok()).toBe(true);
+  expect(health.headers()['x-content-type-options']).toBe('nosniff');
+  expect(health.headers()['x-correlation-id']).toBe('p5-entry-security');
+
+  const preflight = await request.fetch('/api/v1/auth/login', {
+    headers: {
+      'Access-Control-Request-Method': 'POST',
+      Origin: 'http://localhost:5173',
+    },
+    method: 'OPTIONS',
+  });
+  expect(preflight.headers()['access-control-allow-origin']).toBe(
+    'http://localhost:5173',
+  );
+
+  const oversized = await request.post('/api/v1/auth/login', {
+    data: {
+      deviceId: 'x'.repeat(1_100_000),
+      password: 'not-used',
+      tenantCode: 'PLATFORM',
+      username: 'platform-admin',
+    },
+    headers: { 'X-Correlation-Id': 'p5-body-limit' },
+  });
+  expect(oversized.status()).toBe(413);
+  const oversizedText = await oversized.text();
+  expect(JSON.parse(oversizedText)).toEqual(
+    expect.objectContaining({
+      code: 'HTTP_413',
+      correlationId: 'p5-body-limit',
+    }),
+  );
+  expect(oversizedText).not.toContain('stack');
+
+  const external = await request.post('/api/v1/external/iot/heartbeat', {
+    data: { forgedMethod: 'GET', forgedRoute: '/health' },
+    headers: {
+      'X-Correlation-Id': 'p5-external-guard',
+      'X-SCM-Method': 'GET',
+      'X-SCM-Route': '/health',
+    },
+  });
+  expect(external.status()).toBe(401);
+  expect(await responseBody(external)).toMatchObject({
+    code: 'GATEWAY_CREDENTIAL_REQUIRED',
+    correlationId: 'p5-external-guard',
+  });
+});
+
 test('production latency budgets hold for list, command and RF confirmation', async ({
   request,
 }) => {

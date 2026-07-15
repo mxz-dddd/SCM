@@ -6,6 +6,7 @@ import { AppError } from '../../common/app-error';
 import { PrismaService } from '../../database/prisma.service';
 import { ChangeRecordingFacade } from '../platform/public/change-recording.facade';
 import type { CommandMetadata } from '../platform/tenant.service';
+import { WebhookEndpointPolicy } from './webhook-endpoint.policy';
 
 type JsonObject = Readonly<Record<string, unknown>>;
 type MappingRule = Readonly<{
@@ -105,6 +106,8 @@ export class MessageExchangeService {
     @Inject(PrismaService) private readonly prisma: PrismaService,
     @Inject(ChangeRecordingFacade)
     private readonly changes: ChangeRecordingFacade,
+    @Inject(WebhookEndpointPolicy)
+    private readonly webhookEndpoints: WebhookEndpointPolicy,
   ) {}
 
   async workbench(context: TenantContext) {
@@ -742,12 +745,13 @@ export class MessageExchangeService {
     });
   }
 
-  createWebhook(
+  async createWebhook(
     input: CreateWebhookInput,
     context: TenantContext,
     metadata: CommandMetadata,
   ) {
     this.webhookInput(input);
+    const endpoint = await this.webhookEndpoints.validate(input.endpointUrl);
     return this.prisma.$transaction(async (tx) => {
       const id = randomUUID();
       const secret = this.webhookSecret(context.tenantId, id);
@@ -755,7 +759,7 @@ export class MessageExchangeService {
         data: {
           baseDelaySeconds: input.baseDelaySeconds ?? 30,
           createdBy: context.accountId,
-          endpointUrl: input.endpointUrl.trim(),
+          endpointUrl: endpoint.url,
           eventTypes: json([...new Set(input.eventTypes)]),
           id,
           maxAttempts: input.maxAttempts ?? 5,
@@ -963,6 +967,9 @@ export class MessageExchangeService {
           subscription.endpoint_url,
           message.original_payload
       `;
+      await Promise.all(
+        rows.map((row) => this.webhookEndpoints.validate(row.endpoint_url)),
+      );
       return {
         deliveries: rows.map((row) => ({
           attemptId: row.id,

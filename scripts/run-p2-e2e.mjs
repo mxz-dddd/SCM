@@ -66,7 +66,10 @@ try {
   const environment = {
     ...process.env,
     DATABASE_URL: databaseUrl,
+    API_RATE_LIMIT_PER_MINUTE: '10000',
+    CORS_ALLOWED_ORIGINS: 'http://localhost:5173',
     JWT_SECRET: jwtSecret,
+    LOGIN_RATE_LIMIT_PER_MINUTE: '10000',
     SEED_ADMIN_PASSWORD: seedPassword,
     WORKER_ACTOR_ID: workerActorId,
     WORKER_CONTROL_TOKEN: workerControlToken,

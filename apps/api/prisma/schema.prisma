@@ -5748,6 +5748,26 @@ model LoginAudit {
   @@schema("platform")
 }
 
+model PlatformRateLimitBucket {
+  id String @id @default(uuid()) @db.Uuid
+  tenantId String @map("tenant_id") @db.Uuid
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  createdBy String @map("created_by") @db.Uuid
+  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
+  updatedBy String @map("updated_by") @db.Uuid
+  version Int @default(1)
+  status RecordStatus @default(ACTIVE)
+  scope String @db.VarChar(40)
+  subjectHash String @map("subject_hash") @db.Char(64)
+  route String @db.VarChar(300)
+  bucketStart DateTime @map("bucket_start") @db.Timestamptz(3)
+  requestCount Int @default(0) @map("request_count")
+  @@unique([tenantId,scope,subjectHash,route,bucketStart],map:"rate_limit_bucket_key")
+  @@index([tenantId,scope,bucketStart],map:"rate_limit_bucket_tenant_scope_idx")
+  @@map("rate_limit_bucket")
+  @@schema("platform")
+}
+
 model PlatformAuditLog {
   id             String        @id @default(uuid()) @db.Uuid
   tenantId       String        @map("tenant_id") @db.Uuid
@@ -13106,12 +13126,31 @@ model IntegrationGatewayUsageBucket {
   status IntegrationRecordStatus @default(ACTIVE)
   policyId String @map("policy_id") @db.Uuid
   credentialId String @map("credential_id") @db.Uuid
+  route String @default("*") @db.VarChar(300)
   bucketKind String @map("bucket_kind") @db.VarChar(20)
   bucketStart DateTime @map("bucket_start") @db.Timestamptz(3)
   requestCount Int @default(0) @map("request_count")
-  @@unique([tenantId,policyId,credentialId,bucketKind,bucketStart],map:"integration_gateway_usage_bucket_key")
+  @@unique([tenantId,policyId,credentialId,route,bucketKind,bucketStart],map:"integration_gateway_usage_route_bucket_key")
   @@index([tenantId,credentialId,bucketStart],map:"integration_gateway_usage_credential_idx")
   @@map("gateway_usage_bucket")
+  @@schema("integration")
+}
+
+model IntegrationGatewayReplay {
+  id String @id @default(uuid()) @db.Uuid
+  tenantId String @map("tenant_id") @db.Uuid
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  createdBy String @map("created_by") @db.Uuid
+  updatedAt DateTime @default(now()) @map("updated_at") @db.Timestamptz(3)
+  updatedBy String @map("updated_by") @db.Uuid
+  version Int @default(1)
+  status IntegrationRecordStatus @default(ACTIVE)
+  credentialId String @map("credential_id") @db.Uuid
+  signatureHash String @map("signature_hash") @db.Char(64)
+  expiresAt DateTime @map("expires_at") @db.Timestamptz(3)
+  @@unique([tenantId,credentialId,signatureHash],map:"gateway_replay_signature_key")
+  @@index([tenantId,expiresAt],map:"gateway_replay_expiry_idx")
+  @@map("gateway_replay")
   @@schema("integration")
 }
 
