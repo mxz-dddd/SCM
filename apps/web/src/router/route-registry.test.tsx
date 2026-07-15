@@ -1,0 +1,165 @@
+import {
+  act,
+  fireEvent,
+  render,
+  screen,
+  waitFor,
+} from '@testing-library/react';
+import type { SessionClaims } from '@scm/shared';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
+import {
+  RouterProvider,
+  createMemoryRouter,
+  matchRoutes,
+} from 'react-router-dom';
+import { useSessionStore } from '../platform/session-store';
+import { useWorkspaceStore } from '../workspace/workspace-store';
+import { ADMIN_ROUTE_REGISTRY, APP_ROUTE_REGISTRY } from './route-registry';
+import { createAppRouteObjects } from './app-router';
+
+const userClaims: SessionClaims = {
+  accountKind: 'USER',
+  deviceId: 'web-test',
+  expiresAt: Date.now() + 60_000,
+  issuedAt: Date.now(),
+  organizationIds: [],
+  permissionVersion: 1,
+  subject: '10000000-0000-4000-8000-000000000001',
+  tenantId: '10000000-0000-4000-8000-000000000002',
+  tokenId: 'router-test-token',
+};
+
+beforeEach(() => {
+  vi.restoreAllMocks();
+  Object.defineProperty(window, 'matchMedia', {
+    configurable: true,
+    value: vi.fn().mockImplementation((query: string) => ({
+      addEventListener: vi.fn(),
+      addListener: vi.fn(),
+      dispatchEvent: vi.fn(),
+      matches: false,
+      media: query,
+      onchange: null,
+      removeEventListener: vi.fn(),
+      removeListener: vi.fn(),
+    })),
+  });
+  useSessionStore.setState({ accessToken: undefined, claims: undefined });
+  useWorkspaceStore.setState({
+    activeTabId: 'workbench',
+    context: { language: 'zh-CN', tenantId: 'unselected' },
+    tabs: [
+      { dirty: false, id: 'workbench', route: '/workbench', title: '工作台' },
+      {
+        dirty: false,
+        id: 'identity',
+        route: '/platform/identity',
+        title: '租户与认证',
+      },
+    ],
+  });
+});
+
+describe('application route registry', () => {
+  it('matches and lazy-loads every registered primary route', async () => {
+    const routeObjects = createAppRouteObjects();
+    expect(new Set(APP_ROUTE_REGISTRY.map(({ id }) => id)).size).toBe(
+      APP_ROUTE_REGISTRY.length,
+    );
+    for (const definition of APP_ROUTE_REGISTRY) {
+      const pathname = definition.path.replace(/\/\*$/, '');
+      expect(matchRoutes(routeObjects, pathname), pathname).not.toBeNull();
+    }
+    const pages = await Promise.all(
+      APP_ROUTE_REGISTRY.map((definition) => definition.load()),
+    );
+    expect(pages.every((page) => typeof page === 'function')).toBe(true);
+  });
+
+  it('opens an admin deep link and synchronizes history with workspace tabs', async () => {
+    const router = createMemoryRouter(createAppRouteObjects(), {
+      initialEntries: ['/workbench'],
+    });
+    render(<RouterProvider router={router} />);
+
+    fireEvent.click(await screen.findByRole('button', { name: '组件' }));
+    await screen.findByRole('heading', { name: '统一业务组件' });
+    expect(router.state.location.pathname).toBe('/platform/components');
+
+    fireEvent.click(screen.getByRole('button', { name: '配置' }));
+    await screen.findByRole('heading', { name: '配置、字典与单号中心' });
+    expect(router.state.location.pathname).toBe('/platform/configuration');
+
+    await act(() => router.navigate(-1));
+    await waitFor(() =>
+      expect(router.state.location.pathname).toBe('/platform/components'),
+    );
+    expect(screen.getByRole('button', { name: '组件' })).toHaveClass('active');
+
+    fireEvent.click(screen.getByRole('tab', { name: '配置中心' }));
+    await waitFor(() =>
+      expect(router.state.location.pathname).toBe('/platform/configuration'),
+    );
+  });
+
+  it('returns a stable 403 for a route outside the signed-in account kind', async () => {
+    vi.spyOn(globalThis, 'fetch').mockRejectedValue(new Error('offline test'));
+    useSessionStore.setState({ accessToken: 'test-token', claims: userClaims });
+    const router = createMemoryRouter(createAppRouteObjects(), {
+      initialEntries: ['/platform/operations'],
+    });
+    render(<RouterProvider router={router} />);
+    expect(await screen.findByText('403 · 无权访问')).toBeInTheDocument();
+    expect(
+      screen.queryByRole('button', { name: '生产运维' }),
+    ).not.toBeInTheDocument();
+  });
+
+  it('renders independent customer, partner, driver and RF terminal routes', async () => {
+    Object.defineProperty(window, 'innerWidth', {
+      configurable: true,
+      value: 390,
+    });
+    window.dispatchEvent(new Event('resize'));
+    for (const [path, title] of [
+      ['/portal/customer', '客户门户'],
+      ['/portal/partner', '伙伴门户'],
+      ['/driver', '司机执行端'],
+      ['/rf', '仓储 RF 端'],
+    ] as const) {
+      const router = createMemoryRouter(createAppRouteObjects(), {
+        initialEntries: [path],
+      });
+      const view = render(<RouterProvider router={router} />);
+      expect(
+        await screen.findByRole('heading', { name: title }),
+      ).toBeInTheDocument();
+      expect(
+        screen.getByRole('navigation', { name: `${title}底部导航` }),
+      ).toBeInTheDocument();
+      view.unmount();
+    }
+  });
+
+  it('keeps the old portal link as a real URL redirect', async () => {
+    const router = createMemoryRouter(createAppRouteObjects(), {
+      initialEntries: ['/mobile/portal'],
+    });
+    render(<RouterProvider router={router} />);
+    await waitFor(() =>
+      expect(router.state.location.pathname).toBe('/integration/mobile-portal'),
+    );
+    expect(
+      await screen.findByRole('heading', { name: '客户移动端与合作伙伴门户' }),
+    ).toBeInTheDocument();
+  });
+
+  it('keeps every admin path addressable without hash routing', () => {
+    expect(ADMIN_ROUTE_REGISTRY.every(({ path }) => path.startsWith('/'))).toBe(
+      true,
+    );
+    expect(ADMIN_ROUTE_REGISTRY.some(({ path }) => path.includes('#'))).toBe(
+      false,
+    );
+  });
+});

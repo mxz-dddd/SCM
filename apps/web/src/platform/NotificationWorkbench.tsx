@@ -7,6 +7,7 @@ import {
   createActionRegistry,
 } from '@scm/ui';
 import { Alert, Button, Card, Checkbox, Input, Space, Typography } from 'antd';
+import { useNavigate } from 'react-router-dom';
 import { useSessionStore } from './session-store';
 
 type InboxStatus = 'ARCHIVED' | 'READ' | 'UNREAD';
@@ -86,6 +87,7 @@ const deliveryActions = createActionRegistry<NotificationStatus>([
 ]);
 
 export function NotificationWorkbench() {
+  const navigate = useNavigate();
   const accessToken = useSessionStore((state) => state.accessToken);
   const claims = useSessionStore((state) => state.claims);
   const [inbox, setInbox] = useState<readonly InboxRow[]>([]);
@@ -219,7 +221,7 @@ export function NotificationWorkbench() {
     try {
       if (actionId === 'read') await transitionInbox('read');
       if (actionId === 'archive') await transitionInbox('archive');
-      if (actionId === 'open-business') window.location.hash = selectedInbox.route;
+      if (actionId === 'open-business') void navigate(selectedInbox.route);
     } catch (caught) {
       setError(caught instanceof Error ? caught.message : '待办操作失败');
     }

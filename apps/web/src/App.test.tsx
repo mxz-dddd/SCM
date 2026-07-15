@@ -1,6 +1,12 @@
-import { fireEvent, render, screen } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { describe, expect, it } from 'vitest';
 import { App } from './App';
+
+async function openRoute(name: string) {
+  const button = screen.getByRole('button', { name });
+  fireEvent.click(button);
+  await waitFor(() => expect(button).toHaveClass('active'));
+}
 
 describe('App', () => {
   it('renders the application shell and opens workspace tools', () => {
@@ -22,10 +28,10 @@ describe('App', () => {
     expect(screen.getByLabelText('搜索命令')).toBeInTheDocument();
   });
 
-  it('opens the shared business component gallery', () => {
+  it('opens the shared business component gallery', async () => {
     render(<App />);
 
-    fireEvent.click(screen.getByRole('button', { name: '组件' }));
+    await openRoute('组件');
 
     expect(
       screen.getByRole('heading', { name: '统一业务组件' }),
@@ -36,10 +42,10 @@ describe('App', () => {
     expect(screen.getByText(/版本冲突/)).toBeInTheDocument();
   });
 
-  it('opens the event-projected supply chain control tower', () => {
+  it('opens the event-projected supply chain control tower', async () => {
     render(<App />);
 
-    fireEvent.click(screen.getByRole('button', { name: '控制塔' }));
+    await openRoute('控制塔');
 
     expect(
       screen.getByRole('heading', { name: '供应链控制塔' }),
@@ -53,10 +59,10 @@ describe('App', () => {
     expect(screen.getByRole('button', { name: '精确位置下钻' })).toBeDisabled();
   });
 
-  it('opens SLA alert and exception governance', () => {
+  it('opens SLA alert and exception governance', async () => {
     render(<App />);
 
-    fireEvent.click(screen.getByRole('button', { name: '预警' }));
+    await openRoute('预警');
 
     expect(
       screen.getByRole('heading', { name: 'SLA、预警与例外治理' }),
@@ -74,10 +80,10 @@ describe('App', () => {
     ).toBeDisabled();
   });
 
-  it('opens governed BI analytics and lake snapshots', () => {
+  it('opens governed BI analytics and lake snapshots', async () => {
     render(<App />);
 
-    fireEvent.click(screen.getByRole('button', { name: 'BI' }));
+    await openRoute('BI');
 
     expect(
       screen.getByRole('heading', { name: 'BI 分析与数据湖' }),
@@ -97,10 +103,10 @@ describe('App', () => {
     ).toBeDisabled();
   });
 
-  it('opens production operations and data governance', () => {
+  it('opens production operations and data governance', async () => {
     render(<App />);
 
-    fireEvent.click(screen.getByRole('button', { name: '生产运维' }));
+    await openRoute('生产运维');
 
     expect(
       screen.getByRole('heading', { name: '生产运维与数据治理' }),
@@ -119,10 +125,10 @@ describe('App', () => {
     ).toBeDisabled();
   });
 
-  it('opens scoped customer mobile and partner portals', () => {
+  it('opens scoped customer mobile and partner portals', async () => {
     render(<App />);
 
-    fireEvent.click(screen.getByRole('button', { name: '移动与门户' }));
+    await openRoute('移动与门户');
 
     expect(
       screen.getByRole('heading', { name: '客户移动端与合作伙伴门户' }),
@@ -142,10 +148,10 @@ describe('App', () => {
     ).toBeDisabled();
   });
 
-  it('opens P4 acceptance and daily reconciliation governance', () => {
+  it('opens P4 acceptance and daily reconciliation governance', async () => {
     render(<App />);
 
-    fireEvent.click(screen.getByRole('button', { name: '验收' }));
+    await openRoute('验收');
 
     expect(
       screen.getByRole('heading', { name: 'P4 验收与跨域对账' }),
@@ -163,10 +169,10 @@ describe('App', () => {
     expect(screen.getByRole('button', { name: '关闭对账例外' })).toBeDisabled();
   });
 
-  it('opens explainable AI optimization and scenario simulation', () => {
+  it('opens explainable AI optimization and scenario simulation', async () => {
     render(<App />);
 
-    fireEvent.click(screen.getByRole('button', { name: 'AI 优化' }));
+    await openRoute('AI 优化');
 
     expect(
       screen.getByRole('heading', { name: 'AI 优化与情景模拟' }),
@@ -195,10 +201,10 @@ describe('App', () => {
     expect(screen.getByRole('button', { name: '生成补货建议' })).toBeDisabled();
   });
 
-  it('opens the configuration, dictionary and number rule workbench', () => {
+  it('opens the configuration, dictionary and number rule workbench', async () => {
     render(<App />);
 
-    fireEvent.click(screen.getByRole('button', { name: '配置' }));
+    await openRoute('配置');
 
     expect(
       screen.getByRole('heading', { name: '配置、字典与单号中心' }),
@@ -210,10 +216,10 @@ describe('App', () => {
     expect(screen.getByRole('button', { name: '新建配置草稿' })).toBeDisabled();
   });
 
-  it('opens the read-only audit and change history workbench', () => {
+  it('opens the read-only audit and change history workbench', async () => {
     render(<App />);
 
-    fireEvent.click(screen.getByRole('button', { name: '审计' }));
+    await openRoute('审计');
 
     expect(
       screen.getByRole('heading', { name: '审计与变更历史' }),
@@ -225,10 +231,10 @@ describe('App', () => {
     ).toBeDisabled();
   });
 
-  it('opens the presigned upload and watermarked download workbench', () => {
+  it('opens the presigned upload and watermarked download workbench', async () => {
     render(<App />);
 
-    fireEvent.click(screen.getByRole('button', { name: '附件' }));
+    await openRoute('附件');
 
     expect(
       screen.getByRole('heading', { name: '附件与对象存储' }),
@@ -239,10 +245,10 @@ describe('App', () => {
     expect(screen.getByRole('button', { name: '授权下载' })).toBeDisabled();
   });
 
-  it('opens the unified inbox and notification delivery workbench', () => {
+  it('opens the unified inbox and notification delivery workbench', async () => {
     render(<App />);
 
-    fireEvent.click(screen.getByRole('button', { name: '消息' }));
+    await openRoute('消息');
 
     expect(
       screen.getByRole('heading', { name: '待办与消息中心' }),
@@ -253,10 +259,10 @@ describe('App', () => {
     expect(screen.getByRole('button', { name: '投递 / 重试' })).toBeDisabled();
   });
 
-  it('opens import, export, search and saved views', () => {
+  it('opens import, export, search and saved views', async () => {
     render(<App />);
 
-    fireEvent.click(screen.getByRole('button', { name: '数据' }));
+    await openRoute('数据');
 
     expect(
       screen.getByRole('heading', { name: '导入导出与统一搜索' }),
@@ -267,10 +273,10 @@ describe('App', () => {
     expect(screen.getByRole('button', { name: /创建导入预检/ })).toBeDisabled();
   });
 
-  it('opens versioned workflows and the unified approval center', () => {
+  it('opens versioned workflows and the unified approval center', async () => {
     render(<App />);
 
-    fireEvent.click(screen.getByRole('button', { name: '审批' }));
+    await openRoute('审批');
 
     expect(
       screen.getByRole('heading', { name: '工作流与统一审批中心' }),
@@ -281,10 +287,10 @@ describe('App', () => {
     expect(screen.getByRole('button', { name: '同意' })).toBeDisabled();
   });
 
-  it('opens the rule engine and evaluation trace workbench', () => {
+  it('opens the rule engine and evaluation trace workbench', async () => {
     render(<App />);
 
-    fireEvent.click(screen.getByRole('button', { name: '规则' }));
+    await openRoute('规则');
 
     expect(
       screen.getByRole('heading', { name: '规则引擎与决策追踪' }),
@@ -297,10 +303,10 @@ describe('App', () => {
     expect(screen.getByRole('button', { name: '模拟求值' })).toBeDisabled();
   });
 
-  it('opens the scheduler and asynchronous job workbench', () => {
+  it('opens the scheduler and asynchronous job workbench', async () => {
     render(<App />);
 
-    fireEvent.click(screen.getByRole('button', { name: '调度' }));
+    await openRoute('调度');
 
     expect(
       screen.getByRole('heading', { name: '调度任务与异步执行中心' }),
@@ -312,10 +318,10 @@ describe('App', () => {
     expect(screen.getByRole('button', { name: '取消运行' })).toBeDisabled();
   });
 
-  it('opens the business event relay and inbox workbench', () => {
+  it('opens the business event relay and inbox workbench', async () => {
     render(<App />);
 
-    fireEvent.click(screen.getByRole('button', { name: '事件' }));
+    await openRoute('事件');
 
     expect(
       screen.getByRole('heading', { name: '业务事件与投递运维中心' }),
@@ -330,9 +336,9 @@ describe('App', () => {
     ).toBeDisabled();
   });
 
-  it('opens localization, flags, collaboration and print operations', () => {
+  it('opens localization, flags, collaboration and print operations', async () => {
     render(<App />);
-    fireEvent.click(screen.getByRole('button', { name: '收尾' }));
+    await openRoute('收尾');
     expect(
       screen.getByRole('heading', { name: '国际化、开关、协同与打印中心' }),
     ).toBeInTheDocument();
@@ -347,9 +353,9 @@ describe('App', () => {
     ).toBeDisabled();
   });
 
-  it('opens versioned product, barcode and packaging master data', () => {
+  it('opens versioned product, barcode and packaging master data', async () => {
     render(<App />);
-    fireEvent.click(screen.getByRole('button', { name: '商品' }));
+    await openRoute('商品');
     expect(
       screen.getByRole('heading', { name: '商品、条码与包装主数据' }),
     ).toBeInTheDocument();
@@ -358,9 +364,9 @@ describe('App', () => {
     expect(screen.getByText(/ProductVersion 快照/)).toBeInTheDocument();
   });
 
-  it('opens inbound ASN, arrival, receipt task and barcode operations', () => {
+  it('opens inbound ASN, arrival, receipt task and barcode operations', async () => {
     render(<App />);
-    fireEvent.click(screen.getByRole('button', { name: '入库' }));
+    await openRoute('入库');
     expect(
       screen.getByRole('heading', { name: '入库接入与收货执行' }),
     ).toBeInTheDocument();
@@ -380,9 +386,9 @@ describe('App', () => {
     expect(screen.getByRole('button', { name: '越库匹配' })).toBeDisabled();
   });
 
-  it('opens inventory balances, TraceChain, holds and reservations', () => {
+  it('opens inventory balances, TraceChain, holds and reservations', async () => {
     render(<App />);
-    fireEvent.click(screen.getByRole('button', { name: '仓储' }));
+    await openRoute('仓储');
     expect(
       screen.getByRole('heading', { name: '库存余额、库内作业与盘点' }),
     ).toBeInTheDocument();
@@ -411,9 +417,9 @@ describe('App', () => {
     ).toBeInTheDocument();
   });
 
-  it('opens outbound orders, wave simulation and shortage handling', () => {
+  it('opens outbound orders, wave simulation and shortage handling', async () => {
     render(<App />);
-    fireEvent.click(screen.getByRole('button', { name: '出库' }));
+    await openRoute('出库');
     expect(
       screen.getByRole('heading', { name: '出库、拣选、包装与发运' }),
     ).toBeInTheDocument();
@@ -432,9 +438,9 @@ describe('App', () => {
     expect(screen.getByRole('button', { name: '处置缺货' })).toBeDisabled();
   });
 
-  it('opens partner, address and service-zone master data', () => {
+  it('opens partner, address and service-zone master data', async () => {
     render(<App />);
-    fireEvent.click(screen.getByRole('button', { name: '伙伴' }));
+    await openRoute('伙伴');
     expect(
       screen.getByRole('heading', { name: '伙伴、地址与服务区域' }),
     ).toBeInTheDocument();
@@ -442,9 +448,9 @@ describe('App', () => {
     expect(screen.getByText('地理编码人工校正队列')).toBeInTheDocument();
     expect(screen.getByRole('button', { name: '启用' })).toBeDisabled();
   });
-  it('opens warehouse hierarchy and fleet eligibility master data', () => {
+  it('opens warehouse hierarchy and fleet eligibility master data', async () => {
     render(<App />);
-    fireEvent.click(screen.getByRole('button', { name: '仓库' }));
+    await openRoute('仓库');
     expect(
       screen.getByRole('heading', { name: '仓库层级与车辆司机' }),
     ).toBeInTheDocument();
@@ -452,9 +458,9 @@ describe('App', () => {
     expect(screen.getByText('司机证照到期预警')).toBeInTheDocument();
     expect(screen.getByRole('button', { name: '停用仓库' })).toBeDisabled();
   });
-  it('opens contract, rate, calendar and quality governance', () => {
+  it('opens contract, rate, calendar and quality governance', async () => {
     render(<App />);
-    fireEvent.click(screen.getByRole('button', { name: '治理' }));
+    await openRoute('治理');
     expect(
       screen.getByRole('heading', { name: '合同、费率与主数据治理' }),
     ).toBeInTheDocument();
@@ -463,9 +469,9 @@ describe('App', () => {
     expect(screen.getByText('质量评估与履约资格')).toBeInTheDocument();
     expect(screen.getByRole('button', { name: '发布费率版本' })).toBeDisabled();
   });
-  it('opens mobile warehouse operations with large offline controls', () => {
+  it('opens mobile warehouse operations with large offline controls', async () => {
     render(<App />);
-    fireEvent.click(screen.getByRole('button', { name: '作业' }));
+    await openRoute('作业');
     expect(
       screen.getByRole('heading', { name: '移动仓库作业与运营看板' }),
     ).toBeInTheDocument();
@@ -476,9 +482,9 @@ describe('App', () => {
     expect(screen.getByRole('button', { name: '新建增值作业' })).toBeDisabled();
     expect(screen.getByRole('button', { name: '发送打印指令' })).toBeDisabled();
   });
-  it('opens multi-channel order intake and version validation', () => {
+  it('opens multi-channel order intake and version validation', async () => {
     render(<App />);
-    fireEvent.click(screen.getByRole('button', { name: '订单' }));
+    await openRoute('订单');
     expect(
       screen.getByRole('heading', { name: '多渠道订单接入' }),
     ).toBeInTheDocument();
@@ -538,9 +544,9 @@ describe('App', () => {
     expect(screen.getByRole('button', { name: '批量逐单冻结' })).toBeDisabled();
     expect(screen.getByRole('button', { name: '客户门户预览' })).toBeDisabled();
   });
-  it('opens automatic fulfillment process monitoring and retry controls', () => {
+  it('opens automatic fulfillment process monitoring and retry controls', async () => {
     render(<App />);
-    fireEvent.click(screen.getByRole('button', { name: '履约' }));
+    await openRoute('履约');
     expect(
       screen.getByRole('heading', { name: '履约过程中心' }),
     ).toBeInTheDocument();
@@ -549,9 +555,9 @@ describe('App', () => {
     expect(screen.getByText('跨域对象链接')).toBeInTheDocument();
     expect(screen.getByRole('button', { name: '重试失败步骤' })).toBeDisabled();
   });
-  it('opens transport order intake and supervisor review', () => {
+  it('opens transport order intake and supervisor review', async () => {
     render(<App />);
-    fireEvent.click(screen.getByRole('button', { name: '运输' }));
+    await openRoute('运输');
     expect(
       screen.getByRole('heading', { name: '运输订单接入与审核' }),
     ).toBeInTheDocument();
@@ -671,9 +677,9 @@ describe('App', () => {
     ).toBeDisabled();
   });
 
-  it('opens immutable billing facts and occurrence-time rate matching', () => {
+  it('opens immutable billing facts and occurrence-time rate matching', async () => {
     render(<App />);
-    fireEvent.click(screen.getByRole('button', { name: '结算' }));
+    await openRoute('结算');
     expect(
       screen.getByRole('heading', { name: '计费事实与费率匹配' }),
     ).toBeInTheDocument();
