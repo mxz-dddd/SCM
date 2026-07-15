@@ -11,9 +11,13 @@ import { BiAnalyticsController } from './bi-analytics.controller';
 import { BiAnalyticsService } from './bi-analytics.service';
 import { ReconciliationController } from './reconciliation.controller';
 import { ReconciliationService } from './reconciliation.service';
+import { AiOptimizationController } from './ai-optimization.controller';
+import { AiOptimizationService } from './ai-optimization.service';
+import { OptimizerSidecarClient } from './optimizer-sidecar.client';
 
 @Module({
   controllers: [
+    AiOptimizationController,
     AlertGovernanceController,
     BiAnalyticsController,
     ControlTowerController,
@@ -21,11 +25,13 @@ import { ReconciliationService } from './reconciliation.service';
   ],
   imports: [MdmModule, PlatformModule],
   providers: [
+    AiOptimizationService,
     AlertGovernanceService,
     BiAnalyticsService,
     ControlTowerService,
     PermissionGuard,
     PermissionService,
+    OptimizerSidecarClient,
     ReconciliationService,
   ],
 })

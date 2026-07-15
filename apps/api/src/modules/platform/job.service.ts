@@ -72,6 +72,7 @@ export interface HeartbeatJobInput {
 const CODE_PATTERN = /^[A-Z][A-Z0-9_.-]{2,99}$/;
 const EVENT_PATTERN = /^[a-z][a-z0-9.-]{2,149}\.v\d+$/;
 const HANDLERS = new Set([
+  'AI_OPTIMIZATION',
   'EXPORT',
   'IMPORT',
   'NOTIFICATION_RETRY',

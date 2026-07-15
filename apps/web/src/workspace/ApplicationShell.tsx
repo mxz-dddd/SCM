@@ -21,6 +21,7 @@ import { ControlTowerWorkbench } from '../control/ControlTowerWorkbench';
 import { AlertGovernanceWorkbench } from '../control/AlertGovernanceWorkbench';
 import { BiAnalyticsWorkbench } from '../control/BiAnalyticsWorkbench';
 import { ReconciliationWorkbench } from '../control/ReconciliationWorkbench';
+import { AiOptimizationWorkbench } from '../control/AiOptimizationWorkbench';
 import { ApiGatewayWorkbench } from '../integration/ApiGatewayWorkbench';
 import { AdapterIotWorkbench } from '../integration/AdapterIotWorkbench';
 import { MessageExchangeWorkbench } from '../integration/MessageExchangeWorkbench';
@@ -185,6 +186,12 @@ const pageRegistry: readonly WorkspaceTab[] = [
   },
   {
     dirty: false,
+    id: 'control-ai',
+    route: '/control/ai',
+    title: 'AI 优化',
+  },
+  {
+    dirty: false,
     id: 'integration-gateway',
     route: '/integration/gateway',
     title: '开放 API',
@@ -239,6 +246,7 @@ const modules = [
   ['预警', 'control-alerts'],
   ['BI', 'control-bi'],
   ['验收', 'control-acceptance'],
+  ['AI 优化', 'control-ai'],
   ['集成', 'integration-gateway'],
   ['消息集成', 'integration-exchange'],
   ['适配器与 IoT', 'integration-adapter-iot'],
@@ -403,6 +411,7 @@ export function ApplicationShell() {
     if (tabId === 'control-alerts') return <AlertGovernanceWorkbench />;
     if (tabId === 'control-bi') return <BiAnalyticsWorkbench />;
     if (tabId === 'control-acceptance') return <ReconciliationWorkbench />;
+    if (tabId === 'control-ai') return <AiOptimizationWorkbench />;
     if (tabId === 'integration-gateway') return <ApiGatewayWorkbench />;
     if (tabId === 'integration-exchange') return <MessageExchangeWorkbench />;
     if (tabId === 'integration-adapter-iot') return <AdapterIotWorkbench />;

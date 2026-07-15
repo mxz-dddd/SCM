@@ -137,6 +137,22 @@ describe('App', () => {
     expect(screen.getByRole('button', { name: '关闭对账例外' })).toBeDisabled();
   });
 
+  it('opens explainable AI optimization and scenario simulation', () => {
+    render(<App />);
+
+    fireEvent.click(screen.getByRole('button', { name: 'AI 优化' }));
+
+    expect(screen.getByRole('heading', { name: 'AI 优化与情景模拟' })).toBeInTheDocument();
+    expect(screen.getByText('车辆路径：时间窗、容量、工时与可解释结果')).toBeInTheDocument();
+    expect(screen.getByText('装载建议：人工确认与实际偏差反馈')).toBeInTheDocument();
+    expect(screen.getByText('需求预测：训练窗口、版本与置信区间')).toBeInTheDocument();
+    expect(screen.getByText('库存策略建议：只建议、不直接改库存')).toBeInTheDocument();
+    expect(screen.getByText('供应链网络：独立基线、情景比较与导出')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: '提交车辆路径优化' })).toBeDisabled();
+    expect(screen.getByRole('button', { name: '人工确认装载建议' })).toBeDisabled();
+    expect(screen.getByRole('button', { name: '生成补货建议' })).toBeDisabled();
+  });
+
   it('opens the configuration, dictionary and number rule workbench', () => {
     render(<App />);
 

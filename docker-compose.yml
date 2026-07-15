@@ -47,6 +47,22 @@ services:
     volumes:
       - minio-data:/data
 
+  optimizer:
+    image: scm-optimizer:9.14.6206
+    build:
+      context: ./services/optimizer
+      dockerfile: Dockerfile
+    environment:
+      OPTIMIZER_HOST: 0.0.0.0
+      OPTIMIZER_PORT: 8090
+    ports:
+      - '${OPTIMIZER_PORT:-8090}:8090'
+    healthcheck:
+      test: ['CMD', 'python', '-c', "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8090/health', timeout=2)"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+
 volumes:
   minio-data:
   postgres-data:

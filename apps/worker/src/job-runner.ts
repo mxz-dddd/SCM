@@ -155,6 +155,12 @@ export async function executeRoutedHandler(
   jobRunId: string,
   api: WorkerApi,
 ): Promise<Record<string, unknown>> {
+  if (handler === 'AI_OPTIMIZATION') {
+    return api.request(tenantId, '/api/v1/control/ai/jobs/execute', {
+      body: JSON.stringify({ ...payload, jobRunId }),
+      method: 'POST',
+    });
+  }
   if (handler !== 'RECONCILIATION') return routeHandler(handler, payload);
   const periodEnd = payload.periodEnd
     ? new Date(String(payload.periodEnd))
@@ -179,6 +185,7 @@ export async function routeHandler(
   payload: Record<string, unknown>,
 ): Promise<Record<string, unknown>> {
   const allowed = new Set([
+    'AI_OPTIMIZATION',
     'EXPORT',
     'IMPORT',
     'NOTIFICATION_RETRY',

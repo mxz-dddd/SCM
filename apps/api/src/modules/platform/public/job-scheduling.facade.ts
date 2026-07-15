@@ -9,6 +9,11 @@ export interface DailyReconciliationSchedule {
   readonly payload: Readonly<Record<string, unknown>>;
 }
 
+export interface AiOptimizationJobInput {
+  readonly aggregateId: string;
+  readonly kind: 'LOAD' | 'NETWORK' | 'ROUTE';
+}
+
 @Injectable()
 export class JobSchedulingFacade {
   constructor(@Inject(JobService) private readonly jobs: JobService) {}
@@ -76,6 +81,78 @@ export class JobSchedulingFacade {
   async listDailyReconciliations(context: TenantContext) {
     return (await this.jobs.listDefinitions(context)).filter(({ code }) =>
       code.startsWith('CONTROL.DAILY_RECONCILIATION.'),
+    );
+  }
+
+  async enqueueAiOptimization(
+    input: AiOptimizationJobInput,
+    context: TenantContext,
+    metadata: CommandMetadata,
+  ) {
+    const code = 'CONTROL.AI.OPTIMIZATION';
+    const current = await this.jobs.listDefinitions(context);
+    const definition = current.find((item) => item.code === code);
+    let definitionId = definition?.id;
+    if (
+      !definition ||
+      definition.handler !== 'AI_OPTIMIZATION' ||
+      definition.triggerType !== 'EVENT' ||
+      definition.eventName !== 'control.ai-optimization-requested.v1' ||
+      definition.status !== 'ACTIVE'
+    ) {
+      try {
+        const saved = await this.jobs.saveDefinition(
+          {
+            backoffSeconds: 10,
+            code,
+            concurrencyLimit: 4,
+            defaultPayload: {},
+            eventName: 'control.ai-optimization-requested.v1',
+            ...(definition
+              ? {
+                  expectedVersion: definition.version,
+                  jobDefinitionId: definition.id,
+                }
+              : {}),
+            handler: 'AI_OPTIMIZATION',
+            maxAttempts: 3,
+            name: '控制塔 AI 优化任务',
+            status: 'ACTIVE',
+            timeoutSeconds: 120,
+            triggerType: 'EVENT',
+          },
+          context,
+          {
+            ...metadata,
+            idempotencyKey: `${metadata.idempotencyKey ?? metadata.correlationId}:ai-definition`,
+          },
+        );
+        definitionId = saved.jobDefinitionId;
+      } catch (error) {
+        const raced = (await this.jobs.listDefinitions(context)).find(
+          (item) =>
+            item.code === code &&
+            item.handler === 'AI_OPTIMIZATION' &&
+            item.triggerType === 'EVENT' &&
+            item.eventName === 'control.ai-optimization-requested.v1' &&
+            item.status === 'ACTIVE',
+        );
+        if (!raced) throw error;
+        definitionId = raced.id;
+      }
+    }
+    if (!definitionId) throw new Error('AI optimization job definition was not created');
+    return this.jobs.trigger(
+      definitionId,
+      {
+        payload: { aggregateId: input.aggregateId, kind: input.kind },
+        triggerRef: `${input.kind}:${input.aggregateId}`,
+      },
+      context,
+      {
+        ...metadata,
+        idempotencyKey: `${metadata.idempotencyKey ?? metadata.correlationId}:ai-run`,
+      },
     );
   }
 }

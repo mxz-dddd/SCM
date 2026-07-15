@@ -49,6 +49,34 @@ describe('system job runner', () => {
     );
   });
 
+  it('executes AI optimization jobs through the narrow worker command', async () => {
+    const request = vi.fn().mockResolvedValue({
+      optimizationId: 'route-1',
+      status: 'SUCCEEDED',
+    });
+    await expect(
+      executeRoutedHandler(
+        'AI_OPTIMIZATION',
+        { aggregateId: 'route-1', kind: 'ROUTE' },
+        'tenant-1',
+        'job-run-1',
+        { request } as never,
+      ),
+    ).resolves.toMatchObject({ status: 'SUCCEEDED' });
+    expect(request).toHaveBeenCalledWith(
+      'tenant-1',
+      '/api/v1/control/ai/jobs/execute',
+      {
+        body: JSON.stringify({
+          aggregateId: 'route-1',
+          kind: 'ROUTE',
+          jobRunId: 'job-run-1',
+        }),
+        method: 'POST',
+      },
+    );
+  });
+
   it('fails work that exceeds its timeout', async () => {
     await expect(withTimeout(new Promise(() => undefined), 1)).rejects.toThrow(
       'JOB_TIMEOUT',

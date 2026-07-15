@@ -12153,6 +12153,223 @@ model ControlReconciliationCase {
   @@schema("control")
 }
 
+enum ControlRouteOptimizationStatus {
+  QUEUED
+  RUNNING
+  SUCCEEDED
+  FAILED
+  @@schema("control")
+}
+
+enum ControlLoadOptimizationStatus {
+  QUEUED
+  RUNNING
+  PROPOSED
+  CONFIRMED
+  REJECTED
+  FAILED
+  @@schema("control")
+}
+
+enum ControlForecastStatus {
+  DRAFT
+  PUBLISHED
+  RETIRED
+  @@schema("control")
+}
+
+enum ControlRecommendationStatus {
+  PROPOSED
+  ACCEPTED
+  REJECTED
+  EXPIRED
+  @@schema("control")
+}
+
+enum ControlNetworkScenarioStatus {
+  DRAFT
+  QUEUED
+  RUNNING
+  COMPLETED
+  FAILED
+  ARCHIVED
+  @@schema("control")
+}
+
+model ControlRouteOptimization {
+  id String @id @default(uuid()) @db.Uuid
+  tenantId String @map("tenant_id") @db.Uuid
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  createdBy String @map("created_by") @db.Uuid
+  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
+  updatedBy String @map("updated_by") @db.Uuid
+  version Int @default(1)
+  status ControlRouteOptimizationStatus @default(QUEUED)
+  jobRunId String? @map("job_run_id") @db.Uuid
+  requestHash String @map("request_hash") @db.Char(64)
+  inputSnapshot Json @map("input_snapshot") @db.JsonB
+  objectiveSnapshot Json @map("objective_snapshot") @db.JsonB
+  startedAt DateTime? @map("started_at") @db.Timestamptz(3)
+  completedAt DateTime? @map("completed_at") @db.Timestamptz(3)
+  failureCode String? @map("failure_code") @db.VarChar(100)
+  @@unique([tenantId,jobRunId],map:"control_route_optimization_job_key")
+  @@index([tenantId,status,createdAt],map:"control_route_optimization_status_idx")
+  @@map("route_optimization")
+  @@schema("control")
+}
+
+model ControlRouteOptimizationResult {
+  id String @id @default(uuid()) @db.Uuid
+  tenantId String @map("tenant_id") @db.Uuid
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  createdBy String @map("created_by") @db.Uuid
+  updatedAt DateTime @default(now()) @map("updated_at") @db.Timestamptz(3)
+  updatedBy String @map("updated_by") @db.Uuid
+  version Int @default(1)
+  status ControlProjectionRecordStatus @default(ACTIVE)
+  optimizationId String @map("optimization_id") @db.Uuid
+  solver String @db.VarChar(100)
+  solverVersion String @map("solver_version") @db.VarChar(100)
+  feasibility String @db.VarChar(30)
+  objectiveValue Decimal? @map("objective_value") @db.Decimal(30,6)
+  routeSnapshot Json @map("route_snapshot") @db.JsonB
+  constraintSnapshot Json @map("constraint_snapshot") @db.JsonB
+  explanation String @db.Text
+  resultHash String @map("result_hash") @db.Char(64)
+  @@unique([tenantId,optimizationId],map:"control_route_optimization_result_key")
+  @@index([tenantId,createdAt],map:"control_route_optimization_result_created_idx")
+  @@map("route_optimization_result")
+  @@schema("control")
+}
+
+model ControlLoadOptimizationResult {
+  id String @id @default(uuid()) @db.Uuid
+  tenantId String @map("tenant_id") @db.Uuid
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  createdBy String @map("created_by") @db.Uuid
+  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
+  updatedBy String @map("updated_by") @db.Uuid
+  version Int @default(1)
+  status ControlLoadOptimizationStatus @default(QUEUED)
+  jobRunId String? @map("job_run_id") @db.Uuid
+  requestHash String @map("request_hash") @db.Char(64)
+  inputSnapshot Json @map("input_snapshot") @db.JsonB
+  placementSnapshot Json @map("placement_snapshot") @db.JsonB
+  constraintSnapshot Json @map("constraint_snapshot") @db.JsonB
+  explanation String @db.Text
+  solverVersion String @map("solver_version") @db.VarChar(100)
+  startedAt DateTime? @map("started_at") @db.Timestamptz(3)
+  completedAt DateTime? @map("completed_at") @db.Timestamptz(3)
+  failureCode String? @map("failure_code") @db.VarChar(100)
+  confirmedAt DateTime? @map("confirmed_at") @db.Timestamptz(3)
+  confirmedBy String? @map("confirmed_by") @db.Uuid
+  decisionReason String? @map("decision_reason") @db.VarChar(1000)
+  actualDeviationSnapshot Json? @map("actual_deviation_snapshot") @db.JsonB
+  deviationRecordedAt DateTime? @map("deviation_recorded_at") @db.Timestamptz(3)
+  @@unique([tenantId,jobRunId],map:"control_load_optimization_job_key")
+  @@index([tenantId,status,createdAt],map:"control_load_optimization_status_idx")
+  @@map("load_optimization_result")
+  @@schema("control")
+}
+
+model ControlDemandForecast {
+  id String @id @default(uuid()) @db.Uuid
+  tenantId String @map("tenant_id") @db.Uuid
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  createdBy String @map("created_by") @db.Uuid
+  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
+  updatedBy String @map("updated_by") @db.Uuid
+  version Int @default(1)
+  status ControlForecastStatus @default(DRAFT)
+  seriesKey String @map("series_key") @db.VarChar(300)
+  versionNumber Int @map("version_number")
+  dimensionSnapshot Json @map("dimension_snapshot") @db.JsonB
+  trainingFrom DateTime @map("training_from") @db.Timestamptz(3)
+  trainingTo DateTime @map("training_to") @db.Timestamptz(3)
+  horizon Int
+  granularity String @db.VarChar(30)
+  modelVersion String @map("model_version") @db.VarChar(100)
+  confidenceLevel Decimal @map("confidence_level") @db.Decimal(8,6)
+  pointSnapshot Json @map("point_snapshot") @db.JsonB
+  metricSnapshot Json @map("metric_snapshot") @db.JsonB
+  actualDeviationSnapshot Json? @map("actual_deviation_snapshot") @db.JsonB
+  publishedAt DateTime? @map("published_at") @db.Timestamptz(3)
+  @@unique([tenantId,seriesKey,versionNumber],map:"control_demand_forecast_version_key")
+  @@index([tenantId,seriesKey,status,createdAt],map:"control_demand_forecast_series_idx")
+  @@map("demand_forecast")
+  @@schema("control")
+}
+
+model ControlInventoryPolicyRecommendation {
+  id String @id @default(uuid()) @db.Uuid
+  tenantId String @map("tenant_id") @db.Uuid
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  createdBy String @map("created_by") @db.Uuid
+  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
+  updatedBy String @map("updated_by") @db.Uuid
+  version Int @default(1)
+  status ControlRecommendationStatus @default(PROPOSED)
+  forecastId String @map("forecast_id") @db.Uuid
+  productId String @map("product_id") @db.Uuid
+  warehouseId String @map("warehouse_id") @db.Uuid
+  inputSnapshot Json @map("input_snapshot") @db.JsonB
+  policySnapshot Json @map("policy_snapshot") @db.JsonB
+  explanation String @db.Text
+  expiresAt DateTime? @map("expires_at") @db.Timestamptz(3)
+  decidedAt DateTime? @map("decided_at") @db.Timestamptz(3)
+  decidedBy String? @map("decided_by") @db.Uuid
+  decisionReason String? @map("decision_reason") @db.VarChar(1000)
+  @@index([tenantId,warehouseId,productId,status,createdAt],map:"control_inventory_recommendation_lookup_idx")
+  @@map("inventory_policy_recommendation")
+  @@schema("control")
+}
+
+model ControlNetworkScenario {
+  id String @id @default(uuid()) @db.Uuid
+  tenantId String @map("tenant_id") @db.Uuid
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  createdBy String @map("created_by") @db.Uuid
+  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
+  updatedBy String @map("updated_by") @db.Uuid
+  version Int @default(1)
+  status ControlNetworkScenarioStatus @default(DRAFT)
+  scenarioNo String @map("scenario_no") @db.VarChar(100)
+  name String @db.VarChar(200)
+  baselineSnapshot Json @map("baseline_snapshot") @db.JsonB
+  changeSnapshot Json @map("change_snapshot") @db.JsonB
+  baselineScenarioId String? @map("baseline_scenario_id") @db.Uuid
+  jobRunId String? @map("job_run_id") @db.Uuid
+  startedAt DateTime? @map("started_at") @db.Timestamptz(3)
+  completedAt DateTime? @map("completed_at") @db.Timestamptz(3)
+  failureCode String? @map("failure_code") @db.VarChar(100)
+  @@unique([tenantId,scenarioNo],map:"control_network_scenario_no_key")
+  @@unique([tenantId,jobRunId],map:"control_network_scenario_job_key")
+  @@index([tenantId,status,createdAt],map:"control_network_scenario_status_idx")
+  @@map("network_scenario")
+  @@schema("control")
+}
+
+model ControlSimulationResult {
+  id String @id @default(uuid()) @db.Uuid
+  tenantId String @map("tenant_id") @db.Uuid
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  createdBy String @map("created_by") @db.Uuid
+  updatedAt DateTime @default(now()) @map("updated_at") @db.Timestamptz(3)
+  updatedBy String @map("updated_by") @db.Uuid
+  version Int @default(1)
+  status ControlProjectionRecordStatus @default(ACTIVE)
+  scenarioId String @map("scenario_id") @db.Uuid
+  metricSnapshot Json @map("metric_snapshot") @db.JsonB
+  comparisonSnapshot Json @map("comparison_snapshot") @db.JsonB
+  exportSnapshot Json @map("export_snapshot") @db.JsonB
+  explanation String @db.Text
+  resultHash String @map("result_hash") @db.Char(64)
+  @@unique([tenantId,scenarioId],map:"control_simulation_result_scenario_key")
+  @@index([tenantId,createdAt],map:"control_simulation_result_created_idx")
+  @@map("simulation_result")
+  @@schema("control")
+}
+
 enum IntegrationRecordStatus {
   ACTIVE
   INACTIVE
