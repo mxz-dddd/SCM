@@ -22,6 +22,7 @@ import { AlertGovernanceWorkbench } from '../control/AlertGovernanceWorkbench';
 import { BiAnalyticsWorkbench } from '../control/BiAnalyticsWorkbench';
 import { ReconciliationWorkbench } from '../control/ReconciliationWorkbench';
 import { ApiGatewayWorkbench } from '../integration/ApiGatewayWorkbench';
+import { AdapterIotWorkbench } from '../integration/AdapterIotWorkbench';
 import { MessageExchangeWorkbench } from '../integration/MessageExchangeWorkbench';
 import { AuditWorkbench } from '../platform/AuditWorkbench';
 import { AttachmentWorkbench } from '../platform/AttachmentWorkbench';
@@ -193,6 +194,12 @@ const pageRegistry: readonly WorkspaceTab[] = [
     route: '/integration/exchange',
     title: '消息集成',
   },
+  {
+    dirty: false,
+    id: 'integration-adapter-iot',
+    route: '/integration/adapter-iot',
+    title: '适配器与 IoT',
+  },
 ];
 
 const modules = [
@@ -227,6 +234,7 @@ const modules = [
   ['验收', 'control-acceptance'],
   ['集成', 'integration-gateway'],
   ['消息集成', 'integration-exchange'],
+  ['适配器与 IoT', 'integration-adapter-iot'],
 ] as const;
 
 interface WorkspaceCatalogItem {
@@ -389,6 +397,7 @@ export function ApplicationShell() {
     if (tabId === 'control-acceptance') return <ReconciliationWorkbench />;
     if (tabId === 'integration-gateway') return <ApiGatewayWorkbench />;
     if (tabId === 'integration-exchange') return <MessageExchangeWorkbench />;
+    if (tabId === 'integration-adapter-iot') return <AdapterIotWorkbench />;
     return (
       <section className="workspace-placeholder">
         <Typography.Title level={2}>

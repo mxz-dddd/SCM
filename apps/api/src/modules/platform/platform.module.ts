@@ -114,6 +114,7 @@ import { IdempotencyExecutionFacade } from './public/idempotency-execution.facad
     AttachmentReferenceFacade,
     ChangeRecordingFacade,
     EventConsumptionFacade,
+    IdempotencyExecutionFacade,
     JobSchedulingFacade,
     PermissionDecisionFacade,
     RuleEvaluationFacade,

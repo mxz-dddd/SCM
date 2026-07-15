@@ -12691,3 +12691,297 @@ model IntegrationReplayRecord {
   @@map("replay_record")
   @@schema("integration")
 }
+
+enum IntegrationAdapterType {
+  ERP
+  FINANCE
+  @@schema("integration")
+}
+
+enum IntegrationAdapterStatus {
+  DRAFT
+  ACTIVE
+  SUSPENDED
+  RETIRED
+  @@schema("integration")
+}
+
+enum IntegrationAdapterCommandStatus {
+  NORMALIZED
+  DISPATCHED
+  ACKNOWLEDGED
+  FAILED
+  @@schema("integration")
+}
+
+enum IntegrationDeviceType {
+  RF
+  PRINTER
+  SCALE
+  GATE
+  GPS
+  TEMPERATURE
+  @@schema("integration")
+}
+
+enum IntegrationDeviceStatus {
+  PENDING
+  ACTIVE
+  SUSPENDED
+  REVOKED
+  @@schema("integration")
+}
+
+enum IntegrationDeviceCertificateStatus {
+  ACTIVE
+  ROTATED
+  REVOKED
+  EXPIRED
+  @@schema("integration")
+}
+
+enum IntegrationDeviceCommandStatus {
+  QUEUED
+  SENT
+  ACKNOWLEDGED
+  FAILED
+  EXPIRED
+  @@schema("integration")
+}
+
+model IntegrationAdapterDefinition {
+  id String @id @default(uuid()) @db.Uuid
+  tenantId String @map("tenant_id") @db.Uuid
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  createdBy String @map("created_by") @db.Uuid
+  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
+  updatedBy String @map("updated_by") @db.Uuid
+  version Int @default(1)
+  status IntegrationAdapterStatus @default(DRAFT)
+  code String @db.VarChar(100)
+  name String @db.VarChar(200)
+  adapterType IntegrationAdapterType @map("adapter_type")
+  vendor String @db.VarChar(100)
+  capabilities Json @db.JsonB
+  activeVersionNumber Int? @map("active_version_number")
+  @@unique([tenantId,code],map:"integration_adapter_definition_code_key")
+  @@index([tenantId,status,adapterType],map:"integration_adapter_definition_status_idx")
+  @@map("adapter_definition")
+  @@schema("integration")
+}
+
+model IntegrationAdapterVersion {
+  id String @id @default(uuid()) @db.Uuid
+  tenantId String @map("tenant_id") @db.Uuid
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  createdBy String @map("created_by") @db.Uuid
+  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
+  updatedBy String @map("updated_by") @db.Uuid
+  version Int @default(1)
+  status IntegrationMappingStatus @default(DRAFT)
+  definitionId String @map("definition_id") @db.Uuid
+  versionNumber Int @map("version_number")
+  rules Json @db.JsonB
+  sampleInput Json @map("sample_input") @db.JsonB
+  expectedCanonical Json @map("expected_canonical") @db.JsonB
+  testResult Json? @map("test_result") @db.JsonB
+  testedAt DateTime? @map("tested_at") @db.Timestamptz(3)
+  publishedAt DateTime? @map("published_at") @db.Timestamptz(3)
+  @@unique([tenantId,definitionId,versionNumber],map:"integration_adapter_version_number_key")
+  @@index([tenantId,definitionId,status],map:"integration_adapter_version_status_idx")
+  @@map("adapter_version")
+  @@schema("integration")
+}
+
+model IntegrationAdapterCommand {
+  id String @id @default(uuid()) @db.Uuid
+  tenantId String @map("tenant_id") @db.Uuid
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  createdBy String @map("created_by") @db.Uuid
+  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
+  updatedBy String @map("updated_by") @db.Uuid
+  version Int @default(1)
+  status IntegrationAdapterCommandStatus @default(NORMALIZED)
+  definitionId String @map("definition_id") @db.Uuid
+  adapterVersionId String @map("adapter_version_id") @db.Uuid
+  capability String @db.VarChar(30)
+  direction IntegrationDirection
+  businessRef String @map("business_ref") @db.VarChar(200)
+  externalRef String @map("external_ref") @db.VarChar(200)
+  vendorPayload Json @map("vendor_payload") @db.JsonB
+  canonicalPayload Json @map("canonical_payload") @db.JsonB
+  contentHash String @map("content_hash") @db.Char(64)
+  dispatchedAt DateTime? @map("dispatched_at") @db.Timestamptz(3)
+  completedAt DateTime? @map("completed_at") @db.Timestamptz(3)
+  errorCode String? @map("error_code") @db.VarChar(100)
+  errorMessage String? @map("error_message") @db.VarChar(1000)
+  @@unique([tenantId,definitionId,externalRef,contentHash],map:"integration_adapter_command_external_key")
+  @@index([tenantId,status,createdAt],map:"integration_adapter_command_status_idx")
+  @@index([tenantId,businessRef,createdAt],map:"integration_adapter_command_business_idx")
+  @@map("adapter_command")
+  @@schema("integration")
+}
+
+model IntegrationAdapterEvent {
+  id String @id @default(uuid()) @db.Uuid
+  tenantId String @map("tenant_id") @db.Uuid
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  createdBy String @map("created_by") @db.Uuid
+  updatedAt DateTime @default(now()) @map("updated_at") @db.Timestamptz(3)
+  updatedBy String @map("updated_by") @db.Uuid
+  version Int @default(1)
+  status IntegrationRecordStatus @default(ACTIVE)
+  commandId String @map("command_id") @db.Uuid
+  eventType String @map("event_type") @db.VarChar(100)
+  canonicalPayload Json @map("canonical_payload") @db.JsonB
+  vendorResponse Json? @map("vendor_response") @db.JsonB
+  sourceVersion Int @map("source_version")
+  @@index([tenantId,commandId,createdAt],map:"integration_adapter_event_command_idx")
+  @@map("adapter_event")
+  @@schema("integration")
+}
+
+model IntegrationDevice {
+  id String @id @default(uuid()) @db.Uuid
+  tenantId String @map("tenant_id") @db.Uuid
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  createdBy String @map("created_by") @db.Uuid
+  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
+  updatedBy String @map("updated_by") @db.Uuid
+  version Int @default(1)
+  status IntegrationDeviceStatus @default(PENDING)
+  hardwareId String @map("hardware_id") @db.VarChar(150)
+  name String @db.VarChar(200)
+  deviceType IntegrationDeviceType @map("device_type")
+  capabilities Json @db.JsonB
+  activeCertificateFingerprint String @map("active_certificate_fingerprint") @db.VarChar(128)
+  certificateValidUntil DateTime @map("certificate_valid_until") @db.Timestamptz(3)
+  heartbeatTimeoutSeconds Int @default(300) @map("heartbeat_timeout_seconds")
+  telemetryPerMinuteLimit Int @default(60) @map("telemetry_per_minute_limit")
+  lastHeartbeatAt DateTime? @map("last_heartbeat_at") @db.Timestamptz(3)
+  firmwareVersion String? @map("firmware_version") @db.VarChar(100)
+  @@unique([tenantId,hardwareId],map:"integration_device_hardware_key")
+  @@index([tenantId,status,deviceType],map:"integration_device_status_idx")
+  @@map("device")
+  @@schema("integration")
+}
+
+model IntegrationDeviceCertificate {
+  id String @id @default(uuid()) @db.Uuid
+  tenantId String @map("tenant_id") @db.Uuid
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  createdBy String @map("created_by") @db.Uuid
+  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
+  updatedBy String @map("updated_by") @db.Uuid
+  version Int @default(1)
+  status IntegrationDeviceCertificateStatus @default(ACTIVE)
+  deviceId String @map("device_id") @db.Uuid
+  fingerprint String @db.VarChar(128)
+  validFrom DateTime @map("valid_from") @db.Timestamptz(3)
+  validUntil DateTime @map("valid_until") @db.Timestamptz(3)
+  rotatedToCertificateId String? @map("rotated_to_certificate_id") @db.Uuid
+  @@unique([tenantId,fingerprint],map:"integration_device_certificate_fingerprint_key")
+  @@index([tenantId,deviceId,status],map:"integration_device_certificate_status_idx")
+  @@map("device_certificate")
+  @@schema("integration")
+}
+
+model IntegrationDeviceHeartbeat {
+  id String @id @default(uuid()) @db.Uuid
+  tenantId String @map("tenant_id") @db.Uuid
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  createdBy String @map("created_by") @db.Uuid
+  updatedAt DateTime @default(now()) @map("updated_at") @db.Timestamptz(3)
+  updatedBy String @map("updated_by") @db.Uuid
+  version Int @default(1)
+  status IntegrationRecordStatus @default(ACTIVE)
+  deviceId String @map("device_id") @db.Uuid
+  occurredAt DateTime @map("occurred_at") @db.Timestamptz(3)
+  firmwareVersion String? @map("firmware_version") @db.VarChar(100)
+  healthSnapshot Json @map("health_snapshot") @db.JsonB
+  @@index([tenantId,deviceId,occurredAt],map:"integration_device_heartbeat_device_idx")
+  @@map("device_heartbeat")
+  @@schema("integration")
+}
+
+model IntegrationDeviceCommand {
+  id String @id @default(uuid()) @db.Uuid
+  tenantId String @map("tenant_id") @db.Uuid
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  createdBy String @map("created_by") @db.Uuid
+  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
+  updatedBy String @map("updated_by") @db.Uuid
+  version Int @default(1)
+  status IntegrationDeviceCommandStatus @default(QUEUED)
+  deviceId String @map("device_id") @db.Uuid
+  commandType String @map("command_type") @db.VarChar(100)
+  payload Json @db.JsonB
+  sequence Int
+  expiresAt DateTime @map("expires_at") @db.Timestamptz(3)
+  sentAt DateTime? @map("sent_at") @db.Timestamptz(3)
+  acknowledgedAt DateTime? @map("acknowledged_at") @db.Timestamptz(3)
+  errorCode String? @map("error_code") @db.VarChar(100)
+  @@unique([tenantId,deviceId,sequence],map:"integration_device_command_sequence_key")
+  @@index([tenantId,deviceId,status,createdAt],map:"integration_device_command_status_idx")
+  @@map("device_command")
+  @@schema("integration")
+}
+
+model IntegrationDeviceCommandAck {
+  id String @id @default(uuid()) @db.Uuid
+  tenantId String @map("tenant_id") @db.Uuid
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  createdBy String @map("created_by") @db.Uuid
+  updatedAt DateTime @default(now()) @map("updated_at") @db.Timestamptz(3)
+  updatedBy String @map("updated_by") @db.Uuid
+  version Int @default(1)
+  status IntegrationRecordStatus @default(ACTIVE)
+  deviceId String @map("device_id") @db.Uuid
+  commandId String @map("command_id") @db.Uuid
+  outcome String @db.VarChar(30)
+  payload Json @db.JsonB
+  occurredAt DateTime @map("occurred_at") @db.Timestamptz(3)
+  @@unique([tenantId,commandId],map:"integration_device_command_ack_key")
+  @@index([tenantId,deviceId,occurredAt],map:"integration_device_command_ack_device_idx")
+  @@map("device_command_ack")
+  @@schema("integration")
+}
+
+model IntegrationDeviceTelemetry {
+  id String @id @default(uuid()) @db.Uuid
+  tenantId String @map("tenant_id") @db.Uuid
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  createdBy String @map("created_by") @db.Uuid
+  updatedAt DateTime @default(now()) @map("updated_at") @db.Timestamptz(3)
+  updatedBy String @map("updated_by") @db.Uuid
+  version Int @default(1)
+  status IntegrationRecordStatus @default(ACTIVE)
+  deviceId String @map("device_id") @db.Uuid
+  telemetryType String @map("telemetry_type") @db.VarChar(100)
+  sequence String @db.VarChar(100)
+  occurredAt DateTime @map("occurred_at") @db.Timestamptz(3)
+  valueSnapshot Json @map("value_snapshot") @db.JsonB
+  contentHash String @map("content_hash") @db.Char(64)
+  @@unique([tenantId,deviceId,sequence],map:"integration_device_telemetry_sequence_key")
+  @@index([tenantId,deviceId,occurredAt],map:"integration_device_telemetry_device_idx")
+  @@map("device_telemetry")
+  @@schema("integration")
+}
+
+model IntegrationTelemetryUsageBucket {
+  id String @id @default(uuid()) @db.Uuid
+  tenantId String @map("tenant_id") @db.Uuid
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  createdBy String @map("created_by") @db.Uuid
+  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
+  updatedBy String @map("updated_by") @db.Uuid
+  version Int @default(1)
+  status IntegrationRecordStatus @default(ACTIVE)
+  deviceId String @map("device_id") @db.Uuid
+  bucketStart DateTime @map("bucket_start") @db.Timestamptz(3)
+  sampleCount Int @default(0) @map("sample_count")
+  @@unique([tenantId,deviceId,bucketStart],map:"integration_telemetry_usage_bucket_key")
+  @@index([tenantId,bucketStart],map:"integration_telemetry_usage_bucket_time_idx")
+  @@map("telemetry_usage_bucket")
+  @@schema("integration")
+}

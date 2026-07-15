@@ -57,6 +57,12 @@ export class AppModule implements NestModule {
           method: RequestMethod.POST,
           path: 'api/v1/external/gateway/authorize',
         },
+        { method: RequestMethod.POST, path: 'api/v1/external/iot/heartbeat' },
+        { method: RequestMethod.POST, path: 'api/v1/external/iot/telemetry' },
+        {
+          method: RequestMethod.POST,
+          path: 'api/v1/external/iot/command-acknowledgements',
+        },
         {
           method: RequestMethod.GET,
           path: 'api/v1/public/openapi/:tenantId/:name/:version',
