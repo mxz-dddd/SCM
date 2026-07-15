@@ -78,6 +78,11 @@ describe('RBAC resolution', () => {
     ).toEqual(new Set(['MENU', 'PAGE', 'API', 'BUTTON', 'FIELD', 'EXPORT']));
   });
 
+  it('keeps permission codes unique for new-tenant bulk provisioning', () => {
+    const codes = ADMIN_PERMISSIONS.map(({ code }) => code);
+    expect(new Set(codes).size).toBe(codes.length);
+  });
+
   it('grants the administrator the implemented module execution surface', () => {
     const codes = new Set(ADMIN_PERMISSIONS.map(({ code }) => code));
     expect(

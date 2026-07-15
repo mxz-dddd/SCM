@@ -39,6 +39,13 @@ const owner = (operation: string, tenantId: string) =>
 const timers: ReturnType<typeof setInterval>[] = [];
 let stopping = false;
 
+const interval = (name: string, fallback: number, minimum: number) => {
+  const value = Number(process.env[name] ?? fallback);
+  if (!Number.isInteger(value) || value < minimum || value > 3_600_000)
+    throw new Error(`${name} must be between ${minimum} and 3600000`);
+  return value;
+};
+
 const periodic = (milliseconds: number, task: () => Promise<unknown>) => {
   const run = () => {
     if (stopping) return;
@@ -53,21 +60,24 @@ const periodic = (milliseconds: number, task: () => Promise<unknown>) => {
   timers.push(timer);
 };
 
-periodic(30_000, async () => {
-  await supervisor.refresh();
-  console.info('worker.health', supervisor.health());
-});
-periodic(1_000, () =>
+periodic(
+  interval('WORKER_TENANT_REFRESH_INTERVAL_MS', 30_000, 500),
+  async () => {
+    await supervisor.refresh();
+    console.info('worker.health', supervisor.health());
+  },
+);
+periodic(interval('WORKER_RELAY_INTERVAL_MS', 1_000, 100), () =>
   supervisor.run('relay', (tenantId) =>
     runRelayOnce(tenantId, owner('relay', tenantId), api),
   ),
 );
-periodic(500, () =>
+periodic(interval('WORKER_EVENT_DELIVERY_INTERVAL_MS', 500, 100), () =>
   supervisor.run('event-delivery', (tenantId) =>
     runEventDeliveriesOnce(tenantId, owner('delivery', tenantId), api),
   ),
 );
-periodic(2_000, () =>
+periodic(interval('WORKER_WEBHOOK_INTERVAL_MS', 2_000, 100), () =>
   supervisor.run('webhook', (tenantId) =>
     deliverWebhooksOnce(tenantId, owner('webhook', tenantId), api),
   ),

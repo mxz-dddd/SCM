@@ -70,6 +70,7 @@ function render(discovered: ReadonlyMap<string, ReadonlySet<string>>): string {
   return `# V2 事件目录与订阅清单
 
 > 本文件由 \`pnpm event:catalog\` 从 API 源码中的 \`eventName\`、\`emit\`、\`record\` 与 Outbox 写入点扫描生成。请勿手工维护事件行。
+> V2-08 的真实 Worker E2E 会校验自动 fan-out、EVERY_EVENT 顺序、重试、死信、分区阻塞和人工重放。
 
 ## 订阅定义
 

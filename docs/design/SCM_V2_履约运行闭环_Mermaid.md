@@ -1,6 +1,6 @@
 # SCM V2 OMS→WMS/TMS 履约运行闭环
 
-本图集描述 V2-03 已落地的运行时边界。WMS/TMS consumer 只读取自包含事件，不查询 OMS 内部表；所有副作用均通过目标域公开服务完成。
+本图集描述 V2-03 已落地并由 V2-08 真实 API + Worker E2E 验证的运行时边界。WMS/TMS consumer 只读取自包含事件，不查询 OMS 内部表；所有副作用均通过目标域公开服务完成。部署视图、EventDelivery 流程和 Worker Principal 关系见 [V2 运行闭环架构](V2_ARCHITECTURE.md)。
 
 ## 自动履约流程
 

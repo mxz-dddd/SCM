@@ -828,12 +828,6 @@ export const ADMIN_PERMISSIONS = [
     resourceType: 'BUTTON',
   },
   {
-    code: 'oms.fulfillment.project',
-    name: '投影订单履约进度',
-    resourceRef: '/api/v1/oms/orders/*/lines/*/progress',
-    resourceType: 'API',
-  },
-  {
     code: 'oms.substitution.write',
     name: '发起替代品建议',
     resourceRef: '/api/v1/oms/orders/*/lines/*/substitutions',
