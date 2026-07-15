@@ -71,4 +71,20 @@ export class EventConsumptionFacade {
       handler,
     );
   }
+  consumeControlLake(
+    event: BusinessEventInput,
+    context: TenantContext,
+    metadata: CommandMetadata,
+    handler: (
+      event: BusinessEventInput,
+      transaction: Prisma.TransactionClient,
+    ) => Promise<Readonly<Record<string, unknown>>>,
+  ) {
+    return this.events.consume(
+      { consumer: 'control.data-lake.v1', event },
+      context,
+      metadata,
+      handler,
+    );
+  }
 }

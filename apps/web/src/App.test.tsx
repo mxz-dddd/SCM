@@ -74,6 +74,29 @@ describe('App', () => {
     ).toBeDisabled();
   });
 
+  it('opens governed BI analytics and lake snapshots', () => {
+    render(<App />);
+
+    fireEvent.click(screen.getByRole('button', { name: 'BI' }));
+
+    expect(
+      screen.getByRole('heading', { name: 'BI 分析与数据湖' }),
+    ).toBeInTheDocument();
+    expect(screen.getByText('KPI 指标口径与历史版本')).toBeInTheDocument();
+    expect(screen.getByText('运营看板与自动刷新')).toBeInTheDocument();
+    expect(screen.getByText('自助分析、配额与脱敏')).toBeInTheDocument();
+    expect(screen.getByText('数据湖事实、维度与隔离重算')).toBeInTheDocument();
+    expect(
+      screen.getByRole('button', { name: '发布 KPI 口径版本' }),
+    ).toBeDisabled();
+    expect(
+      screen.getByRole('button', { name: '查看未脱敏结果' }),
+    ).toBeDisabled();
+    expect(
+      screen.getByRole('button', { name: '隔离重算数据集' }),
+    ).toBeDisabled();
+  });
+
   it('opens the configuration, dictionary and number rule workbench', () => {
     render(<App />);
 

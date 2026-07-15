@@ -7,12 +7,19 @@ import { ControlTowerController } from './control-tower.controller';
 import { ControlTowerService } from './control-tower.service';
 import { AlertGovernanceController } from './alert-governance.controller';
 import { AlertGovernanceService } from './alert-governance.service';
+import { BiAnalyticsController } from './bi-analytics.controller';
+import { BiAnalyticsService } from './bi-analytics.service';
 
 @Module({
-  controllers: [AlertGovernanceController, ControlTowerController],
+  controllers: [
+    AlertGovernanceController,
+    BiAnalyticsController,
+    ControlTowerController,
+  ],
   imports: [MdmModule, PlatformModule],
   providers: [
     AlertGovernanceService,
+    BiAnalyticsService,
     ControlTowerService,
     PermissionGuard,
     PermissionService,

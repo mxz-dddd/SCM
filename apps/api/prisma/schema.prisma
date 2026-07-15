@@ -11661,3 +11661,363 @@ model ControlKnowledgeArticle {
   @@map("knowledge_article")
   @@schema("control")
 }
+
+enum ControlBiLifecycle {
+  DRAFT
+  PUBLISHED
+  RETIRED
+  @@schema("control")
+}
+
+enum ControlMetricGranularity {
+  EVENT
+  MINUTE
+  HOUR
+  DAY
+  WEEK
+  MONTH
+  @@schema("control")
+}
+
+enum ControlReportVisibility {
+  PRIVATE
+  TENANT
+  @@schema("control")
+}
+
+enum ControlQueryJobStatus {
+  QUEUED
+  COMPLETED
+  REJECTED
+  @@schema("control")
+}
+
+enum ControlLakeArrivalStatus {
+  ON_TIME
+  LATE
+  @@schema("control")
+}
+
+enum ControlLakeRecomputeStatus {
+  RUNNING
+  COMPLETED
+  FAILED
+  @@schema("control")
+}
+
+model ControlMetricDefinition {
+  id String @id @default(uuid()) @db.Uuid
+  tenantId String @map("tenant_id") @db.Uuid
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  createdBy String @map("created_by") @db.Uuid
+  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
+  updatedBy String @map("updated_by") @db.Uuid
+  version Int @default(1)
+  status ControlBiLifecycle @default(DRAFT)
+  code String @db.VarChar(100)
+  name String @db.VarChar(200)
+  activeVersionNumber Int? @map("active_version_number")
+  @@unique([tenantId,code],map:"control_metric_definition_code_key")
+  @@index([tenantId,status,code],map:"control_metric_definition_lookup_idx")
+  @@map("metric_definition")
+  @@schema("control")
+}
+
+model ControlMetricDefinitionVersion {
+  id String @id @default(uuid()) @db.Uuid
+  tenantId String @map("tenant_id") @db.Uuid
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  createdBy String @map("created_by") @db.Uuid
+  updatedAt DateTime @default(now()) @map("updated_at") @db.Timestamptz(3)
+  updatedBy String @map("updated_by") @db.Uuid
+  version Int @default(1)
+  status ControlProjectionRecordStatus @default(ACTIVE)
+  metricDefinitionId String @map("metric_definition_id") @db.Uuid
+  versionNumber Int @map("version_number")
+  formulaSnapshot Json @map("formula_snapshot") @db.JsonB
+  granularity ControlMetricGranularity
+  dimensionSnapshot Json @map("dimension_snapshot") @db.JsonB
+  timeZone String @map("time_zone") @db.VarChar(100)
+  dataSourceSnapshot Json @map("data_source_snapshot") @db.JsonB
+  refreshPolicySnapshot Json @map("refresh_policy_snapshot") @db.JsonB
+  sensitiveDimensionSnapshot Json @map("sensitive_dimension_snapshot") @db.JsonB
+  publishedAt DateTime @default(now()) @map("published_at") @db.Timestamptz(3)
+  @@unique([tenantId,metricDefinitionId,versionNumber],map:"control_metric_definition_version_key")
+  @@index([tenantId,metricDefinitionId,publishedAt],map:"control_metric_definition_version_idx")
+  @@map("metric_definition_version")
+  @@schema("control")
+}
+
+model ControlMetricObservation {
+  id String @id @default(uuid()) @db.Uuid
+  tenantId String @map("tenant_id") @db.Uuid
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  createdBy String @map("created_by") @db.Uuid
+  updatedAt DateTime @default(now()) @map("updated_at") @db.Timestamptz(3)
+  updatedBy String @map("updated_by") @db.Uuid
+  version Int @default(1)
+  status ControlProjectionRecordStatus @default(ACTIVE)
+  metricVersionId String @map("metric_version_id") @db.Uuid
+  periodStart DateTime @map("period_start") @db.Timestamptz(3)
+  periodEnd DateTime @map("period_end") @db.Timestamptz(3)
+  dimensionHash String @map("dimension_hash") @db.Char(64)
+  dimensionSnapshot Json @map("dimension_snapshot") @db.JsonB
+  componentSnapshot Json @map("component_snapshot") @db.JsonB
+  value Decimal @db.Decimal(30,10)
+  computedAt DateTime @default(now()) @map("computed_at") @db.Timestamptz(3)
+  sourceSnapshot Json @map("source_snapshot") @db.JsonB
+  @@unique([tenantId,metricVersionId,periodStart,periodEnd,dimensionHash],map:"control_metric_observation_scope_key")
+  @@index([tenantId,metricVersionId,periodStart,periodEnd],map:"control_metric_observation_period_idx")
+  @@map("metric_observation")
+  @@schema("control")
+}
+
+model ControlDashboard {
+  id String @id @default(uuid()) @db.Uuid
+  tenantId String @map("tenant_id") @db.Uuid
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  createdBy String @map("created_by") @db.Uuid
+  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
+  updatedBy String @map("updated_by") @db.Uuid
+  version Int @default(1)
+  status ControlBiLifecycle @default(DRAFT)
+  code String @db.VarChar(100)
+  name String @db.VarChar(200)
+  activeVersionNumber Int? @map("active_version_number")
+  @@unique([tenantId,code],map:"control_dashboard_code_key")
+  @@index([tenantId,status,code],map:"control_dashboard_lookup_idx")
+  @@map("dashboard")
+  @@schema("control")
+}
+
+model ControlDashboardVersion {
+  id String @id @default(uuid()) @db.Uuid
+  tenantId String @map("tenant_id") @db.Uuid
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  createdBy String @map("created_by") @db.Uuid
+  updatedAt DateTime @default(now()) @map("updated_at") @db.Timestamptz(3)
+  updatedBy String @map("updated_by") @db.Uuid
+  version Int @default(1)
+  status ControlProjectionRecordStatus @default(ACTIVE)
+  dashboardId String @map("dashboard_id") @db.Uuid
+  versionNumber Int @map("version_number")
+  organizationRef String? @map("organization_ref") @db.VarChar(200)
+  warehouseRef String? @map("warehouse_ref") @db.VarChar(200)
+  refreshSeconds Int @map("refresh_seconds")
+  layoutSnapshot Json @map("layout_snapshot") @db.JsonB
+  publishedAt DateTime @default(now()) @map("published_at") @db.Timestamptz(3)
+  @@unique([tenantId,dashboardId,versionNumber],map:"control_dashboard_version_key")
+  @@index([tenantId,organizationRef,warehouseRef,publishedAt],map:"control_dashboard_context_idx")
+  @@map("dashboard_version")
+  @@schema("control")
+}
+
+model ControlDashboardWidgetConfig {
+  id String @id @default(uuid()) @db.Uuid
+  tenantId String @map("tenant_id") @db.Uuid
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  createdBy String @map("created_by") @db.Uuid
+  updatedAt DateTime @default(now()) @map("updated_at") @db.Timestamptz(3)
+  updatedBy String @map("updated_by") @db.Uuid
+  version Int @default(1)
+  status ControlProjectionRecordStatus @default(ACTIVE)
+  dashboardVersionId String @map("dashboard_version_id") @db.Uuid
+  widgetKey String @map("widget_key") @db.VarChar(100)
+  widgetType String @map("widget_type") @db.VarChar(30)
+  title String @db.VarChar(200)
+  metricCode String? @map("metric_code") @db.VarChar(100)
+  positionSnapshot Json @map("position_snapshot") @db.JsonB
+  configSnapshot Json @map("config_snapshot") @db.JsonB
+  @@unique([tenantId,dashboardVersionId,widgetKey],map:"control_dashboard_widget_key")
+  @@index([tenantId,dashboardVersionId,widgetType],map:"control_dashboard_widget_version_idx")
+  @@map("dashboard_widget_config")
+  @@schema("control")
+}
+
+model ControlReportDefinition {
+  id String @id @default(uuid()) @db.Uuid
+  tenantId String @map("tenant_id") @db.Uuid
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  createdBy String @map("created_by") @db.Uuid
+  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
+  updatedBy String @map("updated_by") @db.Uuid
+  version Int @default(1)
+  status ControlBiLifecycle @default(DRAFT)
+  code String @db.VarChar(100)
+  name String @db.VarChar(200)
+  ownerRef String @map("owner_ref") @db.Uuid
+  visibility ControlReportVisibility @default(PRIVATE)
+  activeVersionNumber Int? @map("active_version_number")
+  @@unique([tenantId,code],map:"control_report_definition_code_key")
+  @@index([tenantId,status,visibility,ownerRef],map:"control_report_definition_lookup_idx")
+  @@map("report_definition")
+  @@schema("control")
+}
+
+model ControlReportDefinitionVersion {
+  id String @id @default(uuid()) @db.Uuid
+  tenantId String @map("tenant_id") @db.Uuid
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  createdBy String @map("created_by") @db.Uuid
+  updatedAt DateTime @default(now()) @map("updated_at") @db.Timestamptz(3)
+  updatedBy String @map("updated_by") @db.Uuid
+  version Int @default(1)
+  status ControlProjectionRecordStatus @default(ACTIVE)
+  reportDefinitionId String @map("report_definition_id") @db.Uuid
+  versionNumber Int @map("version_number")
+  semanticModel String @map("semantic_model") @db.VarChar(100)
+  metricVersionSnapshot Json @map("metric_version_snapshot") @db.JsonB
+  dimensionSnapshot Json @map("dimension_snapshot") @db.JsonB
+  filterSnapshot Json @map("filter_snapshot") @db.JsonB
+  shareSnapshot Json @map("share_snapshot") @db.JsonB
+  quotaSnapshot Json @map("quota_snapshot") @db.JsonB
+  maskingSnapshot Json @map("masking_snapshot") @db.JsonB
+  exportPolicySnapshot Json @map("export_policy_snapshot") @db.JsonB
+  publishedAt DateTime @default(now()) @map("published_at") @db.Timestamptz(3)
+  @@unique([tenantId,reportDefinitionId,versionNumber],map:"control_report_definition_version_key")
+  @@index([tenantId,reportDefinitionId,publishedAt],map:"control_report_definition_version_idx")
+  @@map("report_definition_version")
+  @@schema("control")
+}
+
+model ControlQueryJob {
+  id String @id @default(uuid()) @db.Uuid
+  tenantId String @map("tenant_id") @db.Uuid
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  createdBy String @map("created_by") @db.Uuid
+  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
+  updatedBy String @map("updated_by") @db.Uuid
+  version Int @default(1)
+  status ControlQueryJobStatus @default(QUEUED)
+  reportVersionId String @map("report_version_id") @db.Uuid
+  requestedBy String @map("requested_by") @db.Uuid
+  queryHash String @map("query_hash") @db.Char(64)
+  rowLimit Int @map("row_limit")
+  estimatedCost Int @map("estimated_cost")
+  exportRequested Boolean @default(false) @map("export_requested")
+  sensitiveAccess Boolean @default(false) @map("sensitive_access")
+  resultSnapshot Json @map("result_snapshot") @db.JsonB
+  maskedFieldSnapshot Json @map("masked_field_snapshot") @db.JsonB
+  rowCount Int @default(0) @map("row_count")
+  rejectionCode String? @map("rejection_code") @db.VarChar(100)
+  completedAt DateTime? @map("completed_at") @db.Timestamptz(3)
+  expiresAt DateTime @map("expires_at") @db.Timestamptz(3)
+  @@index([tenantId,requestedBy,createdAt,id],map:"control_query_job_requester_idx")
+  @@index([tenantId,status,createdAt],map:"control_query_job_status_idx")
+  @@map("query_job")
+  @@schema("control")
+}
+
+model ControlAnalyticsQuotaBucket {
+  id String @id @default(uuid()) @db.Uuid
+  tenantId String @map("tenant_id") @db.Uuid
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  createdBy String @map("created_by") @db.Uuid
+  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
+  updatedBy String @map("updated_by") @db.Uuid
+  version Int @default(1)
+  status ControlProjectionRecordStatus @default(ACTIVE)
+  accountId String @map("account_id") @db.Uuid
+  quotaDate DateTime @map("quota_date") @db.Date
+  queryCount Int @default(0) @map("query_count")
+  exportCount Int @default(0) @map("export_count")
+  costUsed Int @default(0) @map("cost_used")
+  runningCount Int @default(0) @map("running_count")
+  @@unique([tenantId,accountId,quotaDate],map:"control_analytics_quota_bucket_key")
+  @@map("analytics_quota_bucket")
+  @@schema("control")
+}
+
+model ControlLakeWatermark {
+  id String @id @default(uuid()) @db.Uuid
+  tenantId String @map("tenant_id") @db.Uuid
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  createdBy String @map("created_by") @db.Uuid
+  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
+  updatedBy String @map("updated_by") @db.Uuid
+  version Int @default(1)
+  status ControlProjectionRecordStatus @default(ACTIVE)
+  dataset String @db.VarChar(100)
+  lastOccurredAt DateTime @map("last_occurred_at") @db.Timestamptz(3)
+  lastIngestedAt DateTime @map("last_ingested_at") @db.Timestamptz(3)
+  lateRecordCount Int @default(0) @map("late_record_count")
+  @@unique([tenantId,dataset],map:"control_lake_watermark_dataset_key")
+  @@map("lake_watermark")
+  @@schema("control")
+}
+
+model ControlLakeFactSnapshot {
+  id String @id @default(uuid()) @db.Uuid
+  tenantId String @map("tenant_id") @db.Uuid
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  createdBy String @map("created_by") @db.Uuid
+  updatedAt DateTime @default(now()) @map("updated_at") @db.Timestamptz(3)
+  updatedBy String @map("updated_by") @db.Uuid
+  version Int @default(1)
+  status ControlProjectionRecordStatus @default(ACTIVE)
+  dataset String @db.VarChar(100)
+  businessRef String @map("business_ref") @db.VarChar(200)
+  eventId String @map("event_id") @db.Uuid
+  aggregateType String @map("aggregate_type") @db.VarChar(100)
+  aggregateId String @map("aggregate_id") @db.Uuid
+  aggregateVersion Int @map("aggregate_version")
+  eventType String @map("event_type") @db.VarChar(200)
+  occurredAt DateTime @map("occurred_at") @db.Timestamptz(3)
+  ingestedAt DateTime @default(now()) @map("ingested_at") @db.Timestamptz(3)
+  arrivalStatus ControlLakeArrivalStatus @map("arrival_status")
+  recordSnapshot Json @map("record_snapshot") @db.JsonB
+  recomputeRunId String? @map("recompute_run_id") @db.Uuid
+  isolationKey String @map("isolation_key") @db.VarChar(100)
+  @@index([tenantId,dataset,occurredAt,id],map:"control_lake_fact_dataset_idx")
+  @@index([tenantId,recomputeRunId,occurredAt],map:"control_lake_fact_recompute_idx")
+  @@map("lake_fact_snapshot")
+  @@schema("control")
+}
+
+model ControlLakeDimensionSnapshot {
+  id String @id @default(uuid()) @db.Uuid
+  tenantId String @map("tenant_id") @db.Uuid
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  createdBy String @map("created_by") @db.Uuid
+  updatedAt DateTime @default(now()) @map("updated_at") @db.Timestamptz(3)
+  updatedBy String @map("updated_by") @db.Uuid
+  version Int @default(1)
+  status ControlProjectionRecordStatus @default(ACTIVE)
+  dataset String @db.VarChar(100)
+  dimensionKey String @map("dimension_key") @db.VarChar(200)
+  eventId String @map("event_id") @db.Uuid
+  sourceVersion Int @map("source_version")
+  effectiveAt DateTime @map("effective_at") @db.Timestamptz(3)
+  ingestedAt DateTime @default(now()) @map("ingested_at") @db.Timestamptz(3)
+  arrivalStatus ControlLakeArrivalStatus @map("arrival_status")
+  recordSnapshot Json @map("record_snapshot") @db.JsonB
+  recomputeRunId String? @map("recompute_run_id") @db.Uuid
+  isolationKey String @map("isolation_key") @db.VarChar(100)
+  @@index([tenantId,dataset,dimensionKey,effectiveAt,id],map:"control_lake_dimension_history_idx")
+  @@index([tenantId,recomputeRunId,effectiveAt],map:"control_lake_dimension_recompute_idx")
+  @@map("lake_dimension_snapshot")
+  @@schema("control")
+}
+
+model ControlLakeRecomputeRun {
+  id String @id @default(uuid()) @db.Uuid
+  tenantId String @map("tenant_id") @db.Uuid
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  createdBy String @map("created_by") @db.Uuid
+  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
+  updatedBy String @map("updated_by") @db.Uuid
+  version Int @default(1)
+  status ControlLakeRecomputeStatus @default(RUNNING)
+  dataset String @db.VarChar(100)
+  isolationKey String @map("isolation_key") @db.VarChar(100)
+  fromAt DateTime @map("from_at") @db.Timestamptz(3)
+  toAt DateTime @map("to_at") @db.Timestamptz(3)
+  sourceSnapshot Json @map("source_snapshot") @db.JsonB
+  outputCount Int @default(0) @map("output_count")
+  completedAt DateTime? @map("completed_at") @db.Timestamptz(3)
+  failureReason String? @map("failure_reason") @db.VarChar(1000)
+  @@unique([tenantId,isolationKey],map:"control_lake_recompute_isolation_key")
+  @@index([tenantId,dataset,status,createdAt],map:"control_lake_recompute_dataset_idx")
+  @@map("lake_recompute_run")
+  @@schema("control")
+}

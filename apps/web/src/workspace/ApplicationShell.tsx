@@ -19,6 +19,7 @@ import { AppointmentCapacityWorkbench } from '../ams/AppointmentCapacityWorkbenc
 import { BillingFactWorkbench } from '../billing/BillingFactWorkbench';
 import { ControlTowerWorkbench } from '../control/ControlTowerWorkbench';
 import { AlertGovernanceWorkbench } from '../control/AlertGovernanceWorkbench';
+import { BiAnalyticsWorkbench } from '../control/BiAnalyticsWorkbench';
 import { AuditWorkbench } from '../platform/AuditWorkbench';
 import { AttachmentWorkbench } from '../platform/AttachmentWorkbench';
 import { ConfigurationWorkbench } from '../platform/ConfigurationWorkbench';
@@ -165,6 +166,12 @@ const pageRegistry: readonly WorkspaceTab[] = [
     route: '/control/alerts',
     title: '预警例外',
   },
+  {
+    dirty: false,
+    id: 'control-bi',
+    route: '/control/bi',
+    title: 'BI 分析',
+  },
 ];
 
 const modules = [
@@ -195,6 +202,7 @@ const modules = [
   ['结算', 'billing'],
   ['控制塔', 'control'],
   ['预警', 'control-alerts'],
+  ['BI', 'control-bi'],
 ] as const;
 
 interface WorkspaceCatalogItem {
@@ -353,6 +361,7 @@ export function ApplicationShell() {
     if (tabId === 'billing') return <BillingFactWorkbench />;
     if (tabId === 'control') return <ControlTowerWorkbench />;
     if (tabId === 'control-alerts') return <AlertGovernanceWorkbench />;
+    if (tabId === 'control-bi') return <BiAnalyticsWorkbench />;
     return (
       <section className="workspace-placeholder">
         <Typography.Title level={2}>
