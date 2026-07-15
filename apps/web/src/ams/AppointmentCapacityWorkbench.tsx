@@ -10,6 +10,7 @@ import { Alert, Card, Col, Row, Tag, Typography } from 'antd';
 import { useSessionStore } from '../platform/session-store';
 import { AppointmentIntakePanel } from './AppointmentIntakePanel';
 import { OnsiteOperationsPanel } from './OnsiteOperationsPanel';
+import { OperationClosurePanel } from './OperationClosurePanel';
 
 interface RowBase {
   id: string;
@@ -310,6 +311,7 @@ export function AppointmentCapacityWorkbench() {
       </Row>
       <AppointmentIntakePanel />
       <OnsiteOperationsPanel />
+      <OperationClosurePanel />
     </section>
   );
 }

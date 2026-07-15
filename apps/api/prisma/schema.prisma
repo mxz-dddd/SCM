@@ -9245,6 +9245,10 @@ enum AppointmentStatus {
   CHECKED_IN
   QUEUED
   DOCKED
+  OPERATING
+  CHECKED_OUT
+  COMPLETED
+  NO_SHOW
   @@schema("ams")
 }
 enum AppointmentType {
@@ -9726,5 +9730,157 @@ model DockAssignmentEvent {
   occurredAt DateTime @default(now()) @map("occurred_at") @db.Timestamptz(3)
   @@index([tenantId,appointmentId,occurredAt],map:"dock_assignment_event_appointment_idx")
   @@map("dock_assignment_event")
+  @@schema("ams")
+}
+
+enum NoShowCaseStatus {
+  OPEN
+  APPEALED
+  WAIVED
+  UPHELD
+  @@schema("ams")
+}
+
+model OperationEvent {
+  id String @id @default(uuid()) @db.Uuid
+  tenantId String @map("tenant_id") @db.Uuid
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  createdBy String @map("created_by") @db.Uuid
+  updatedAt DateTime @default(now()) @map("updated_at") @db.Timestamptz(3)
+  updatedBy String @map("updated_by") @db.Uuid
+  version Int @default(1)
+  status AmsRecordStatus @default(ACTIVE)
+  appointmentId String @map("appointment_id") @db.Uuid
+  dockAssignmentId String @map("dock_assignment_id") @db.Uuid
+  sequence Int
+  eventType String @map("event_type") @db.VarChar(30)
+  occurredAt DateTime @map("occurred_at") @db.Timestamptz(3)
+  quantity Decimal @db.Decimal(24,6)
+  quantityUom String @map("quantity_uom") @db.VarChar(20)
+  businessLinks Json @map("business_links") @db.JsonB
+  evidenceSnapshot Json @map("evidence_snapshot") @db.JsonB
+  reason String @db.VarChar(1000)
+  @@unique([tenantId,appointmentId,sequence],map:"operation_event_appointment_sequence_key")
+  @@index([tenantId,appointmentId,occurredAt],map:"operation_event_appointment_time_idx")
+  @@map("operation_event")
+  @@schema("ams")
+}
+
+model AppointmentCompletion {
+  id String @id @default(uuid()) @db.Uuid
+  tenantId String @map("tenant_id") @db.Uuid
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  createdBy String @map("created_by") @db.Uuid
+  updatedAt DateTime @default(now()) @map("updated_at") @db.Timestamptz(3)
+  updatedBy String @map("updated_by") @db.Uuid
+  version Int @default(1)
+  status AmsRecordStatus @default(ACTIVE)
+  appointmentId String @map("appointment_id") @db.Uuid
+  dockAssignmentId String @map("dock_assignment_id") @db.Uuid
+  checkedInAt DateTime @map("checked_in_at") @db.Timestamptz(3)
+  dockedAt DateTime @map("docked_at") @db.Timestamptz(3)
+  operationStartedAt DateTime @map("operation_started_at") @db.Timestamptz(3)
+  operationCompletedAt DateTime @map("operation_completed_at") @db.Timestamptz(3)
+  departedAt DateTime @map("departed_at") @db.Timestamptz(3)
+  checkedOutAt DateTime @map("checked_out_at") @db.Timestamptz(3)
+  waitingMinutes Int @map("waiting_minutes")
+  operatingMinutes Int @map("operating_minutes")
+  pausedMinutes Int @map("paused_minutes")
+  overrunMinutes Int @map("overrun_minutes")
+  actualQuantity Decimal @map("actual_quantity") @db.Decimal(24,6)
+  actualQuantityUom String @map("actual_quantity_uom") @db.VarChar(20)
+  workloadSnapshot Json @map("workload_snapshot") @db.JsonB
+  controlSnapshot Json @map("control_snapshot") @db.JsonB
+  performanceSnapshot Json @map("performance_snapshot") @db.JsonB
+  @@unique([tenantId,appointmentId],map:"appointment_completion_appointment_key")
+  @@index([tenantId,checkedOutAt,appointmentId],map:"appointment_completion_time_idx")
+  @@map("appointment_completion")
+  @@schema("ams")
+}
+
+model NoShowCase {
+  id String @id @default(uuid()) @db.Uuid
+  tenantId String @map("tenant_id") @db.Uuid
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  createdBy String @map("created_by") @db.Uuid
+  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
+  updatedBy String @map("updated_by") @db.Uuid
+  version Int @default(1)
+  status NoShowCaseStatus @default(OPEN)
+  appointmentId String @map("appointment_id") @db.Uuid
+  detectedAt DateTime @map("detected_at") @db.Timestamptz(3)
+  graceMinutes Int @map("grace_minutes")
+  reason String @db.VarChar(1000)
+  capacityWasteSnapshot Json @map("capacity_waste_snapshot") @db.JsonB
+  notificationSnapshot Json @map("notification_snapshot") @db.JsonB
+  contractSnapshot Json @map("contract_snapshot") @db.JsonB
+  @@unique([tenantId,appointmentId],map:"no_show_case_appointment_key")
+  @@index([tenantId,status,detectedAt],map:"no_show_case_status_time_idx")
+  @@map("no_show_case")
+  @@schema("ams")
+}
+
+model PenaltyChargeFact {
+  id String @id @default(uuid()) @db.Uuid
+  tenantId String @map("tenant_id") @db.Uuid
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  createdBy String @map("created_by") @db.Uuid
+  updatedAt DateTime @default(now()) @map("updated_at") @db.Timestamptz(3)
+  updatedBy String @map("updated_by") @db.Uuid
+  version Int @default(1)
+  status AmsRecordStatus @default(ACTIVE)
+  noShowCaseId String @map("no_show_case_id") @db.Uuid
+  appointmentId String @map("appointment_id") @db.Uuid
+  amount Decimal @db.Decimal(24,6)
+  currency String @db.Char(3)
+  reason String @db.VarChar(1000)
+  calculationTrace Json @map("calculation_trace") @db.JsonB
+  occurredAt DateTime @default(now()) @map("occurred_at") @db.Timestamptz(3)
+  @@unique([tenantId,noShowCaseId],map:"penalty_charge_fact_case_key")
+  @@index([tenantId,appointmentId,occurredAt],map:"penalty_charge_fact_appointment_idx")
+  @@map("penalty_charge_fact")
+  @@schema("ams")
+}
+
+model NoShowAppeal {
+  id String @id @default(uuid()) @db.Uuid
+  tenantId String @map("tenant_id") @db.Uuid
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  createdBy String @map("created_by") @db.Uuid
+  updatedAt DateTime @default(now()) @map("updated_at") @db.Timestamptz(3)
+  updatedBy String @map("updated_by") @db.Uuid
+  version Int @default(1)
+  status AmsRecordStatus @default(ACTIVE)
+  noShowCaseId String @map("no_show_case_id") @db.Uuid
+  appointmentId String @map("appointment_id") @db.Uuid
+  reason String @db.VarChar(1000)
+  evidenceSnapshot Json @map("evidence_snapshot") @db.JsonB
+  submittedAt DateTime @default(now()) @map("submitted_at") @db.Timestamptz(3)
+  @@unique([tenantId,noShowCaseId],map:"no_show_appeal_case_key")
+  @@map("no_show_appeal")
+  @@schema("ams")
+}
+
+model PenaltyWaiverDecision {
+  id String @id @default(uuid()) @db.Uuid
+  tenantId String @map("tenant_id") @db.Uuid
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  createdBy String @map("created_by") @db.Uuid
+  updatedAt DateTime @default(now()) @map("updated_at") @db.Timestamptz(3)
+  updatedBy String @map("updated_by") @db.Uuid
+  version Int @default(1)
+  status AmsRecordStatus @default(ACTIVE)
+  noShowCaseId String @map("no_show_case_id") @db.Uuid
+  appealId String @map("appeal_id") @db.Uuid
+  penaltyChargeFactId String? @map("penalty_charge_fact_id") @db.Uuid
+  decision String @db.VarChar(20)
+  reason String @db.VarChar(1000)
+  originalAmount Decimal @map("original_amount") @db.Decimal(24,6)
+  effectiveAmount Decimal @map("effective_amount") @db.Decimal(24,6)
+  currency String @db.Char(3)
+  decidedAt DateTime @default(now()) @map("decided_at") @db.Timestamptz(3)
+  @@unique([tenantId,appealId],map:"penalty_waiver_decision_appeal_key")
+  @@index([tenantId,noShowCaseId,decidedAt],map:"penalty_waiver_decision_case_idx")
+  @@map("penalty_waiver_decision")
   @@schema("ams")
 }

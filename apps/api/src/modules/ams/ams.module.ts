@@ -8,18 +8,22 @@ import { AppointmentIntakeController } from './appointment-intake.controller';
 import { AppointmentIntakeService } from './appointment-intake.service';
 import { OnsiteOperationsController } from './onsite-operations.controller';
 import { OnsiteOperationsService } from './onsite-operations.service';
+import { OperationClosureController } from './operation-closure.controller';
+import { OperationClosureService } from './operation-closure.service';
 
 @Module({
   controllers: [
     AppointmentIntakeController,
     CapacityWorkloadController,
     OnsiteOperationsController,
+    OperationClosureController,
   ],
   imports: [MdmModule],
   providers: [
     AppointmentIntakeService,
     CapacityWorkloadService,
     OnsiteOperationsService,
+    OperationClosureService,
     PermissionGuard,
     PermissionService,
   ],
