@@ -9,6 +9,7 @@ import {
 import { Alert, Card, Col, Row, Tag, Typography } from 'antd';
 import { useSessionStore } from '../platform/session-store';
 import { AppointmentIntakePanel } from './AppointmentIntakePanel';
+import { OnsiteOperationsPanel } from './OnsiteOperationsPanel';
 
 interface RowBase {
   id: string;
@@ -308,6 +309,7 @@ export function AppointmentCapacityWorkbench() {
         </Col>
       </Row>
       <AppointmentIntakePanel />
+      <OnsiteOperationsPanel />
     </section>
   );
 }

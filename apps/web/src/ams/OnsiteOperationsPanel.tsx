@@ -1,0 +1,36 @@
+import { useCallback, useEffect, useMemo, useState } from 'react';
+import { CommandBar, DataGrid, StatusBadge, createActionRegistry } from '@scm/ui';
+import { Alert, Card, Tag, Typography } from 'antd';
+import { useSessionStore } from '../platform/session-store';
+
+interface Row { id: string; status: string; version: number; [key: string]: unknown }
+interface View { appointments: Row[]; assignments: Row[]; runtimes: Row[]; tickets: Row[]; verifications: Row[] }
+const empty: View = { appointments: [], assignments: [], runtimes: [], tickets: [], verifications: [] };
+const actions = createActionRegistry<string>([
+  { allowedStatuses: ['APPOINTMENT_CONFIRMED'], id: 'checkIn', label: '门岗核验并入场', requiredPermissions: ['ams.gate.verify'] },
+  { allowedStatuses: ['APPOINTMENT_CHECKED_IN'], id: 'enqueue', label: '排队取号', requiredPermissions: ['ams.queue.manage'] },
+  { allowedStatuses: ['TICKET_WAITING','TICKET_DEFERRED'], id: 'call', label: '多渠道叫号', requiredPermissions: ['ams.queue.manage'] },
+  { allowedStatuses: ['TICKET_CALLED'], id: 'ack', label: '司机确认', requiredPermissions: ['ams.queue.manage'] },
+  { allowedStatuses: ['APPOINTMENT_QUEUED'], id: 'assignDock', label: '自动分配月台', requiredPermissions: ['ams.dock.assign'] },
+]);
+
+export function OnsiteOperationsPanel() {
+  const accessToken = useSessionStore((state) => state.accessToken); const claims = useSessionStore((state) => state.claims);
+  const [view, setView] = useState<View>(empty); const [appointmentId, setAppointmentId] = useState(''); const [ticketId, setTicketId] = useState(''); const [notice, setNotice] = useState<string>(); const [error, setError] = useState<string>();
+  const appointment = view.appointments.find(({ id }) => id === appointmentId); const ticket = view.tickets.find(({ id }) => id === ticketId);
+  const permissions = useMemo(() => new Set(claims ? ['ams.onsite.read','ams.gate.verify','ams.gate.access','ams.queue.manage','ams.dock.assign'] : []), [claims]);
+  const decisions = actions.list().map(({ id }) => actions.decide(id, { dataScopeAllowed: true, permissions, status: id === 'call' || id === 'ack' ? `TICKET_${ticket?.status ?? 'NONE'}` : `APPOINTMENT_${appointment?.status ?? 'NONE'}` }));
+  const request = useCallback(async (path: string, init?: RequestInit) => { if (!accessToken || !claims) throw new Error('请先登录后使用现场调度工作台'); const response = await fetch(path, { ...init, headers: { Authorization: `Bearer ${accessToken}`, 'Content-Type': 'application/json', 'X-Correlation-Id': crypto.randomUUID(), 'X-Tenant-Id': claims.tenantId, ...(init?.method && init.method !== 'GET' ? { 'Idempotency-Key': crypto.randomUUID() } : {}), ...init?.headers } }); const body = (await response.json()) as { code?: string; message?: string; gateVerificationId?: string; token?: string }; if (!response.ok) throw new Error(`${body.code ?? 'REQUEST_FAILED'}: ${body.message ?? '请求失败'}`); return body; }, [accessToken, claims]);
+  const refresh = useCallback(async () => { if (!accessToken || !claims) return; try { setView((await request('/api/v1/ams/onsite/workbench')) as unknown as View); setError(undefined); } catch (caught) { setError(caught instanceof Error ? caught.message : '现场数据查询失败'); } }, [accessToken, claims, request]);
+  useEffect(() => void refresh(), [refresh]);
+  async function execute(id: string) { if (!decisions.find((item) => item.id === id)?.enabled) return; try {
+    if (id === 'checkIn' && appointment) { const now = new Date().toISOString(); const verification = await request('/api/v1/ams/onsite/gate/verifications', { body: JSON.stringify({ appointmentId: appointment.id, evidence: { credentialsValid: true, driverMatches: true, ordersValid: true, vehicleMatches: true }, identityType: 'QR_CODE', identityValue: `QR-${appointment.id}`, manualRelease: false, observedAt: now, policy: { allowEarly: true, allowLate: true, allowWalkIn: false, earlyGraceMinutes: 120, lateGraceMinutes: 120 } }), method: 'POST' }); const pass = await request(`/api/v1/ams/onsite/appointments/${appointment.id}/gate-passes`, { body: JSON.stringify({ gateVerificationId: verification.gateVerificationId, plateNumber: '沪A-DEMO1', validMinutes: 60 }), method: 'POST' }); await request('/api/v1/ams/onsite/gate/access-events', { body: JSON.stringify({ eventType: 'ENTRY', evidenceSnapshot: { gate: 'DEMO-GATE' }, token: pass.token }), method: 'POST' }); }
+    if (id === 'enqueue' && appointment) await request(`/api/v1/ams/onsite/appointments/${appointment.id}/queue`, { body: JSON.stringify({ expectedVersion: appointment.version, onsiteAdjustment: 0, temperatureControlled: false }), method: 'POST' });
+    if (id === 'call' && ticket) await request(`/api/v1/ams/onsite/queue/${ticket.id}/call`, { body: JSON.stringify({ channels: ['DISPLAY','APP','VOICE'], expectedVersion: ticket.version, timeoutMinutes: 3 }), method: 'POST' });
+    if (id === 'ack' && ticket) await request(`/api/v1/ams/onsite/queue/${ticket.id}/acknowledge`, { body: JSON.stringify({ expectedVersion: ticket.version }), method: 'POST' });
+    if (id === 'assignDock' && appointment) { const selectedTicket = view.tickets.find((item) => item.appointmentId === appointment.id && item.status === 'ACKNOWLEDGED'); if (!selectedTicket) throw new Error('司机尚未确认叫号'); await request(`/api/v1/ams/onsite/appointments/${appointment.id}/dock-assignments`, { body: JSON.stringify({ assignedFrom: new Date().toISOString(), assignedUntil: new Date(Date.now() + 2 * 3_600_000).toISOString(), expectedVersion: appointment.version, requirements: { serviceType: appointment.serviceType } }), method: 'POST' }); }
+    setNotice('现场动作已完成并记录不可变事件'); await refresh();
+  } catch (caught) { setError(caught instanceof Error ? caught.message : '现场动作失败'); } }
+  const grid = (rows: Row[], selected: string, select: (id: string) => void, columns: { key: string; label: string }[]) => <DataGrid columns={columns.map((column) => column.key === 'status' ? { ...column, render: (value: unknown) => <StatusBadge status={String(value)} /> } : column)} onPageChange={() => undefined} onSelectionChange={(ids) => select(ids.at(-1) ?? '')} page={1} pageSize={200} rows={rows} selectedIds={selected ? [selected] : []} total={rows.length} />;
+  return <Card title="门岗、排队、月台与叫号"><Typography.Paragraph>二维码、预约号和车牌核验区分早到、迟到与无预约；短期通行证仅存哈希且防重复入场。排队优先级可解释，叫号超时重试升级，月台自动或人工分配都执行硬约束和冲突门禁。</Typography.Paragraph><Tag color="blue">通行证一次消费</Tag><Tag color="orange">叫号超时升级</Tag><Tag color="purple">月台并发单占</Tag>{notice ? <Alert message={notice} showIcon type="success" /> : null}{error ? <Alert message={error} showIcon type="error" /> : null}<CommandBar actions={decisions} onAction={({ id }) => void execute(id)} />{grid(view.appointments, appointmentId, setAppointmentId, [{ key: 'appointmentNo', label: '预约号' },{ key: 'serviceType', label: '服务' },{ key: 'status', label: '预约状态' },{ key: 'version', label: '版本' }])}{grid(view.tickets, ticketId, setTicketId, [{ key: 'ticketNo', label: '排队号' },{ key: 'priorityScore', label: '优先级' },{ key: 'retryCount', label: '重叫' },{ key: 'escalationLevel', label: '升级' },{ key: 'status', label: '状态' },{ key: 'version', label: '版本' }])}{grid(view.assignments, '', () => undefined, [{ key: 'assignmentNo', label: '月台指派' },{ key: 'dockRef', label: '月台' },{ key: 'assignmentMode', label: '方式' },{ key: 'status', label: '状态' }])}</Card>;
+}

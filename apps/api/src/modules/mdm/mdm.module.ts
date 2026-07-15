@@ -14,6 +14,7 @@ import { MdmReferenceService } from './public/mdm-reference.service';
 import { CalendarReleaseFacade } from './public/calendar-release.facade';
 import { FleetAssignmentFacade } from './public/fleet-assignment.facade';
 import { RateMatchingFacade } from './public/rate-matching.facade';
+import { DockSchedulingFacade } from './public/dock-scheduling.facade';
 
 @Module({
   controllers: [
@@ -27,6 +28,7 @@ import { RateMatchingFacade } from './public/rate-matching.facade';
     FleetAssignmentFacade,
     MdmReferenceService,
     RateMatchingFacade,
+    DockSchedulingFacade,
   ],
   providers: [
     CalendarReleaseFacade,
@@ -35,6 +37,7 @@ import { RateMatchingFacade } from './public/rate-matching.facade';
     IdempotencyService,
     MdmReferenceService,
     RateMatchingFacade,
+    DockSchedulingFacade,
     PartnerService,
     PermissionGuard,
     PermissionService,

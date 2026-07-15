@@ -9242,6 +9242,9 @@ enum AppointmentStatus {
   CONFIRMED
   REJECTED
   CANCELLED
+  CHECKED_IN
+  QUEUED
+  DOCKED
   @@schema("ams")
 }
 enum AppointmentType {
@@ -9504,5 +9507,224 @@ model ReminderSchedule {
   @@unique([tenantId,dispatchKey],map:"reminder_schedule_dispatch_key")
   @@index([tenantId,status,scheduledAt,appointmentId],map:"reminder_schedule_due_idx")
   @@map("reminder_schedule")
+  @@schema("ams")
+}
+
+enum GateVerificationStatus {
+  PASSED
+  MANUAL_REVIEW
+  REJECTED
+  @@schema("ams")
+}
+enum GatePassStatus {
+  ACTIVE
+  USED
+  EXPIRED
+  REVOKED
+  @@schema("ams")
+}
+enum QueueTicketStatus {
+  WAITING
+  CALLED
+  ACKNOWLEDGED
+  DEFERRED
+  CANCELLED
+  @@schema("ams")
+}
+enum DockRuntimeStatus {
+  AVAILABLE
+  OCCUPIED
+  FAULT
+  @@schema("ams")
+}
+enum DockAssignmentStatus {
+  ACTIVE
+  RELEASED
+  SWITCHED
+  @@schema("ams")
+}
+
+model GateVerification {
+  id String @id @default(uuid()) @db.Uuid
+  tenantId String @map("tenant_id") @db.Uuid
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  createdBy String @map("created_by") @db.Uuid
+  updatedAt DateTime @default(now()) @map("updated_at") @db.Timestamptz(3)
+  updatedBy String @map("updated_by") @db.Uuid
+  version Int @default(1)
+  status GateVerificationStatus
+  appointmentId String? @map("appointment_id") @db.Uuid
+  verificationNo String @map("verification_no") @db.VarChar(100)
+  identityType String @map("identity_type") @db.VarChar(30)
+  identityHash String @map("identity_hash") @db.Char(64)
+  arrivalClass String @map("arrival_class") @db.VarChar(30)
+  observedAt DateTime @map("observed_at") @db.Timestamptz(3)
+  policySnapshot Json @map("policy_snapshot") @db.JsonB
+  evidenceSnapshot Json @map("evidence_snapshot") @db.JsonB
+  reasons Json @db.JsonB
+  manuallyReleased Boolean @default(false) @map("manually_released")
+  @@unique([tenantId,verificationNo],map:"gate_verification_tenant_no_key")
+  @@index([tenantId,appointmentId,observedAt],map:"gate_verification_appointment_idx")
+  @@map("gate_verification")
+  @@schema("ams")
+}
+
+model GatePass {
+  id String @id @default(uuid()) @db.Uuid
+  tenantId String @map("tenant_id") @db.Uuid
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  createdBy String @map("created_by") @db.Uuid
+  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
+  updatedBy String @map("updated_by") @db.Uuid
+  version Int @default(1)
+  status GatePassStatus @default(ACTIVE)
+  appointmentId String @map("appointment_id") @db.Uuid
+  gateVerificationId String @map("gate_verification_id") @db.Uuid
+  tokenHash String @map("token_hash") @db.Char(64)
+  plateHash String @map("plate_hash") @db.Char(64)
+  validFrom DateTime @map("valid_from") @db.Timestamptz(3)
+  validUntil DateTime @map("valid_until") @db.Timestamptz(3)
+  entryCount Int @default(0) @map("entry_count")
+  usedAt DateTime? @map("used_at") @db.Timestamptz(3)
+  @@unique([tenantId,tokenHash],map:"gate_pass_token_hash_key")
+  @@index([tenantId,appointmentId,status,validUntil],map:"gate_pass_appointment_idx")
+  @@map("gate_pass")
+  @@schema("ams")
+}
+
+model GateAccessEvent {
+  id String @id @default(uuid()) @db.Uuid
+  tenantId String @map("tenant_id") @db.Uuid
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  createdBy String @map("created_by") @db.Uuid
+  updatedAt DateTime @default(now()) @map("updated_at") @db.Timestamptz(3)
+  updatedBy String @map("updated_by") @db.Uuid
+  version Int @default(1)
+  status AmsRecordStatus @default(ACTIVE)
+  gatePassId String @map("gate_pass_id") @db.Uuid
+  appointmentId String @map("appointment_id") @db.Uuid
+  eventType String @map("event_type") @db.VarChar(30)
+  decision String @db.VarChar(20)
+  reason String @db.VarChar(1000)
+  occurredAt DateTime @default(now()) @map("occurred_at") @db.Timestamptz(3)
+  evidenceSnapshot Json @map("evidence_snapshot") @db.JsonB
+  @@index([tenantId,gatePassId,occurredAt],map:"gate_access_event_pass_idx")
+  @@map("gate_access_event")
+  @@schema("ams")
+}
+
+model QueueTicket {
+  id String @id @default(uuid()) @db.Uuid
+  tenantId String @map("tenant_id") @db.Uuid
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  createdBy String @map("created_by") @db.Uuid
+  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
+  updatedBy String @map("updated_by") @db.Uuid
+  version Int @default(1)
+  status QueueTicketStatus @default(WAITING)
+  ticketNo String @map("ticket_no") @db.VarChar(100)
+  appointmentId String @map("appointment_id") @db.Uuid
+  warehouseRef String @map("warehouse_ref") @db.Uuid
+  priorityScore Int @map("priority_score")
+  prioritySnapshot Json @map("priority_snapshot") @db.JsonB
+  queuedAt DateTime @default(now()) @map("queued_at") @db.Timestamptz(3)
+  calledAt DateTime? @map("called_at") @db.Timestamptz(3)
+  callDeadlineAt DateTime? @map("call_deadline_at") @db.Timestamptz(3)
+  acknowledgedAt DateTime? @map("acknowledged_at") @db.Timestamptz(3)
+  retryCount Int @default(0) @map("retry_count")
+  escalationLevel Int @default(0) @map("escalation_level")
+  transitionReason String? @map("transition_reason") @db.VarChar(1000)
+  @@unique([tenantId,ticketNo],map:"queue_ticket_tenant_no_key")
+  @@index([tenantId,warehouseRef,status,priorityScore,queuedAt],map:"queue_ticket_dispatch_idx")
+  @@map("queue_ticket")
+  @@schema("ams")
+}
+
+model CallEvent {
+  id String @id @default(uuid()) @db.Uuid
+  tenantId String @map("tenant_id") @db.Uuid
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  createdBy String @map("created_by") @db.Uuid
+  updatedAt DateTime @default(now()) @map("updated_at") @db.Timestamptz(3)
+  updatedBy String @map("updated_by") @db.Uuid
+  version Int @default(1)
+  status AmsRecordStatus @default(ACTIVE)
+  queueTicketId String @map("queue_ticket_id") @db.Uuid
+  sequence Int
+  eventType String @map("event_type") @db.VarChar(30)
+  channels Json @db.JsonB
+  reason String @db.VarChar(1000)
+  deadlineAt DateTime? @map("deadline_at") @db.Timestamptz(3)
+  occurredAt DateTime @default(now()) @map("occurred_at") @db.Timestamptz(3)
+  @@unique([tenantId,queueTicketId,sequence],map:"call_event_ticket_sequence_key")
+  @@index([tenantId,queueTicketId,occurredAt],map:"call_event_ticket_time_idx")
+  @@map("call_event")
+  @@schema("ams")
+}
+
+model DockRuntime {
+  id String @id @default(uuid()) @db.Uuid
+  tenantId String @map("tenant_id") @db.Uuid
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  createdBy String @map("created_by") @db.Uuid
+  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
+  updatedBy String @map("updated_by") @db.Uuid
+  version Int @default(1)
+  status DockRuntimeStatus @default(AVAILABLE)
+  dockRef String @map("dock_ref") @db.Uuid
+  warehouseRef String @map("warehouse_ref") @db.Uuid
+  dockSnapshot Json @map("dock_snapshot") @db.JsonB
+  faultReason String? @map("fault_reason") @db.VarChar(1000)
+  @@unique([tenantId,dockRef],map:"dock_runtime_tenant_dock_key")
+  @@index([tenantId,warehouseRef,status,dockRef],map:"dock_runtime_availability_idx")
+  @@map("dock_runtime")
+  @@schema("ams")
+}
+
+model DockAssignment {
+  id String @id @default(uuid()) @db.Uuid
+  tenantId String @map("tenant_id") @db.Uuid
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  createdBy String @map("created_by") @db.Uuid
+  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
+  updatedBy String @map("updated_by") @db.Uuid
+  version Int @default(1)
+  status DockAssignmentStatus @default(ACTIVE)
+  assignmentNo String @map("assignment_no") @db.VarChar(100)
+  appointmentId String @map("appointment_id") @db.Uuid
+  queueTicketId String @map("queue_ticket_id") @db.Uuid
+  dockRef String @map("dock_ref") @db.Uuid
+  dockSnapshot Json @map("dock_snapshot") @db.JsonB
+  assignmentMode String @map("assignment_mode") @db.VarChar(20)
+  requirementSnapshot Json @map("requirement_snapshot") @db.JsonB
+  assignedFrom DateTime @map("assigned_from") @db.Timestamptz(3)
+  assignedUntil DateTime @map("assigned_until") @db.Timestamptz(3)
+  releasedAt DateTime? @map("released_at") @db.Timestamptz(3)
+  releaseReason String? @map("release_reason") @db.VarChar(1000)
+  @@unique([tenantId,assignmentNo],map:"dock_assignment_tenant_no_key")
+  @@index([tenantId,appointmentId,status,assignedFrom],map:"dock_assignment_appointment_idx")
+  @@index([tenantId,dockRef,status,assignedFrom,assignedUntil],map:"dock_assignment_dock_window_idx")
+  @@map("dock_assignment")
+  @@schema("ams")
+}
+
+model DockAssignmentEvent {
+  id String @id @default(uuid()) @db.Uuid
+  tenantId String @map("tenant_id") @db.Uuid
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  createdBy String @map("created_by") @db.Uuid
+  updatedAt DateTime @default(now()) @map("updated_at") @db.Timestamptz(3)
+  updatedBy String @map("updated_by") @db.Uuid
+  version Int @default(1)
+  status AmsRecordStatus @default(ACTIVE)
+  dockAssignmentId String @map("dock_assignment_id") @db.Uuid
+  appointmentId String @map("appointment_id") @db.Uuid
+  eventType String @map("event_type") @db.VarChar(30)
+  fromDockRef String? @map("from_dock_ref") @db.Uuid
+  toDockRef String? @map("to_dock_ref") @db.Uuid
+  reason String @db.VarChar(1000)
+  occurredAt DateTime @default(now()) @map("occurred_at") @db.Timestamptz(3)
+  @@index([tenantId,appointmentId,occurredAt],map:"dock_assignment_event_appointment_idx")
+  @@map("dock_assignment_event")
   @@schema("ams")
 }
