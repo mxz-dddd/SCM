@@ -85,6 +85,7 @@ describe('RBAC resolution', () => {
         'ams.appointment.create',
         'ams.gate.verify',
         'ams.operation.manage',
+        'billing.calculation.execute',
         'billing.fact.correct',
         'billing.fact.ingest',
         'billing.fact.read',

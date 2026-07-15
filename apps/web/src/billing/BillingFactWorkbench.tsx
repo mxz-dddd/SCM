@@ -44,11 +44,38 @@ interface ExceptionRow {
   status: 'OPEN' | 'RESOLVED';
 }
 
+interface CalculationRow {
+  accessorialAmount: string;
+  businessRef: string;
+  calculatedAt: string;
+  calculationNo: string;
+  calculationVersion: number;
+  chargeFactId: string;
+  direction: 'PAYABLE' | 'RECEIVABLE';
+  id: string;
+  settlementCurrency: string;
+  status: 'CALCULATED';
+  subtotalAmount: string;
+  taxAmount: string;
+  totalAmount: string;
+}
+
 interface BillingView {
+  accessorialCharges: readonly { calculationId: string; id: string }[];
+  calculationLines: readonly {
+    calculationId: string;
+    id: string;
+    lineType: string;
+    roundedAmount: string;
+  }[];
+  calculations: readonly CalculationRow[];
+  calculationTraces: readonly { calculationId: string; id: string }[];
   corrections: readonly { chargeFactId: string; id: string }[];
   exceptions: readonly ExceptionRow[];
   facts: readonly FactRow[];
   matches: readonly MatchRow[];
+  fxConversions: readonly { calculationId: string; id: string }[];
+  taxDetails: readonly { calculationId: string; id: string }[];
 }
 
 const actions = createActionRegistry<'ACTIVE' | 'NONE'>([
@@ -64,16 +91,29 @@ const actions = createActionRegistry<'ACTIVE' | 'NONE'>([
     label: '追加事实更正',
     requiredPermissions: ['billing.fact.correct'],
   },
+  {
+    allowedStatuses: ['ACTIVE'],
+    confirmMessage: '将按当前最新事实更正与已匹配费率追加一个计算版本。',
+    id: 'calculate',
+    label: '计算 / 重算',
+    requiredPermissions: ['billing.calculation.execute'],
+  },
 ]);
 
 export function BillingFactWorkbench() {
   const accessToken = useSessionStore((state) => state.accessToken);
   const claims = useSessionStore((state) => state.claims);
   const [view, setView] = useState<BillingView>({
+    accessorialCharges: [],
+    calculationLines: [],
+    calculations: [],
+    calculationTraces: [],
     corrections: [],
     exceptions: [],
     facts: [],
     matches: [],
+    fxConversions: [],
+    taxDetails: [],
   });
   const [selectedIds, setSelectedIds] = useState<readonly string[]>([]);
   const [query, setQuery] = useState('');
@@ -84,7 +124,12 @@ export function BillingFactWorkbench() {
     () =>
       new Set(
         claims
-          ? ['billing.fact.read', 'billing.fact.ingest', 'billing.fact.correct']
+          ? [
+              'billing.fact.read',
+              'billing.fact.ingest',
+              'billing.fact.correct',
+              'billing.calculation.execute',
+            ]
           : [],
       ),
     [claims],
@@ -184,7 +229,7 @@ export function BillingFactWorkbench() {
           method: 'POST',
         });
         setNotice('计费事实已去重接收，并按发生时点完成费率匹配');
-      } else if (selected) {
+      } else if (actionId === 'correct' && selected) {
         await request(`/api/v1/billing/facts/${selected.id}/corrections`, {
           body: JSON.stringify({
             corrected: {
@@ -196,6 +241,19 @@ export function BillingFactWorkbench() {
           method: 'POST',
         });
         setNotice('更正事实已追加，原事实与原 MatchTrace 保持不变');
+      } else if (selected) {
+        const calculated = (await request('/api/v1/billing/calculations', {
+          body: JSON.stringify({
+            chargeFactId: selected.id,
+            direction: 'PAYABLE',
+            settlementCurrency: selected.currency,
+            tax: { mode: 'EXCLUSIVE', rate: '6' },
+          }),
+          method: 'POST',
+        })) as { calculationVersion?: number };
+        setNotice(
+          `计费计算版本 V${calculated.calculationVersion ?? '?'} 已追加，历史版本保持不变`,
+        );
       }
       setSelectedIds([]);
       await refresh();
@@ -252,6 +310,35 @@ export function BillingFactWorkbench() {
           rows={facts}
           selectedIds={selectedIds}
           total={facts.length}
+        />
+      </Card>
+      <Card title="版本化计费计算与 CalculationTrace">
+        <Typography.Paragraph>
+          支持起步价、阶梯、最低费、封顶与条件附加费；税、汇率来源及每次舍入差额独立留痕，重算只追加新版本。
+        </Typography.Paragraph>
+        <DataGrid
+          columns={[
+            { key: 'calculationNo', label: '计算单号' },
+            { key: 'businessRef', label: '业务引用' },
+            { key: 'direction', label: '方向' },
+            { key: 'calculationVersion', label: '计算版本' },
+            { key: 'subtotalAmount', label: '基础金额' },
+            { key: 'accessorialAmount', label: '附加费' },
+            { key: 'taxAmount', label: '税额' },
+            { key: 'totalAmount', label: '结算金额' },
+            { key: 'settlementCurrency', label: '结算币种' },
+            {
+              key: 'status',
+              label: '状态',
+              render: (value) => <StatusBadge status={String(value)} />,
+            },
+            { key: 'calculatedAt', label: '计算时间' },
+          ]}
+          onPageChange={() => undefined}
+          page={1}
+          pageSize={50}
+          rows={view.calculations}
+          total={view.calculations.length}
         />
       </Card>
       <Card title="RateMatch 与 MatchTrace">

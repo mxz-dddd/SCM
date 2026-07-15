@@ -5,10 +5,17 @@ import { PermissionService } from '../platform/auth/permission.service';
 import { PlatformModule } from '../platform/platform.module';
 import { ChargeFactRateController } from './charge-fact-rate.controller';
 import { ChargeFactRateService } from './charge-fact-rate.service';
+import { ChargeCalculationController } from './charge-calculation.controller';
+import { ChargeCalculationService } from './charge-calculation.service';
 
 @Module({
-  controllers: [ChargeFactRateController],
+  controllers: [ChargeCalculationController, ChargeFactRateController],
   imports: [MdmModule, PlatformModule],
-  providers: [ChargeFactRateService, PermissionGuard, PermissionService],
+  providers: [
+    ChargeCalculationService,
+    ChargeFactRateService,
+    PermissionGuard,
+    PermissionService,
+  ],
 })
 export class BillingModule {}

@@ -83,36 +83,88 @@ export class ChargeFactRateService {
 
   async workbench(context: TenantContext) {
     const where = { tenantId: context.tenantId };
-    const [facts, corrections, matches, traces, exceptions] = await Promise.all(
-      [
-        this.prisma.chargeFact.findMany({
-          orderBy: [{ occurredAt: 'desc' }, { id: 'desc' }],
-          take: 200,
-          where,
-        }),
-        this.prisma.factCorrection.findMany({
-          orderBy: [{ occurredAt: 'desc' }, { id: 'desc' }],
-          take: 200,
-          where,
-        }),
-        this.prisma.rateMatch.findMany({
-          orderBy: [{ matchedAt: 'desc' }, { id: 'desc' }],
-          take: 200,
-          where,
-        }),
-        this.prisma.matchTrace.findMany({
-          orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
-          take: 200,
-          where,
-        }),
-        this.prisma.rateMatchException.findMany({
-          orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
-          take: 200,
-          where,
-        }),
-      ],
-    );
-    return toHttpJson({ corrections, exceptions, facts, matches, traces });
+    const [
+      facts,
+      corrections,
+      matches,
+      traces,
+      exceptions,
+      calculations,
+      calculationLines,
+      accessorialCharges,
+      taxDetails,
+      fxConversions,
+      calculationTraces,
+    ] = await Promise.all([
+      this.prisma.chargeFact.findMany({
+        orderBy: [{ occurredAt: 'desc' }, { id: 'desc' }],
+        take: 200,
+        where,
+      }),
+      this.prisma.factCorrection.findMany({
+        orderBy: [{ occurredAt: 'desc' }, { id: 'desc' }],
+        take: 200,
+        where,
+      }),
+      this.prisma.rateMatch.findMany({
+        orderBy: [{ matchedAt: 'desc' }, { id: 'desc' }],
+        take: 200,
+        where,
+      }),
+      this.prisma.matchTrace.findMany({
+        orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
+        take: 200,
+        where,
+      }),
+      this.prisma.rateMatchException.findMany({
+        orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
+        take: 200,
+        where,
+      }),
+      this.prisma.billingCalculation.findMany({
+        orderBy: [{ calculatedAt: 'desc' }, { id: 'desc' }],
+        take: 200,
+        where,
+      }),
+      this.prisma.billingCalculationLine.findMany({
+        orderBy: [{ createdAt: 'desc' }, { lineNo: 'asc' }],
+        take: 500,
+        where,
+      }),
+      this.prisma.accessorialCharge.findMany({
+        orderBy: [{ createdAt: 'desc' }, { lineNo: 'asc' }],
+        take: 500,
+        where,
+      }),
+      this.prisma.taxDetail.findMany({
+        orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
+        take: 200,
+        where,
+      }),
+      this.prisma.fxConversion.findMany({
+        orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
+        take: 200,
+        where,
+      }),
+      this.prisma.calculationTrace.findMany({
+        orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
+        take: 200,
+        where,
+      }),
+    ]);
+    return toHttpJson({
+      accessorialCharges,
+      calculationLines,
+      calculations,
+      calculationTraces,
+      corrections,
+      exceptions,
+      facts,
+      fxConversions,
+      matches,
+      taxDetails,
+      traces,
+    });
   }
 
   receive(

@@ -506,8 +506,12 @@ describe('App', () => {
       screen.getByText('ChargeFact 与 FactCorrection'),
     ).toBeInTheDocument();
     expect(screen.getByText('RateMatch 与 MatchTrace')).toBeInTheDocument();
+    expect(
+      screen.getByText('版本化计费计算与 CalculationTrace'),
+    ).toBeInTheDocument();
     expect(screen.getByText('零命中计费异常')).toBeInTheDocument();
     expect(screen.getByRole('button', { name: '接收计费事实' })).toBeDisabled();
     expect(screen.getByRole('button', { name: '追加事实更正' })).toBeDisabled();
+    expect(screen.getByRole('button', { name: '计算 / 重算' })).toBeDisabled();
   });
 });

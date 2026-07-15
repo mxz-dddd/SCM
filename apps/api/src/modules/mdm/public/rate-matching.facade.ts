@@ -64,6 +64,74 @@ export class RateMatchingFacade {
     });
   }
 
+  async getCalculationSource(
+    rateVersionId: string,
+    occurredAt: Date,
+    context: TenantContext,
+  ) {
+    if (!isUuid(rateVersionId))
+      throw new AppError(
+        'RATE_VERSION_INVALID',
+        'rateVersionId is invalid',
+        400,
+      );
+    const version = await this.prisma.rateVersion.findFirst({
+      where: {
+        effectiveFrom: { lte: occurredAt },
+        effectiveUntil: { gt: occurredAt },
+        id: rateVersionId,
+        status: { in: ['PUBLISHED', 'RETIRED'] },
+        tenantId: context.tenantId,
+      },
+    });
+    if (!version)
+      throw new AppError(
+        'RATE_VERSION_NOT_AVAILABLE',
+        'The matched published rate version is unavailable at the fact occurrence time',
+        409,
+      );
+    const card = await this.prisma.rateCard.findFirst({
+      where: { id: version.rateCardId, tenantId: context.tenantId },
+    });
+    if (!card)
+      throw new AppError(
+        'RATE_VERSION_NOT_AVAILABLE',
+        'The matched rate card is unavailable',
+        409,
+      );
+    const contract = await this.prisma.contract.findFirst({
+      where: { id: card.contractId, tenantId: context.tenantId },
+    });
+    if (!contract)
+      throw new AppError(
+        'RATE_VERSION_NOT_AVAILABLE',
+        'The matched contract is unavailable',
+        409,
+      );
+    return {
+      baseRate: version.baseRate.toString(),
+      contract: {
+        code: contract.code,
+        currency: contract.currency,
+        id: contract.id,
+        partnerId: contract.partnerId,
+      },
+      currency: version.currency,
+      dimensions: version.dimensions,
+      effectiveFrom: version.effectiveFrom.toISOString(),
+      effectiveUntil: version.effectiveUntil.toISOString(),
+      pricing: version.pricing,
+      rateCard: {
+        code: card.code,
+        id: card.id,
+        serviceType: card.serviceType,
+      },
+      rateVersionId: version.id,
+      status: version.status,
+      versionNumber: version.versionNumber,
+    };
+  }
+
   async match(
     input: {
       contractId: string;

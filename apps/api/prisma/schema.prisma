@@ -10038,3 +10038,195 @@ model RateMatchException {
   @@map("rate_match_exception")
   @@schema("billing")
 }
+
+enum BillingCalculationStatus {
+  CALCULATED
+
+  @@schema("billing")
+}
+
+enum BillingCalculationRecordStatus {
+  ACTIVE
+
+  @@schema("billing")
+}
+
+enum BillingDirection {
+  RECEIVABLE
+  PAYABLE
+
+  @@schema("billing")
+}
+
+model BillingCalculation {
+  id                 String                   @id @default(uuid()) @db.Uuid
+  tenantId           String                   @map("tenant_id") @db.Uuid
+  createdAt          DateTime                 @default(now()) @map("created_at") @db.Timestamptz(3)
+  createdBy          String                   @map("created_by") @db.Uuid
+  updatedAt          DateTime                 @default(now()) @map("updated_at") @db.Timestamptz(3)
+  updatedBy          String                   @map("updated_by") @db.Uuid
+  version            Int                      @default(1)
+  status             BillingCalculationStatus @default(CALCULATED)
+  calculationNo      String                   @map("calculation_no") @db.VarChar(100)
+  calculationVersion Int                      @map("calculation_version")
+  chargeFactId       String                   @map("charge_fact_id") @db.Uuid
+  factCorrectionId   String?                  @map("fact_correction_id") @db.Uuid
+  rateMatchId        String                   @map("rate_match_id") @db.Uuid
+  rateVersionRef     String                   @map("rate_version_ref") @db.Uuid
+  rateVersionNumber  Int                      @map("rate_version_number")
+  direction          BillingDirection
+  businessRef        String                   @map("business_ref") @db.VarChar(200)
+  chargeType         String                   @map("charge_type") @db.VarChar(100)
+  sourceCurrency     String                   @map("source_currency") @db.Char(3)
+  settlementCurrency String                   @map("settlement_currency") @db.Char(3)
+  subtotalAmount     Decimal                  @map("subtotal_amount") @db.Decimal(24, 6)
+  accessorialAmount  Decimal                  @map("accessorial_amount") @db.Decimal(24, 6)
+  taxAmount          Decimal                  @map("tax_amount") @db.Decimal(24, 6)
+  totalAmount        Decimal                  @map("total_amount") @db.Decimal(24, 6)
+  calculatedAt       DateTime                 @default(now()) @map("calculated_at") @db.Timestamptz(3)
+
+  @@unique([tenantId, calculationNo], map: "billing_calculation_tenant_no_key")
+  @@unique([tenantId, chargeFactId, direction, calculationVersion], map: "billing_calculation_fact_version_key")
+  @@index([tenantId, status, calculatedAt], map: "billing_calculation_workbench_idx")
+  @@index([tenantId, businessRef, direction], map: "billing_calculation_business_idx")
+  @@map("billing_calculation")
+  @@schema("billing")
+}
+
+model BillingCalculationLine {
+  id                 String                         @id @default(uuid()) @db.Uuid
+  tenantId           String                         @map("tenant_id") @db.Uuid
+  createdAt          DateTime                       @default(now()) @map("created_at") @db.Timestamptz(3)
+  createdBy          String                         @map("created_by") @db.Uuid
+  updatedAt          DateTime                       @default(now()) @map("updated_at") @db.Timestamptz(3)
+  updatedBy          String                         @map("updated_by") @db.Uuid
+  version            Int                            @default(1)
+  status             BillingCalculationRecordStatus @default(ACTIVE)
+  calculationId      String                         @map("calculation_id") @db.Uuid
+  lineNo             Int                            @map("line_no")
+  lineType           String                         @map("line_type") @db.VarChar(50)
+  basisType          String                         @map("basis_type") @db.VarChar(50)
+  basisQuantity      Decimal                        @map("basis_quantity") @db.Decimal(24, 6)
+  basisUom           String                         @map("basis_uom") @db.VarChar(20)
+  tierFrom           Decimal?                       @map("tier_from") @db.Decimal(24, 6)
+  tierTo             Decimal?                       @map("tier_to") @db.Decimal(24, 6)
+  rateAmount         Decimal                        @map("rate_amount") @db.Decimal(24, 6)
+  currency           String                         @db.Char(3)
+  unroundedAmount    Decimal                        @map("unrounded_amount") @db.Decimal(24, 12)
+  roundedAmount      Decimal                        @map("rounded_amount") @db.Decimal(24, 6)
+  roundingDifference Decimal                        @map("rounding_difference") @db.Decimal(24, 12)
+  expressionSnapshot Json                           @map("expression_snapshot") @db.JsonB
+  tierSnapshot       Json                           @map("tier_snapshot") @db.JsonB
+
+  @@unique([tenantId, calculationId, lineNo], map: "billing_calculation_line_no_key")
+  @@index([tenantId, calculationId, lineType], map: "billing_calculation_line_idx")
+  @@map("billing_calculation_line")
+  @@schema("billing")
+}
+
+model AccessorialCharge {
+  id                 String                         @id @default(uuid()) @db.Uuid
+  tenantId           String                         @map("tenant_id") @db.Uuid
+  createdAt          DateTime                       @default(now()) @map("created_at") @db.Timestamptz(3)
+  createdBy          String                         @map("created_by") @db.Uuid
+  updatedAt          DateTime                       @default(now()) @map("updated_at") @db.Timestamptz(3)
+  updatedBy          String                         @map("updated_by") @db.Uuid
+  version            Int                            @default(1)
+  status             BillingCalculationRecordStatus @default(ACTIVE)
+  calculationId      String                         @map("calculation_id") @db.Uuid
+  lineNo             Int                            @map("line_no")
+  code               String                         @db.VarChar(100)
+  chargeType         String                         @map("charge_type") @db.VarChar(50)
+  method             String                         @db.VarChar(30)
+  conditionSnapshot  Json                           @map("condition_snapshot") @db.JsonB
+  basisSnapshot      Json                           @map("basis_snapshot") @db.JsonB
+  unroundedAmount    Decimal                        @map("unrounded_amount") @db.Decimal(24, 12)
+  amount             Decimal                        @db.Decimal(24, 6)
+  roundingDifference Decimal                        @map("rounding_difference") @db.Decimal(24, 12)
+  currency           String                         @db.Char(3)
+
+  @@unique([tenantId, calculationId, lineNo], map: "accessorial_charge_line_no_key")
+  @@index([tenantId, calculationId, chargeType], map: "accessorial_charge_calculation_idx")
+  @@map("accessorial_charge")
+  @@schema("billing")
+}
+
+model TaxDetail {
+  id               String                         @id @default(uuid()) @db.Uuid
+  tenantId         String                         @map("tenant_id") @db.Uuid
+  createdAt        DateTime                       @default(now()) @map("created_at") @db.Timestamptz(3)
+  createdBy        String                         @map("created_by") @db.Uuid
+  updatedAt        DateTime                       @default(now()) @map("updated_at") @db.Timestamptz(3)
+  updatedBy        String                         @map("updated_by") @db.Uuid
+  version          Int                            @default(1)
+  status           BillingCalculationRecordStatus @default(ACTIVE)
+  calculationId    String                         @map("calculation_id") @db.Uuid
+  taxMode          String                         @map("tax_mode") @db.VarChar(20)
+  taxRate          Decimal                        @map("tax_rate") @db.Decimal(12, 6)
+  taxableAmount    Decimal                        @map("taxable_amount") @db.Decimal(24, 6)
+  taxAmount        Decimal                        @map("tax_amount") @db.Decimal(24, 6)
+  totalWithTax     Decimal                        @map("total_with_tax") @db.Decimal(24, 6)
+  currency         String                         @db.Char(3)
+  roundingSnapshot Json                           @map("rounding_snapshot") @db.JsonB
+
+  @@unique([tenantId, calculationId], map: "tax_detail_calculation_key")
+  @@index([tenantId, createdAt, calculationId], map: "tax_detail_created_idx")
+  @@map("tax_detail")
+  @@schema("billing")
+}
+
+model FxConversion {
+  id                    String                         @id @default(uuid()) @db.Uuid
+  tenantId              String                         @map("tenant_id") @db.Uuid
+  createdAt             DateTime                       @default(now()) @map("created_at") @db.Timestamptz(3)
+  createdBy             String                         @map("created_by") @db.Uuid
+  updatedAt             DateTime                       @default(now()) @map("updated_at") @db.Timestamptz(3)
+  updatedBy             String                         @map("updated_by") @db.Uuid
+  version               Int                            @default(1)
+  status                BillingCalculationRecordStatus @default(ACTIVE)
+  calculationId         String                         @map("calculation_id") @db.Uuid
+  rateDate              DateTime                       @map("rate_date") @db.Date
+  sourceCurrency        String                         @map("source_currency") @db.Char(3)
+  targetCurrency        String                         @map("target_currency") @db.Char(3)
+  exchangeRate          Decimal                        @map("exchange_rate") @db.Decimal(24, 12)
+  sourceName            String                         @map("source_name") @db.VarChar(100)
+  sourceAmount          Decimal                        @map("source_amount") @db.Decimal(24, 6)
+  unroundedTargetAmount Decimal                        @map("unrounded_target_amount") @db.Decimal(24, 12)
+  targetAmount          Decimal                        @map("target_amount") @db.Decimal(24, 6)
+  roundingMode          String                         @map("rounding_mode") @db.VarChar(20)
+  roundingScale         Int                            @map("rounding_scale")
+  roundingDifference    Decimal                        @map("rounding_difference") @db.Decimal(24, 12)
+
+  @@unique([tenantId, calculationId], map: "fx_conversion_calculation_key")
+  @@index([tenantId, rateDate, sourceCurrency, targetCurrency], map: "fx_conversion_rate_idx")
+  @@map("fx_conversion")
+  @@schema("billing")
+}
+
+model CalculationTrace {
+  id                  String                         @id @default(uuid()) @db.Uuid
+  tenantId            String                         @map("tenant_id") @db.Uuid
+  createdAt           DateTime                       @default(now()) @map("created_at") @db.Timestamptz(3)
+  createdBy           String                         @map("created_by") @db.Uuid
+  updatedAt           DateTime                       @default(now()) @map("updated_at") @db.Timestamptz(3)
+  updatedBy           String                         @map("updated_by") @db.Uuid
+  version             Int                            @default(1)
+  status              BillingCalculationRecordStatus @default(ACTIVE)
+  calculationId       String                         @map("calculation_id") @db.Uuid
+  traceVersion        Int                            @default(1) @map("trace_version")
+  factSnapshot        Json                           @map("fact_snapshot") @db.JsonB
+  correctionSnapshot  Json                           @map("correction_snapshot") @db.JsonB
+  rateMatchSnapshot   Json                           @map("rate_match_snapshot") @db.JsonB
+  rateVersionSnapshot Json                           @map("rate_version_snapshot") @db.JsonB
+  expressionSnapshot  Json                           @map("expression_snapshot") @db.JsonB
+  tierSnapshot        Json                           @map("tier_snapshot") @db.JsonB
+  accessorialSnapshot Json                           @map("accessorial_snapshot") @db.JsonB
+  taxSnapshot         Json                           @map("tax_snapshot") @db.JsonB
+  fxSnapshot          Json                           @map("fx_snapshot") @db.JsonB
+  outputSnapshot      Json                           @map("output_snapshot") @db.JsonB
+
+  @@unique([tenantId, calculationId], map: "calculation_trace_calculation_key")
+  @@index([tenantId, createdAt, calculationId], map: "calculation_trace_created_idx")
+  @@map("calculation_trace")
+  @@schema("billing")
+}
