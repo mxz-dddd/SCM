@@ -95,6 +95,15 @@ export class ChargeFactRateService {
       taxDetails,
       fxConversions,
       calculationTraces,
+      vouchers,
+      voucherLines,
+      voucherValidations,
+      voucherHistories,
+      voucherApprovals,
+      accrualVouchers,
+      accrualLines,
+      reversalVouchers,
+      reversalLines,
     ] = await Promise.all([
       this.prisma.chargeFact.findMany({
         orderBy: [{ occurredAt: 'desc' }, { id: 'desc' }],
@@ -151,9 +160,56 @@ export class ChargeFactRateService {
         take: 200,
         where,
       }),
+      this.prisma.settlementVoucher.findMany({
+        orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
+        take: 200,
+        where,
+      }),
+      this.prisma.billingVoucherLine.findMany({
+        orderBy: [{ createdAt: 'desc' }, { lineNo: 'asc' }],
+        take: 500,
+        where,
+      }),
+      this.prisma.voucherValidation.findMany({
+        orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
+        take: 200,
+        where,
+      }),
+      this.prisma.voucherStatusHistory.findMany({
+        orderBy: [{ createdAt: 'desc' }, { sequence: 'asc' }],
+        take: 500,
+        where,
+      }),
+      this.prisma.voucherApprovalTask.findMany({
+        orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
+        take: 200,
+        where,
+      }),
+      this.prisma.billingAccrualVoucher.findMany({
+        orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
+        take: 200,
+        where,
+      }),
+      this.prisma.billingAccrualLine.findMany({
+        orderBy: [{ createdAt: 'desc' }, { lineNo: 'asc' }],
+        take: 500,
+        where,
+      }),
+      this.prisma.billingReversalVoucher.findMany({
+        orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
+        take: 200,
+        where,
+      }),
+      this.prisma.billingReversalLine.findMany({
+        orderBy: [{ createdAt: 'desc' }, { lineNo: 'asc' }],
+        take: 500,
+        where,
+      }),
     ]);
     return toHttpJson({
       accessorialCharges,
+      accrualLines,
+      accrualVouchers,
       calculationLines,
       calculations,
       calculationTraces,
@@ -162,8 +218,15 @@ export class ChargeFactRateService {
       facts,
       fxConversions,
       matches,
+      reversalLines,
+      reversalVouchers,
       taxDetails,
       traces,
+      voucherApprovals,
+      voucherHistories,
+      voucherLines,
+      voucherValidations,
+      vouchers,
     });
   }
 

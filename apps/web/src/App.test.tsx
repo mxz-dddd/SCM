@@ -509,9 +509,16 @@ describe('App', () => {
     expect(
       screen.getByText('版本化计费计算与 CalculationTrace'),
     ).toBeInTheDocument();
+    expect(
+      screen.getByText('AR/AP 凭证、校验审批与预提冲销'),
+    ).toBeInTheDocument();
     expect(screen.getByText('零命中计费异常')).toBeInTheDocument();
     expect(screen.getByRole('button', { name: '接收计费事实' })).toBeDisabled();
     expect(screen.getByRole('button', { name: '追加事实更正' })).toBeDisabled();
     expect(screen.getByRole('button', { name: '计算 / 重算' })).toBeDisabled();
+    expect(screen.getByRole('button', { name: '生成 AP 草稿' })).toBeDisabled();
+    expect(screen.getByRole('button', { name: '预提并过账' })).toBeDisabled();
+    expect(screen.getByRole('button', { name: '凭证计算' })).toBeDisabled();
+    expect(screen.getByRole('button', { name: '凭证校验' })).toBeDisabled();
   });
 });

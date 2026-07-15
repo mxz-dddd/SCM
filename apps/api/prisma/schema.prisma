@@ -10230,3 +10230,268 @@ model CalculationTrace {
   @@map("calculation_trace")
   @@schema("billing")
 }
+
+enum SettlementVoucherStatus {
+  DRAFT
+  CALCULATED
+  VALIDATED
+  APPROVED
+  VOIDED
+  @@schema("billing")
+}
+enum BillingVoucherRecordStatus {
+  ACTIVE
+  @@schema("billing")
+}
+enum VoucherApprovalStatus {
+  PENDING
+  APPROVED
+  REJECTED
+  @@schema("billing")
+}
+enum BillingAccrualStatus {
+  DRAFT
+  POSTED
+  REVERSED
+  VOIDED
+  @@schema("billing")
+}
+enum BillingReversalStatus {
+  POSTED
+  @@schema("billing")
+}
+
+model SettlementVoucher {
+  id String @id @default(uuid()) @db.Uuid
+  tenantId String @map("tenant_id") @db.Uuid
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  createdBy String @map("created_by") @db.Uuid
+  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
+  updatedBy String @map("updated_by") @db.Uuid
+  version Int @default(1)
+  status SettlementVoucherStatus @default(DRAFT)
+  voucherNo String @map("voucher_no") @db.VarChar(100)
+  direction BillingDirection
+  partnerRef String @map("partner_ref") @db.Uuid
+  periodFrom DateTime @map("period_from") @db.Date
+  periodTo DateTime @map("period_to") @db.Date
+  businessType String @map("business_type") @db.VarChar(100)
+  currency String @db.Char(3)
+  subtotalAmount Decimal @default(0) @map("subtotal_amount") @db.Decimal(24,6)
+  taxAmount Decimal @default(0) @map("tax_amount") @db.Decimal(24,6)
+  totalAmount Decimal @default(0) @map("total_amount") @db.Decimal(24,6)
+  approvalThreshold Decimal @map("approval_threshold") @db.Decimal(24,6)
+  manualAdjustment Boolean @default(false) @map("manual_adjustment")
+  adjustmentReason String? @map("adjustment_reason") @db.VarChar(1000)
+  contractSnapshot Json @default("[]") @map("contract_snapshot") @db.JsonB
+  approvedAt DateTime? @map("approved_at") @db.Timestamptz(3)
+  approvedBy String? @map("approved_by") @db.Uuid
+  @@unique([tenantId,voucherNo],map:"settlement_voucher_tenant_no_key")
+  @@index([tenantId,direction,status,periodFrom,periodTo],map:"settlement_voucher_workbench_idx")
+  @@index([tenantId,partnerRef,businessType,status],map:"settlement_voucher_partner_idx")
+  @@map("settlement_voucher")
+  @@schema("billing")
+}
+
+model VoucherCalculationSelection {
+  id String @id @default(uuid()) @db.Uuid
+  tenantId String @map("tenant_id") @db.Uuid
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  createdBy String @map("created_by") @db.Uuid
+  updatedAt DateTime @default(now()) @map("updated_at") @db.Timestamptz(3)
+  updatedBy String @map("updated_by") @db.Uuid
+  version Int @default(1)
+  status BillingVoucherRecordStatus @default(ACTIVE)
+  voucherId String @map("voucher_id") @db.Uuid
+  calculationId String @map("calculation_id") @db.Uuid
+  calculationSnapshot Json @map("calculation_snapshot") @db.JsonB
+  @@unique([tenantId,voucherId,calculationId],map:"voucher_selection_calculation_key")
+  @@index([tenantId,calculationId,createdAt],map:"voucher_selection_lookup_idx")
+  @@map("voucher_calculation_selection")
+  @@schema("billing")
+}
+
+model BillingVoucherLine {
+  id String @id @default(uuid()) @db.Uuid
+  tenantId String @map("tenant_id") @db.Uuid
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  createdBy String @map("created_by") @db.Uuid
+  updatedAt DateTime @default(now()) @map("updated_at") @db.Timestamptz(3)
+  updatedBy String @map("updated_by") @db.Uuid
+  version Int @default(1)
+  status BillingVoucherRecordStatus @default(ACTIVE)
+  voucherId String @map("voucher_id") @db.Uuid
+  calculationId String @map("calculation_id") @db.Uuid
+  lineNo Int @map("line_no")
+  sourceType String @map("source_type") @db.VarChar(40)
+  sourceLineRef String @map("source_line_ref") @db.Uuid
+  amount Decimal @db.Decimal(24,6)
+  currency String @db.Char(3)
+  taxComponent Boolean @default(false) @map("tax_component")
+  sourceSnapshot Json @map("source_snapshot") @db.JsonB
+  @@unique([tenantId,voucherId,lineNo],map:"billing_voucher_line_no_key")
+  @@unique([tenantId,sourceType,sourceLineRef],map:"billing_voucher_source_once_key")
+  @@index([tenantId,voucherId,calculationId],map:"billing_voucher_line_calculation_idx")
+  @@map("billing_voucher_line")
+  @@schema("billing")
+}
+
+model VoucherValidation {
+  id String @id @default(uuid()) @db.Uuid
+  tenantId String @map("tenant_id") @db.Uuid
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  createdBy String @map("created_by") @db.Uuid
+  updatedAt DateTime @default(now()) @map("updated_at") @db.Timestamptz(3)
+  updatedBy String @map("updated_by") @db.Uuid
+  version Int @default(1)
+  status BillingVoucherRecordStatus @default(ACTIVE)
+  voucherId String @map("voucher_id") @db.Uuid
+  validationNo Int @map("validation_no")
+  passed Boolean
+  approvalRequired Boolean @map("approval_required")
+  checkSnapshot Json @map("check_snapshot") @db.JsonB
+  errorSnapshot Json @map("error_snapshot") @db.JsonB
+  approvalReasonSnapshot Json @map("approval_reason_snapshot") @db.JsonB
+  @@unique([tenantId,voucherId,validationNo],map:"voucher_validation_no_key")
+  @@index([tenantId,voucherId,createdAt],map:"voucher_validation_created_idx")
+  @@map("voucher_validation")
+  @@schema("billing")
+}
+
+model VoucherStatusHistory {
+  id String @id @default(uuid()) @db.Uuid
+  tenantId String @map("tenant_id") @db.Uuid
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  createdBy String @map("created_by") @db.Uuid
+  updatedAt DateTime @default(now()) @map("updated_at") @db.Timestamptz(3)
+  updatedBy String @map("updated_by") @db.Uuid
+  version Int @default(1)
+  status BillingVoucherRecordStatus @default(ACTIVE)
+  voucherId String @map("voucher_id") @db.Uuid
+  sequence Int
+  fromStatus SettlementVoucherStatus? @map("from_status")
+  toStatus SettlementVoucherStatus @map("to_status")
+  command String @db.VarChar(50)
+  decisionSnapshot Json @map("decision_snapshot") @db.JsonB
+  @@unique([tenantId,voucherId,sequence],map:"voucher_status_history_sequence_key")
+  @@index([tenantId,voucherId,createdAt],map:"voucher_status_history_created_idx")
+  @@map("voucher_status_history")
+  @@schema("billing")
+}
+
+model VoucherApprovalTask {
+  id String @id @default(uuid()) @db.Uuid
+  tenantId String @map("tenant_id") @db.Uuid
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  createdBy String @map("created_by") @db.Uuid
+  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
+  updatedBy String @map("updated_by") @db.Uuid
+  version Int @default(1)
+  status VoucherApprovalStatus @default(PENDING)
+  voucherId String @map("voucher_id") @db.Uuid
+  attempt Int @default(1)
+  candidateRole String @map("candidate_role") @db.VarChar(100)
+  routeReasonSnapshot Json @map("route_reason_snapshot") @db.JsonB
+  decidedAt DateTime? @map("decided_at") @db.Timestamptz(3)
+  decidedBy String? @map("decided_by") @db.Uuid
+  decisionReason String? @map("decision_reason") @db.VarChar(1000)
+  @@unique([tenantId,voucherId,attempt],map:"voucher_approval_attempt_key")
+  @@index([tenantId,status,createdAt],map:"voucher_approval_inbox_idx")
+  @@map("voucher_approval_task")
+  @@schema("billing")
+}
+
+model BillingAccrualVoucher {
+  id String @id @default(uuid()) @db.Uuid
+  tenantId String @map("tenant_id") @db.Uuid
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  createdBy String @map("created_by") @db.Uuid
+  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
+  updatedBy String @map("updated_by") @db.Uuid
+  version Int @default(1)
+  status BillingAccrualStatus @default(DRAFT)
+  accrualNo String @map("accrual_no") @db.VarChar(100)
+  calculationId String @map("calculation_id") @db.Uuid
+  accountingDate DateTime @map("accounting_date") @db.Date
+  amount Decimal @db.Decimal(24,6)
+  currency String @db.Char(3)
+  basisSnapshot Json @map("basis_snapshot") @db.JsonB
+  postedAt DateTime? @map("posted_at") @db.Timestamptz(3)
+  reversedAt DateTime? @map("reversed_at") @db.Timestamptz(3)
+  @@unique([tenantId,accrualNo],map:"billing_accrual_tenant_no_key")
+  @@unique([tenantId,calculationId],map:"billing_accrual_calculation_key")
+  @@index([tenantId,status,accountingDate],map:"billing_accrual_status_date_idx")
+  @@map("billing_accrual_voucher")
+  @@schema("billing")
+}
+
+model BillingAccrualLine {
+  id String @id @default(uuid()) @db.Uuid
+  tenantId String @map("tenant_id") @db.Uuid
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  createdBy String @map("created_by") @db.Uuid
+  updatedAt DateTime @default(now()) @map("updated_at") @db.Timestamptz(3)
+  updatedBy String @map("updated_by") @db.Uuid
+  version Int @default(1)
+  status BillingVoucherRecordStatus @default(ACTIVE)
+  accrualVoucherId String @map("accrual_voucher_id") @db.Uuid
+  lineNo Int @map("line_no")
+  sourceType String @map("source_type") @db.VarChar(40)
+  sourceLineRef String @map("source_line_ref") @db.Uuid
+  amount Decimal @db.Decimal(24,6)
+  currency String @db.Char(3)
+  sourceSnapshot Json @map("source_snapshot") @db.JsonB
+  @@unique([tenantId,accrualVoucherId,lineNo],map:"billing_accrual_line_no_key")
+  @@unique([tenantId,sourceType,sourceLineRef],map:"billing_accrual_source_once_key")
+  @@index([tenantId,accrualVoucherId,createdAt],map:"billing_accrual_line_idx")
+  @@map("billing_accrual_line")
+  @@schema("billing")
+}
+
+model BillingReversalVoucher {
+  id String @id @default(uuid()) @db.Uuid
+  tenantId String @map("tenant_id") @db.Uuid
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  createdBy String @map("created_by") @db.Uuid
+  updatedAt DateTime @default(now()) @map("updated_at") @db.Timestamptz(3)
+  updatedBy String @map("updated_by") @db.Uuid
+  version Int @default(1)
+  status BillingReversalStatus @default(POSTED)
+  reversalNo String @map("reversal_no") @db.VarChar(100)
+  accrualVoucherId String @map("accrual_voucher_id") @db.Uuid
+  actualVoucherId String @map("actual_voucher_id") @db.Uuid
+  reversalAmount Decimal @map("reversal_amount") @db.Decimal(24,6)
+  differenceAmount Decimal @map("difference_amount") @db.Decimal(24,6)
+  currency String @db.Char(3)
+  postedAt DateTime @default(now()) @map("posted_at") @db.Timestamptz(3)
+  @@unique([tenantId,reversalNo],map:"billing_reversal_tenant_no_key")
+  @@unique([tenantId,accrualVoucherId,actualVoucherId],map:"billing_reversal_link_key")
+  @@index([tenantId,actualVoucherId,postedAt],map:"billing_reversal_actual_idx")
+  @@map("billing_reversal_voucher")
+  @@schema("billing")
+}
+
+model BillingReversalLine {
+  id String @id @default(uuid()) @db.Uuid
+  tenantId String @map("tenant_id") @db.Uuid
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  createdBy String @map("created_by") @db.Uuid
+  updatedAt DateTime @default(now()) @map("updated_at") @db.Timestamptz(3)
+  updatedBy String @map("updated_by") @db.Uuid
+  version Int @default(1)
+  status BillingVoucherRecordStatus @default(ACTIVE)
+  reversalVoucherId String @map("reversal_voucher_id") @db.Uuid
+  accrualLineId String @map("accrual_line_id") @db.Uuid
+  actualVoucherLineId String @map("actual_voucher_line_id") @db.Uuid
+  lineNo Int @map("line_no")
+  accrualAmount Decimal @map("accrual_amount") @db.Decimal(24,6)
+  actualAmount Decimal @map("actual_amount") @db.Decimal(24,6)
+  differenceAmount Decimal @map("difference_amount") @db.Decimal(24,6)
+  currency String @db.Char(3)
+  linkSnapshot Json @map("link_snapshot") @db.JsonB
+  @@unique([tenantId,reversalVoucherId,lineNo],map:"billing_reversal_line_no_key")
+  @@unique([tenantId,accrualLineId,actualVoucherLineId],map:"billing_reversal_line_link_key")
+  @@index([tenantId,reversalVoucherId,createdAt],map:"billing_reversal_line_idx")
+  @@map("billing_reversal_line")
+  @@schema("billing")
+}

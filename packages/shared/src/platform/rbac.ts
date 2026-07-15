@@ -12,9 +12,13 @@ export type PermissionResourceType = (typeof PERMISSION_RESOURCE_TYPES)[number];
 
 const MODULE_ADMIN_PERMISSION_CODES = [
   'billing.calculation.execute',
+  'billing.accrual.manage',
   'billing.fact.correct',
   'billing.fact.ingest',
   'billing.fact.read',
+  'billing.voucher.approve',
+  'billing.voucher.manage',
+  'billing.voucher.validate',
   'ams.appointment.approve',
   'ams.appointment.change',
   'ams.appointment.create',

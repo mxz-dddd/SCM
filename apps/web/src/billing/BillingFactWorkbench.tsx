@@ -16,6 +16,7 @@ interface FactRow {
   eventId: string;
   id: string;
   occurredAt: string;
+  partyRef: string;
   quantityBase: string;
   quantityBaseUom: string;
   serviceType: string;
@@ -60,6 +61,19 @@ interface CalculationRow {
   totalAmount: string;
 }
 
+interface VoucherRow {
+  businessType: string;
+  currency: string;
+  direction: 'PAYABLE' | 'RECEIVABLE';
+  id: string;
+  partnerRef: string;
+  status: 'APPROVED' | 'CALCULATED' | 'DRAFT' | 'VALIDATED' | 'VOIDED';
+  taxAmount: string;
+  totalAmount: string;
+  version: number;
+  voucherNo: string;
+}
+
 interface BillingView {
   accessorialCharges: readonly { calculationId: string; id: string }[];
   calculationLines: readonly {
@@ -76,6 +90,38 @@ interface BillingView {
   matches: readonly MatchRow[];
   fxConversions: readonly { calculationId: string; id: string }[];
   taxDetails: readonly { calculationId: string; id: string }[];
+  voucherApprovals: readonly {
+    id: string;
+    status: 'APPROVED' | 'PENDING' | 'REJECTED';
+    version: number;
+    voucherId: string;
+  }[];
+  voucherHistories: readonly { id: string; voucherId: string }[];
+  voucherLines: readonly { id: string; voucherId: string }[];
+  voucherValidations: readonly {
+    approvalRequired: boolean;
+    id: string;
+    passed: boolean;
+    voucherId: string;
+  }[];
+  vouchers: readonly VoucherRow[];
+  accrualLines: readonly { accrualVoucherId: string; id: string }[];
+  accrualVouchers: readonly {
+    accrualNo: string;
+    amount: string;
+    calculationId: string;
+    currency: string;
+    id: string;
+    status: 'DRAFT' | 'POSTED' | 'REVERSED' | 'VOIDED';
+  }[];
+  reversalLines: readonly { id: string; reversalVoucherId: string }[];
+  reversalVouchers: readonly {
+    differenceAmount: string;
+    id: string;
+    reversalAmount: string;
+    reversalNo: string;
+    status: 'POSTED';
+  }[];
 }
 
 const actions = createActionRegistry<'ACTIVE' | 'NONE'>([
@@ -98,6 +144,45 @@ const actions = createActionRegistry<'ACTIVE' | 'NONE'>([
     label: '计算 / 重算',
     requiredPermissions: ['billing.calculation.execute'],
   },
+  {
+    allowedStatuses: ['ACTIVE'],
+    id: 'createVoucher',
+    label: '生成 AP 草稿',
+    requiredPermissions: ['billing.voucher.manage'],
+  },
+  {
+    allowedStatuses: ['ACTIVE'],
+    id: 'createAccrual',
+    label: '预提并过账',
+    requiredPermissions: ['billing.accrual.manage'],
+  },
+]);
+
+const voucherActions = createActionRegistry<VoucherRow['status'] | 'NONE'>([
+  {
+    allowedStatuses: ['DRAFT'],
+    id: 'voucherCalculate',
+    label: '凭证计算',
+    requiredPermissions: ['billing.voucher.manage'],
+  },
+  {
+    allowedStatuses: ['CALCULATED'],
+    id: 'voucherValidate',
+    label: '凭证校验',
+    requiredPermissions: ['billing.voucher.validate'],
+  },
+  {
+    allowedStatuses: ['VALIDATED'],
+    id: 'voucherApprove',
+    label: '批准凭证',
+    requiredPermissions: ['billing.voucher.approve'],
+  },
+  {
+    allowedStatuses: ['VALIDATED'],
+    id: 'voucherReject',
+    label: '驳回凭证',
+    requiredPermissions: ['billing.voucher.approve'],
+  },
 ]);
 
 export function BillingFactWorkbench() {
@@ -105,6 +190,8 @@ export function BillingFactWorkbench() {
   const claims = useSessionStore((state) => state.claims);
   const [view, setView] = useState<BillingView>({
     accessorialCharges: [],
+    accrualLines: [],
+    accrualVouchers: [],
     calculationLines: [],
     calculations: [],
     calculationTraces: [],
@@ -112,14 +199,27 @@ export function BillingFactWorkbench() {
     exceptions: [],
     facts: [],
     matches: [],
+    reversalLines: [],
+    reversalVouchers: [],
     fxConversions: [],
     taxDetails: [],
+    voucherApprovals: [],
+    voucherHistories: [],
+    voucherLines: [],
+    voucherValidations: [],
+    vouchers: [],
   });
   const [selectedIds, setSelectedIds] = useState<readonly string[]>([]);
+  const [selectedVoucherIds, setSelectedVoucherIds] = useState<
+    readonly string[]
+  >([]);
   const [query, setQuery] = useState('');
   const [error, setError] = useState<string>();
   const [notice, setNotice] = useState<string>();
   const selected = view.facts.find(({ id }) => id === selectedIds[0]);
+  const selectedVoucher = view.vouchers.find(
+    ({ id }) => id === selectedVoucherIds[0],
+  );
   const permissions = useMemo(
     () =>
       new Set(
@@ -129,6 +229,10 @@ export function BillingFactWorkbench() {
               'billing.fact.ingest',
               'billing.fact.correct',
               'billing.calculation.execute',
+              'billing.voucher.manage',
+              'billing.voucher.validate',
+              'billing.voucher.approve',
+              'billing.accrual.manage',
             ]
           : [],
       ),
@@ -139,6 +243,13 @@ export function BillingFactWorkbench() {
       dataScopeAllowed: true,
       permissions,
       status: selected?.status ?? 'NONE',
+    }),
+  );
+  const voucherDecisions = voucherActions.list().map(({ id }) =>
+    voucherActions.decide(id, {
+      dataScopeAllowed: true,
+      permissions,
+      status: selectedVoucher?.status ?? 'NONE',
     }),
   );
   const facts = useMemo(() => {
@@ -241,7 +352,7 @@ export function BillingFactWorkbench() {
           method: 'POST',
         });
         setNotice('更正事实已追加，原事实与原 MatchTrace 保持不变');
-      } else if (selected) {
+      } else if (actionId === 'calculate' && selected) {
         const calculated = (await request('/api/v1/billing/calculations', {
           body: JSON.stringify({
             chargeFactId: selected.id,
@@ -254,11 +365,100 @@ export function BillingFactWorkbench() {
         setNotice(
           `计费计算版本 V${calculated.calculationVersion ?? '?'} 已追加，历史版本保持不变`,
         );
+      } else if (actionId === 'createVoucher' && selected) {
+        const calculation = view.calculations.find(
+          (item) => item.chargeFactId === selected.id,
+        );
+        if (!calculation) throw new Error('请先为所选事实生成计费计算版本');
+        const occurredAt = selected.occurredAt.slice(0, 10);
+        await request('/api/v1/billing/vouchers', {
+          body: JSON.stringify({
+            approvalThreshold: '10000',
+            businessType: selected.chargeType,
+            calculationIds: [calculation.id],
+            direction: calculation.direction,
+            partnerRef: selected.partyRef,
+            periodFrom: occurredAt,
+            periodTo: occurredAt,
+          }),
+          method: 'POST',
+        });
+        setNotice('AR/AP 凭证草稿已生成，计算行尚未入账');
+      } else if (selected) {
+        const calculation = view.calculations.find(
+          (item) =>
+            item.chargeFactId === selected.id && item.direction === 'PAYABLE',
+        );
+        if (!calculation) throw new Error('请先生成应付计费计算');
+        const accrual = (await request(
+          `/api/v1/billing/calculations/${calculation.id}/accruals`,
+          {
+            body: JSON.stringify({
+              accountingDate: selected.occurredAt.slice(0, 10),
+            }),
+            method: 'POST',
+          },
+        )) as { accrualVoucherId: string; version: number };
+        await request(
+          `/api/v1/billing/accruals/${accrual.accrualVoucherId}/post`,
+          {
+            body: JSON.stringify({ expectedVersion: accrual.version }),
+            method: 'POST',
+          },
+        );
+        setNotice('预提凭证已生成并过账，实际凭证批准时将自动追加冲销');
       }
       setSelectedIds([]);
       await refresh();
     } catch (caught) {
       setError(caught instanceof Error ? caught.message : '计费事实动作失败');
+    }
+  }
+
+  async function executeVoucher(actionId: string) {
+    const decision = voucherDecisions.find(({ id }) => id === actionId);
+    if (!decision?.enabled || !selectedVoucher) return;
+    try {
+      if (actionId === 'voucherCalculate')
+        await request(
+          `/api/v1/billing/vouchers/${selectedVoucher.id}/calculate`,
+          {
+            body: JSON.stringify({ expectedVersion: selectedVoucher.version }),
+            method: 'POST',
+          },
+        );
+      else if (actionId === 'voucherValidate')
+        await request(
+          `/api/v1/billing/vouchers/${selectedVoucher.id}/validate`,
+          {
+            body: JSON.stringify({ expectedVersion: selectedVoucher.version }),
+            method: 'POST',
+          },
+        );
+      else {
+        const task = view.voucherApprovals.find(
+          (item) =>
+            item.voucherId === selectedVoucher.id && item.status === 'PENDING',
+        );
+        if (!task) throw new Error('该凭证没有待处理审批任务');
+        await request(`/api/v1/billing/voucher-approvals/${task.id}/decide`, {
+          body: JSON.stringify({
+            decision: actionId === 'voucherApprove' ? 'APPROVE' : 'REJECT',
+            expectedTaskVersion: task.version,
+            expectedVoucherVersion: selectedVoucher.version,
+            reason:
+              actionId === 'voucherApprove'
+                ? '财务工作台复核通过'
+                : '财务工作台驳回补充材料',
+          }),
+          method: 'POST',
+        });
+      }
+      setNotice('凭证状态已按命令推进并保留完整状态历史');
+      setSelectedVoucherIds([]);
+      await refresh();
+    } catch (caught) {
+      setError(caught instanceof Error ? caught.message : '凭证动作失败');
     }
   }
 
@@ -340,6 +540,41 @@ export function BillingFactWorkbench() {
           rows={view.calculations}
           total={view.calculations.length}
         />
+      </Card>
+      <Card title="AR/AP 凭证、校验审批与预提冲销">
+        <CommandBar
+          actions={voucherDecisions}
+          onAction={(action) => void executeVoucher(action.id)}
+        />
+        <DataGrid
+          columns={[
+            { key: 'voucherNo', label: '凭证号' },
+            { key: 'direction', label: 'AR/AP' },
+            { key: 'businessType', label: '业务类型' },
+            { key: 'partnerRef', label: '伙伴' },
+            { key: 'totalAmount', label: '金额' },
+            { key: 'taxAmount', label: '税额' },
+            { key: 'currency', label: '币种' },
+            {
+              key: 'status',
+              label: '状态',
+              render: (value) => <StatusBadge status={String(value)} />,
+            },
+          ]}
+          onPageChange={() => undefined}
+          onSelectionChange={(ids) => setSelectedVoucherIds(ids.slice(-1))}
+          page={1}
+          pageSize={50}
+          rows={view.vouchers}
+          selectedIds={selectedVoucherIds}
+          total={view.vouchers.length}
+        />
+        <Typography.Paragraph>
+          预提 {view.accrualVouchers.length} 笔；自动冲销{' '}
+          {view.reversalVouchers.length} 笔；审批任务{' '}
+          {view.voucherApprovals.length}{' '}
+          笔。每条计算来源只允许进入一个有效凭证。
+        </Typography.Paragraph>
       </Card>
       <Card title="RateMatch 与 MatchTrace">
         <DataGrid
