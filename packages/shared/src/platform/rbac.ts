@@ -12,7 +12,17 @@ export type PermissionResourceType = (typeof PERMISSION_RESOURCE_TYPES)[number];
 
 const MODULE_ADMIN_PERMISSION_CODES = [
   'control.location.precise',
+  'control.alert.assign',
+  'control.alert.consume',
+  'control.alert.escalate',
+  'control.alert.manage',
+  'control.alert.read',
+  'control.alert.remediate',
+  'control.alert.rule.manage',
+  'control.knowledge.manage',
   'control.projection.consume',
+  'control.sla.manage',
+  'control.sla.reopen',
   'control.view.read',
   'billing.calculation.execute',
   'billing.accrual.manage',

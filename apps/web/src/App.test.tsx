@@ -53,6 +53,27 @@ describe('App', () => {
     expect(screen.getByRole('button', { name: '精确位置下钻' })).toBeDisabled();
   });
 
+  it('opens SLA alert and exception governance', () => {
+    render(<App />);
+
+    fireEvent.click(screen.getByRole('button', { name: '预警' }));
+
+    expect(
+      screen.getByRole('heading', { name: 'SLA、预警与例外治理' }),
+    ).toBeInTheDocument();
+    expect(screen.getByText('可暂停与重开的 SLA 计时器')).toBeInTheDocument();
+    expect(screen.getByText('版本化预警规则与复杂条件')).toBeInTheDocument();
+    expect(screen.getByText('例外工单与责任路由')).toBeInTheDocument();
+    expect(screen.getByText('通知、升级与领域修复请求')).toBeInTheDocument();
+    expect(screen.getByText('根因与处置知识库')).toBeInTheDocument();
+    expect(
+      screen.getByRole('button', { name: '发布预警规则版本' }),
+    ).toBeDisabled();
+    expect(
+      screen.getByRole('button', { name: '请求领域修复命令' }),
+    ).toBeDisabled();
+  });
+
   it('opens the configuration, dictionary and number rule workbench', () => {
     render(<App />);
 

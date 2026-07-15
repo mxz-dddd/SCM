@@ -11293,3 +11293,371 @@ model YardControlView {
   @@map("yard_control_view")
   @@schema("control")
 }
+
+enum ControlSlaClockStatus {
+  ACTIVE
+  PAUSED
+  WARNING
+  BREACHED
+  COMPLETED
+  CANCELLED
+
+  @@schema("control")
+}
+
+enum ControlSlaMilestone {
+  CONFIRMATION
+  RELEASE
+  RECEIVING
+  PUTAWAY
+  SHIPPING
+  DELIVERY
+  POD
+  RECONCILIATION
+
+  @@schema("control")
+}
+
+enum AlertRuleLifecycle {
+  DRAFT
+  PUBLISHED
+  RETIRED
+
+  @@schema("control")
+}
+
+enum ControlAlertSeverity {
+  LOW
+  MEDIUM
+  HIGH
+  CRITICAL
+
+  @@schema("control")
+}
+
+enum ControlAlertCaseStatus {
+  OPEN
+  ACKNOWLEDGED
+  IN_PROGRESS
+  RESOLVED
+  CLOSED
+
+  @@schema("control")
+}
+
+enum ControlNotificationStatus {
+  REQUESTED
+
+  @@schema("control")
+}
+
+enum ControlRemediationStatus {
+  REQUESTED
+
+  @@schema("control")
+}
+
+model ControlSlaClock {
+  id                 String                @id @default(uuid()) @db.Uuid
+  tenantId           String                @map("tenant_id") @db.Uuid
+  createdAt          DateTime              @default(now()) @map("created_at") @db.Timestamptz(3)
+  createdBy          String                @map("created_by") @db.Uuid
+  updatedAt          DateTime              @updatedAt @map("updated_at") @db.Timestamptz(3)
+  updatedBy          String                @map("updated_by") @db.Uuid
+  version            Int                   @default(1)
+  status             ControlSlaClockStatus @default(ACTIVE)
+  businessRef        String                @map("business_ref") @db.VarChar(200)
+  milestone          ControlSlaMilestone
+  sourceVersion      Int                   @map("source_version")
+  responsibleDomain  String                @map("responsible_domain") @db.VarChar(50)
+  organizationRef    String?               @map("organization_ref") @db.VarChar(200)
+  customerRef        String?               @map("customer_ref") @db.VarChar(200)
+  calendarCode       String                @map("calendar_code") @db.VarChar(100)
+  calendarSnapshot   Json                  @map("calendar_snapshot") @db.JsonB
+  durationMinutes    Int                   @map("duration_minutes")
+  warningLeadMinutes Int                   @map("warning_lead_minutes")
+  startedAt          DateTime              @map("started_at") @db.Timestamptz(3)
+  warningAt          DateTime              @map("warning_at") @db.Timestamptz(3)
+  dueAt              DateTime              @map("due_at") @db.Timestamptz(3)
+  pausedAt           DateTime?             @map("paused_at") @db.Timestamptz(3)
+  pausedSeconds      Int                   @default(0) @map("paused_seconds")
+  pauseReason        String?               @map("pause_reason") @db.VarChar(500)
+  breachedAt         DateTime?             @map("breached_at") @db.Timestamptz(3)
+  completedAt        DateTime?             @map("completed_at") @db.Timestamptz(3)
+  reopenedCount      Int                   @default(0) @map("reopened_count")
+
+  @@unique([tenantId, businessRef, milestone], map: "control_sla_business_milestone_key")
+  @@index([tenantId, status, warningAt, dueAt], map: "control_sla_monitor_idx")
+  @@map("sla_clock")
+  @@schema("control")
+}
+
+model ControlSlaEvent {
+  id            String                        @id @default(uuid()) @db.Uuid
+  tenantId      String                        @map("tenant_id") @db.Uuid
+  createdAt     DateTime                      @default(now()) @map("created_at") @db.Timestamptz(3)
+  createdBy     String                        @map("created_by") @db.Uuid
+  updatedAt     DateTime                      @default(now()) @map("updated_at") @db.Timestamptz(3)
+  updatedBy     String                        @map("updated_by") @db.Uuid
+  version       Int                           @default(1)
+  status        ControlProjectionRecordStatus @default(ACTIVE)
+  slaClockId    String                        @map("sla_clock_id") @db.Uuid
+  eventType     String                        @map("event_type") @db.VarChar(50)
+  fromStatus    ControlSlaClockStatus?        @map("from_status")
+  toStatus      ControlSlaClockStatus         @map("to_status")
+  sourceVersion Int                           @map("source_version")
+  reason        String?                       @db.VarChar(500)
+  occurredAt    DateTime                      @default(now()) @map("occurred_at") @db.Timestamptz(3)
+  snapshot      Json                          @map("snapshot") @db.JsonB
+
+  @@index([tenantId, slaClockId, occurredAt, id], map: "control_sla_event_clock_idx")
+  @@map("sla_event")
+  @@schema("control")
+}
+
+model ControlAlertRule {
+  id                  String             @id @default(uuid()) @db.Uuid
+  tenantId            String             @map("tenant_id") @db.Uuid
+  createdAt           DateTime           @default(now()) @map("created_at") @db.Timestamptz(3)
+  createdBy           String             @map("created_by") @db.Uuid
+  updatedAt           DateTime           @updatedAt @map("updated_at") @db.Timestamptz(3)
+  updatedBy           String             @map("updated_by") @db.Uuid
+  version             Int                @default(1)
+  status              AlertRuleLifecycle @default(DRAFT)
+  code                String             @db.VarChar(100)
+  name                String             @db.VarChar(200)
+  customerRef         String?            @map("customer_ref") @db.VarChar(200)
+  activeVersionNumber Int?               @map("active_version_number")
+
+  @@unique([tenantId, code, customerRef], map: "control_alert_rule_scope_key")
+  @@index([tenantId, status, code], map: "control_alert_rule_lookup_idx")
+  @@map("alert_rule")
+  @@schema("control")
+}
+
+model ControlAlertRuleVersion {
+  id                 String                        @id @default(uuid()) @db.Uuid
+  tenantId           String                        @map("tenant_id") @db.Uuid
+  createdAt          DateTime                      @default(now()) @map("created_at") @db.Timestamptz(3)
+  createdBy          String                        @map("created_by") @db.Uuid
+  updatedAt          DateTime                      @default(now()) @map("updated_at") @db.Timestamptz(3)
+  updatedBy          String                        @map("updated_by") @db.Uuid
+  version            Int                           @default(1)
+  status             ControlProjectionRecordStatus @default(ACTIVE)
+  ruleId             String                        @map("rule_id") @db.Uuid
+  versionNumber      Int                           @map("version_number")
+  conditionSnapshot  Json                          @map("condition_snapshot") @db.JsonB
+  debounceSeconds    Int                           @map("debounce_seconds")
+  suppressionSeconds Int                           @map("suppression_seconds")
+  mergeWindowSeconds Int                           @map("merge_window_seconds")
+  severity           ControlAlertSeverity
+  responsibleDomain  String                        @map("responsible_domain") @db.VarChar(50)
+  organizationRef    String?                       @map("organization_ref") @db.VarChar(200)
+  shiftCode          String?                       @map("shift_code") @db.VarChar(100)
+  ownerRef           String?                       @map("owner_ref") @db.Uuid
+  supervisorRef      String?                       @map("supervisor_ref") @db.Uuid
+  dueMinutes         Int                           @map("due_minutes")
+  escalationMinutes  Int                           @map("escalation_minutes")
+  channelSnapshot    Json                          @map("channel_snapshot") @db.JsonB
+  publishedAt        DateTime                      @default(now()) @map("published_at") @db.Timestamptz(3)
+
+  @@unique([tenantId, ruleId, versionNumber], map: "control_alert_rule_version_key")
+  @@index([tenantId, ruleId, publishedAt], map: "control_alert_rule_version_idx")
+  @@map("alert_rule_version")
+  @@schema("control")
+}
+
+model ControlAlertSignal {
+  id              String                        @id @default(uuid()) @db.Uuid
+  tenantId        String                        @map("tenant_id") @db.Uuid
+  createdAt       DateTime                      @default(now()) @map("created_at") @db.Timestamptz(3)
+  createdBy       String                        @map("created_by") @db.Uuid
+  updatedAt       DateTime                      @updatedAt @map("updated_at") @db.Timestamptz(3)
+  updatedBy       String                        @map("updated_by") @db.Uuid
+  version         Int                           @default(1)
+  status          ControlProjectionRecordStatus @default(ACTIVE)
+  ruleVersionId   String                        @map("rule_version_id") @db.Uuid
+  dedupeKey       String                        @map("dedupe_key") @db.VarChar(300)
+  firstObservedAt DateTime                      @map("first_observed_at") @db.Timestamptz(3)
+  lastObservedAt  DateTime                      @map("last_observed_at") @db.Timestamptz(3)
+  occurrenceCount Int                           @default(1) @map("occurrence_count")
+  lastAlertAt     DateTime?                     @map("last_alert_at") @db.Timestamptz(3)
+  lastCaseId      String?                       @map("last_case_id") @db.Uuid
+
+  @@unique([tenantId, ruleVersionId, dedupeKey], map: "control_alert_signal_key")
+  @@map("alert_signal")
+  @@schema("control")
+}
+
+model ControlAlertCase {
+  id                 String                 @id @default(uuid()) @db.Uuid
+  tenantId           String                 @map("tenant_id") @db.Uuid
+  createdAt          DateTime               @default(now()) @map("created_at") @db.Timestamptz(3)
+  createdBy          String                 @map("created_by") @db.Uuid
+  updatedAt          DateTime               @updatedAt @map("updated_at") @db.Timestamptz(3)
+  updatedBy          String                 @map("updated_by") @db.Uuid
+  version            Int                    @default(1)
+  status             ControlAlertCaseStatus @default(OPEN)
+  caseNo             String                 @map("case_no") @db.VarChar(100)
+  ruleVersionId      String?                @map("rule_version_id") @db.Uuid
+  slaClockId         String?                @map("sla_clock_id") @db.Uuid
+  dedupeKey          String                 @map("dedupe_key") @db.VarChar(300)
+  businessRef        String                 @map("business_ref") @db.VarChar(200)
+  sourceDomain       String                 @map("source_domain") @db.VarChar(50)
+  responsibleDomain  String                 @map("responsible_domain") @db.VarChar(50)
+  organizationRef    String?                @map("organization_ref") @db.VarChar(200)
+  customerRef        String?                @map("customer_ref") @db.VarChar(200)
+  severity           ControlAlertSeverity
+  title              String                 @db.VarChar(300)
+  description        String                 @db.VarChar(1000)
+  ownerRef           String?                @map("owner_ref") @db.Uuid
+  supervisorRef      String?                @map("supervisor_ref") @db.Uuid
+  shiftCode          String?                @map("shift_code") @db.VarChar(100)
+  dueAt              DateTime               @map("due_at") @db.Timestamptz(3)
+  acknowledgedAt     DateTime?              @map("acknowledged_at") @db.Timestamptz(3)
+  resolvedAt         DateTime?              @map("resolved_at") @db.Timestamptz(3)
+  closedAt           DateTime?              @map("closed_at") @db.Timestamptz(3)
+  escalationLevel    Int                    @default(0) @map("escalation_level")
+  triggerCount       Int                    @default(1) @map("trigger_count")
+  lastTriggeredAt    DateTime               @map("last_triggered_at") @db.Timestamptz(3)
+  resolution         String?                @db.VarChar(1000)
+  resolutionVerified Boolean                @default(false) @map("resolution_verified")
+  sourceSnapshot     Json                   @map("source_snapshot") @db.JsonB
+
+  @@unique([tenantId, caseNo], map: "control_alert_case_no_key")
+  @@index([tenantId, status, severity, dueAt, id], map: "control_alert_case_workbench_idx")
+  @@index([tenantId, dedupeKey, lastTriggeredAt], map: "control_alert_case_merge_idx")
+  @@map("alert_case")
+  @@schema("control")
+}
+
+model ControlAlertAssignmentHistory {
+  id            String                        @id @default(uuid()) @db.Uuid
+  tenantId      String                        @map("tenant_id") @db.Uuid
+  createdAt     DateTime                      @default(now()) @map("created_at") @db.Timestamptz(3)
+  createdBy     String                        @map("created_by") @db.Uuid
+  updatedAt     DateTime                      @default(now()) @map("updated_at") @db.Timestamptz(3)
+  updatedBy     String                        @map("updated_by") @db.Uuid
+  version       Int                           @default(1)
+  status        ControlProjectionRecordStatus @default(ACTIVE)
+  alertCaseId   String                        @map("alert_case_id") @db.Uuid
+  fromOwnerRef  String?                       @map("from_owner_ref") @db.Uuid
+  toOwnerRef    String?                       @map("to_owner_ref") @db.Uuid
+  reason        String                        @db.VarChar(500)
+  routeSnapshot Json                          @map("route_snapshot") @db.JsonB
+  assignedAt    DateTime                      @default(now()) @map("assigned_at") @db.Timestamptz(3)
+
+  @@index([tenantId, alertCaseId, assignedAt, id], map: "control_alert_assignment_case_idx")
+  @@map("alert_assignment_history")
+  @@schema("control")
+}
+
+model ControlAlertNotification {
+  id              String                    @id @default(uuid()) @db.Uuid
+  tenantId        String                    @map("tenant_id") @db.Uuid
+  createdAt       DateTime                  @default(now()) @map("created_at") @db.Timestamptz(3)
+  createdBy       String                    @map("created_by") @db.Uuid
+  updatedAt       DateTime                  @default(now()) @map("updated_at") @db.Timestamptz(3)
+  updatedBy       String                    @map("updated_by") @db.Uuid
+  version         Int                       @default(1)
+  status          ControlNotificationStatus @default(REQUESTED)
+  alertCaseId     String                    @map("alert_case_id") @db.Uuid
+  escalationLevel Int                       @map("escalation_level")
+  recipientRef    String?                   @map("recipient_ref") @db.Uuid
+  channelSnapshot Json                      @map("channel_snapshot") @db.JsonB
+  requestedAt     DateTime                  @default(now()) @map("requested_at") @db.Timestamptz(3)
+
+  @@unique([tenantId, alertCaseId, escalationLevel], map: "control_alert_notification_level_key")
+  @@map("alert_notification")
+  @@schema("control")
+}
+
+model ControlEscalationEvent {
+  id          String                        @id @default(uuid()) @db.Uuid
+  tenantId    String                        @map("tenant_id") @db.Uuid
+  createdAt   DateTime                      @default(now()) @map("created_at") @db.Timestamptz(3)
+  createdBy   String                        @map("created_by") @db.Uuid
+  updatedAt   DateTime                      @default(now()) @map("updated_at") @db.Timestamptz(3)
+  updatedBy   String                        @map("updated_by") @db.Uuid
+  version     Int                           @default(1)
+  status      ControlProjectionRecordStatus @default(ACTIVE)
+  alertCaseId String                        @map("alert_case_id") @db.Uuid
+  fromLevel   Int                           @map("from_level")
+  toLevel     Int                           @map("to_level")
+  reason      String                        @db.VarChar(500)
+  escalatedAt DateTime                      @default(now()) @map("escalated_at") @db.Timestamptz(3)
+
+  @@index([tenantId, alertCaseId, escalatedAt, id], map: "control_escalation_case_idx")
+  @@map("escalation_event")
+  @@schema("control")
+}
+
+model ControlRemediationRequest {
+  id              String                   @id @default(uuid()) @db.Uuid
+  tenantId        String                   @map("tenant_id") @db.Uuid
+  createdAt       DateTime                 @default(now()) @map("created_at") @db.Timestamptz(3)
+  createdBy       String                   @map("created_by") @db.Uuid
+  updatedAt       DateTime                 @default(now()) @map("updated_at") @db.Timestamptz(3)
+  updatedBy       String                   @map("updated_by") @db.Uuid
+  version         Int                      @default(1)
+  status          ControlRemediationStatus @default(REQUESTED)
+  alertCaseId     String                   @map("alert_case_id") @db.Uuid
+  targetDomain    String                   @map("target_domain") @db.VarChar(50)
+  commandType     String                   @map("command_type") @db.VarChar(150)
+  targetRef       String                   @map("target_ref") @db.VarChar(200)
+  reason          String                   @db.VarChar(500)
+  commandSnapshot Json                     @map("command_snapshot") @db.JsonB
+  requestedAt     DateTime                 @default(now()) @map("requested_at") @db.Timestamptz(3)
+
+  @@index([tenantId, alertCaseId, requestedAt, id], map: "control_remediation_case_idx")
+  @@map("remediation_request")
+  @@schema("control")
+}
+
+model ControlRootCauseRecord {
+  id                   String                        @id @default(uuid()) @db.Uuid
+  tenantId             String                        @map("tenant_id") @db.Uuid
+  createdAt            DateTime                      @default(now()) @map("created_at") @db.Timestamptz(3)
+  createdBy            String                        @map("created_by") @db.Uuid
+  updatedAt            DateTime                      @default(now()) @map("updated_at") @db.Timestamptz(3)
+  updatedBy            String                        @map("updated_by") @db.Uuid
+  version              Int                           @default(1)
+  status               ControlProjectionRecordStatus @default(ACTIVE)
+  alertCaseId          String                        @map("alert_case_id") @db.Uuid
+  closureVersion       Int                           @map("closure_version")
+  rootCauseCode        String                        @map("root_cause_code") @db.VarChar(100)
+  responsibleParty     String                        @map("responsible_party") @db.VarChar(200)
+  solution             String                        @db.VarChar(1000)
+  verificationSnapshot Json                          @map("verification_snapshot") @db.JsonB
+  improvementSnapshot  Json                          @map("improvement_snapshot") @db.JsonB
+  closedAt             DateTime                      @default(now()) @map("closed_at") @db.Timestamptz(3)
+
+  @@unique([tenantId, alertCaseId, closureVersion], map: "control_root_cause_closure_key")
+  @@index([tenantId, rootCauseCode, responsibleParty, closedAt], map: "control_root_cause_search_idx")
+  @@map("root_cause_record")
+  @@schema("control")
+}
+
+model ControlKnowledgeArticle {
+  id                     String                        @id @default(uuid()) @db.Uuid
+  tenantId               String                        @map("tenant_id") @db.Uuid
+  createdAt              DateTime                      @default(now()) @map("created_at") @db.Timestamptz(3)
+  createdBy              String                        @map("created_by") @db.Uuid
+  updatedAt              DateTime                      @default(now()) @map("updated_at") @db.Timestamptz(3)
+  updatedBy              String                        @map("updated_by") @db.Uuid
+  version                Int                           @default(1)
+  status                 ControlProjectionRecordStatus @default(ACTIVE)
+  articleCode            String                        @map("article_code") @db.VarChar(100)
+  versionNumber          Int                           @map("version_number")
+  title                  String                        @db.VarChar(300)
+  rootCauseCode          String                        @map("root_cause_code") @db.VarChar(100)
+  contentSnapshot        Json                          @map("content_snapshot") @db.JsonB
+  recommendationSnapshot Json                          @map("recommendation_snapshot") @db.JsonB
+  sourceCaseRefs         Json                          @map("source_case_refs") @db.JsonB
+  publishedAt            DateTime                      @default(now()) @map("published_at") @db.Timestamptz(3)
+
+  @@unique([tenantId, articleCode, versionNumber], map: "control_knowledge_article_version_key")
+  @@index([tenantId, rootCauseCode, publishedAt], map: "control_knowledge_search_idx")
+  @@map("knowledge_article")
+  @@schema("control")
+}

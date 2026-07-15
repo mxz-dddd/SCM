@@ -18,6 +18,7 @@ import { AuthWorkbench } from '../platform/AuthWorkbench';
 import { AppointmentCapacityWorkbench } from '../ams/AppointmentCapacityWorkbench';
 import { BillingFactWorkbench } from '../billing/BillingFactWorkbench';
 import { ControlTowerWorkbench } from '../control/ControlTowerWorkbench';
+import { AlertGovernanceWorkbench } from '../control/AlertGovernanceWorkbench';
 import { AuditWorkbench } from '../platform/AuditWorkbench';
 import { AttachmentWorkbench } from '../platform/AttachmentWorkbench';
 import { ConfigurationWorkbench } from '../platform/ConfigurationWorkbench';
@@ -158,6 +159,12 @@ const pageRegistry: readonly WorkspaceTab[] = [
   },
   { dirty: false, id: 'billing', route: '/billing/facts', title: '结算中心' },
   { dirty: false, id: 'control', route: '/control/tower', title: '控制塔' },
+  {
+    dirty: false,
+    id: 'control-alerts',
+    route: '/control/alerts',
+    title: '预警例外',
+  },
 ];
 
 const modules = [
@@ -187,6 +194,7 @@ const modules = [
   ['预约', 'appointments'],
   ['结算', 'billing'],
   ['控制塔', 'control'],
+  ['预警', 'control-alerts'],
 ] as const;
 
 interface WorkspaceCatalogItem {
@@ -344,6 +352,7 @@ export function ApplicationShell() {
     if (tabId === 'appointments') return <AppointmentCapacityWorkbench />;
     if (tabId === 'billing') return <BillingFactWorkbench />;
     if (tabId === 'control') return <ControlTowerWorkbench />;
+    if (tabId === 'control-alerts') return <AlertGovernanceWorkbench />;
     return (
       <section className="workspace-placeholder">
         <Typography.Title level={2}>

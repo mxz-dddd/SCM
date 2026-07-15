@@ -55,4 +55,20 @@ export class EventConsumptionFacade {
       handler,
     );
   }
+  consumeControlAlert(
+    event: BusinessEventInput,
+    context: TenantContext,
+    metadata: CommandMetadata,
+    handler: (
+      event: BusinessEventInput,
+      transaction: Prisma.TransactionClient,
+    ) => Promise<Readonly<Record<string, unknown>>>,
+  ) {
+    return this.events.consume(
+      { consumer: 'control.alert-engine.v1', event },
+      context,
+      metadata,
+      handler,
+    );
+  }
 }
