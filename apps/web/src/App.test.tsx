@@ -495,4 +495,19 @@ describe('App', () => {
       screen.getByRole('button', { name: '签发客户追踪码' }),
     ).toBeDisabled();
   });
+
+  it('opens immutable billing facts and occurrence-time rate matching', () => {
+    render(<App />);
+    fireEvent.click(screen.getByRole('button', { name: '结算' }));
+    expect(
+      screen.getByRole('heading', { name: '计费事实与费率匹配' }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText('ChargeFact 与 FactCorrection'),
+    ).toBeInTheDocument();
+    expect(screen.getByText('RateMatch 与 MatchTrace')).toBeInTheDocument();
+    expect(screen.getByText('零命中计费异常')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: '接收计费事实' })).toBeDisabled();
+    expect(screen.getByRole('button', { name: '追加事实更正' })).toBeDisabled();
+  });
 });

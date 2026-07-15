@@ -78,13 +78,16 @@ describe('RBAC resolution', () => {
     ).toEqual(new Set(['MENU', 'PAGE', 'API', 'BUTTON', 'FIELD', 'EXPORT']));
   });
 
-  it('grants the administrator the P3 AMS and TMS execution surface', () => {
+  it('grants the administrator the implemented module execution surface', () => {
     const codes = new Set(ADMIN_PERMISSIONS.map(({ code }) => code));
     expect(
       [
         'ams.appointment.create',
         'ams.gate.verify',
         'ams.operation.manage',
+        'billing.fact.correct',
+        'billing.fact.ingest',
+        'billing.fact.read',
         'tms.tender.respond',
         'tms.pod.review',
         'tms.billing.settle',

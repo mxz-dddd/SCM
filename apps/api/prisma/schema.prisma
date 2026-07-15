@@ -9884,3 +9884,157 @@ model PenaltyWaiverDecision {
   @@map("penalty_waiver_decision")
   @@schema("ams")
 }
+
+enum BillingFactStatus {
+  ACTIVE
+
+  @@schema("billing")
+}
+
+enum RateMatchStatus {
+  MATCHED
+  UNMATCHED
+
+  @@schema("billing")
+}
+
+enum RateMatchExceptionStatus {
+  OPEN
+  RESOLVED
+
+  @@schema("billing")
+}
+
+model ChargeFact {
+  id                String            @id @default(uuid()) @db.Uuid
+  tenantId          String            @map("tenant_id") @db.Uuid
+  createdAt         DateTime          @default(now()) @map("created_at") @db.Timestamptz(3)
+  createdBy         String            @map("created_by") @db.Uuid
+  updatedAt         DateTime          @default(now()) @map("updated_at") @db.Timestamptz(3)
+  updatedBy         String            @map("updated_by") @db.Uuid
+  version           Int               @default(1)
+  status            BillingFactStatus @default(ACTIVE)
+  eventId           String            @map("event_id") @db.VarChar(200)
+  sourceDomain      String            @map("source_domain") @db.VarChar(20)
+  sourceEventType   String            @map("source_event_type") @db.VarChar(150)
+  aggregateRef      String            @map("aggregate_ref") @db.VarChar(200)
+  businessRef       String            @map("business_ref") @db.VarChar(200)
+  chargeType        String            @map("charge_type") @db.VarChar(100)
+  occurredAt        DateTime          @map("occurred_at") @db.Timestamptz(3)
+  quantityOriginal  Decimal           @map("quantity_original") @db.Decimal(24, 6)
+  quantityUom       String            @map("quantity_uom") @db.VarChar(20)
+  quantityBase      Decimal           @map("quantity_base") @db.Decimal(24, 6)
+  quantityBaseUom   String            @map("quantity_base_uom") @db.VarChar(20)
+  amount            Decimal?          @db.Decimal(24, 6)
+  currency          String            @db.Char(3)
+  partyRef          String            @map("party_ref") @db.Uuid
+  organizationRef   String?           @map("organization_ref") @db.Uuid
+  routeRef          String?           @map("route_ref") @db.VarChar(200)
+  serviceType       String            @map("service_type") @db.VarChar(100)
+  dimensions        Json              @default("{}") @db.JsonB
+  sourceSnapshot    Json              @map("source_snapshot") @db.JsonB
+  contentHash       String            @map("content_hash") @db.Char(64)
+
+  @@unique([tenantId, eventId], map: "charge_fact_tenant_event_key")
+  @@unique([tenantId, businessRef, chargeType], map: "charge_fact_business_charge_key")
+  @@index([tenantId, occurredAt, businessRef], map: "charge_fact_occurred_business_idx")
+  @@index([tenantId, partyRef, serviceType, currency], map: "charge_fact_match_dimension_idx")
+  @@map("charge_fact")
+  @@schema("billing")
+}
+
+model FactCorrection {
+  id                String            @id @default(uuid()) @db.Uuid
+  tenantId          String            @map("tenant_id") @db.Uuid
+  createdAt         DateTime          @default(now()) @map("created_at") @db.Timestamptz(3)
+  createdBy         String            @map("created_by") @db.Uuid
+  updatedAt         DateTime          @default(now()) @map("updated_at") @db.Timestamptz(3)
+  updatedBy         String            @map("updated_by") @db.Uuid
+  version           Int               @default(1)
+  status            BillingFactStatus @default(ACTIVE)
+  chargeFactId      String            @map("charge_fact_id") @db.Uuid
+  correctionNo      String            @map("correction_no") @db.VarChar(100)
+  reason            String            @db.VarChar(1000)
+  correctedSnapshot Json              @map("corrected_snapshot") @db.JsonB
+  previousHash      String            @map("previous_hash") @db.Char(64)
+  contentHash       String            @map("content_hash") @db.Char(64)
+  occurredAt        DateTime          @default(now()) @map("occurred_at") @db.Timestamptz(3)
+
+  @@unique([tenantId, correctionNo], map: "fact_correction_tenant_no_key")
+  @@unique([tenantId, chargeFactId, contentHash], map: "fact_correction_content_key")
+  @@index([tenantId, chargeFactId, occurredAt], map: "fact_correction_fact_time_idx")
+  @@map("fact_correction")
+  @@schema("billing")
+}
+
+model RateMatch {
+  id                String          @id @default(uuid()) @db.Uuid
+  tenantId          String          @map("tenant_id") @db.Uuid
+  createdAt         DateTime        @default(now()) @map("created_at") @db.Timestamptz(3)
+  createdBy         String          @map("created_by") @db.Uuid
+  updatedAt         DateTime        @default(now()) @map("updated_at") @db.Timestamptz(3)
+  updatedBy         String          @map("updated_by") @db.Uuid
+  version           Int             @default(1)
+  status            RateMatchStatus
+  matchKey          String          @map("match_key") @db.VarChar(200)
+  chargeFactId      String          @map("charge_fact_id") @db.Uuid
+  factCorrectionId  String?         @map("fact_correction_id") @db.Uuid
+  factOccurredAt    DateTime        @map("fact_occurred_at") @db.Timestamptz(3)
+  contractRef       String?         @map("contract_ref") @db.Uuid
+  rateCardRef       String?         @map("rate_card_ref") @db.Uuid
+  rateVersionRef    String?         @map("rate_version_ref") @db.Uuid
+  rateVersionNumber Int?            @map("rate_version_number")
+  baseRate          Decimal?        @map("base_rate") @db.Decimal(24, 6)
+  currency          String          @db.Char(3)
+  priority          Int?
+  matchedAt         DateTime        @default(now()) @map("matched_at") @db.Timestamptz(3)
+
+  @@unique([tenantId, matchKey], map: "rate_match_tenant_key")
+  @@index([tenantId, chargeFactId, matchedAt], map: "rate_match_fact_time_idx")
+  @@index([tenantId, status, matchedAt], map: "rate_match_status_time_idx")
+  @@map("rate_match")
+  @@schema("billing")
+}
+
+model MatchTrace {
+  id                String            @id @default(uuid()) @db.Uuid
+  tenantId          String            @map("tenant_id") @db.Uuid
+  createdAt         DateTime          @default(now()) @map("created_at") @db.Timestamptz(3)
+  createdBy         String            @map("created_by") @db.Uuid
+  updatedAt         DateTime          @default(now()) @map("updated_at") @db.Timestamptz(3)
+  updatedBy         String            @map("updated_by") @db.Uuid
+  version           Int               @default(1)
+  status            BillingFactStatus @default(ACTIVE)
+  rateMatchId       String            @map("rate_match_id") @db.Uuid
+  traceVersion      Int               @default(1) @map("trace_version")
+  inputSnapshot     Json              @map("input_snapshot") @db.JsonB
+  candidateSnapshot Json              @map("candidate_snapshot") @db.JsonB
+  decisionSnapshot  Json              @map("decision_snapshot") @db.JsonB
+
+  @@unique([tenantId, rateMatchId], map: "match_trace_rate_match_key")
+  @@index([tenantId, createdAt, rateMatchId], map: "match_trace_created_idx")
+  @@map("match_trace")
+  @@schema("billing")
+}
+
+model RateMatchException {
+  id                String                   @id @default(uuid()) @db.Uuid
+  tenantId          String                   @map("tenant_id") @db.Uuid
+  createdAt         DateTime                 @default(now()) @map("created_at") @db.Timestamptz(3)
+  createdBy         String                   @map("created_by") @db.Uuid
+  updatedAt         DateTime                 @updatedAt @map("updated_at") @db.Timestamptz(3)
+  updatedBy         String                   @map("updated_by") @db.Uuid
+  version           Int                      @default(1)
+  status            RateMatchExceptionStatus @default(OPEN)
+  chargeFactId      String                   @map("charge_fact_id") @db.Uuid
+  rateMatchId       String                   @map("rate_match_id") @db.Uuid
+  code              String                   @db.VarChar(100)
+  reason            String                   @db.VarChar(1000)
+  candidateSnapshot Json                     @map("candidate_snapshot") @db.JsonB
+  resolvedAt        DateTime?                @map("resolved_at") @db.Timestamptz(3)
+
+  @@unique([tenantId, rateMatchId], map: "rate_match_exception_match_key")
+  @@index([tenantId, status, createdAt], map: "rate_match_exception_workbench_idx")
+  @@map("rate_match_exception")
+  @@schema("billing")
+}

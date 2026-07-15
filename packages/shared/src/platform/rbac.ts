@@ -10,7 +10,10 @@ export const PERMISSION_RESOURCE_TYPES = [
 export type PermissionEffect = 'ALLOW' | 'DENY';
 export type PermissionResourceType = (typeof PERMISSION_RESOURCE_TYPES)[number];
 
-const P3_ADMIN_PERMISSION_CODES = [
+const MODULE_ADMIN_PERMISSION_CODES = [
+  'billing.fact.correct',
+  'billing.fact.ingest',
+  'billing.fact.read',
   'ams.appointment.approve',
   'ams.appointment.change',
   'ams.appointment.create',
@@ -82,23 +85,25 @@ const P3_ADMIN_PERMISSION_CODES = [
   'tms.tracking.share',
 ] as const;
 
-function p3AdminPermission(code: (typeof P3_ADMIN_PERMISSION_CODES)[number]): {
+function moduleAdminPermission(
+  code: (typeof MODULE_ADMIN_PERMISSION_CODES)[number],
+): {
   code: string;
   name: string;
   resourceRef: string;
   resourceType: PermissionResourceType;
 } {
-  const domain = code.startsWith('ams.') ? 'ams' : 'tms';
+  const domain = code.split('.')[0]!;
   return {
     code,
-    name: `P3 模块权限（${code}）`,
+    name: `业务模块权限（${code}）`,
     resourceRef: `/api/v1/${domain}/*`,
     resourceType: code.endsWith('.read') ? 'PAGE' : 'BUTTON',
   };
 }
 
 export const ADMIN_PERMISSIONS = [
-  ...P3_ADMIN_PERMISSION_CODES.map(p3AdminPermission),
+  ...MODULE_ADMIN_PERMISSION_CODES.map(moduleAdminPermission),
   {
     code: 'tms.transport.read',
     name: '查看运输订单',
