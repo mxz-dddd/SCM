@@ -1,4 +1,6 @@
 import { randomUUID } from 'node:crypto';
+import { spawn, type ChildProcess } from 'node:child_process';
+import { once } from 'node:events';
 import { expect, test, type APIRequestContext } from '@playwright/test';
 import { PrismaClient } from '@prisma/client';
 
@@ -15,6 +17,7 @@ const primaryProductId = '20000000-0000-4000-8000-000000000206';
 const concurrentProductId = '20000000-0000-4000-8000-000000000207';
 const ruleSetCode = 'P2_E2E_ALLOCATE';
 const calendarCode = 'P2_E2E_RELEASE';
+let eventWorker: ChildProcess | undefined;
 
 type JsonObject = Record<string, unknown>;
 
@@ -94,46 +97,48 @@ async function seedProduct(
     update: { updatedBy: administratorId },
     where: { id: productId },
   });
-  await prisma.productVersion.upsert({
-    create: {
-      createdBy: administratorId,
-      id: productVersionId,
-      productId,
-      sku,
-      snapshot: {
-        baseUom: 'EA',
-        grossWeight: '1',
-        name: `${sku} 验收商品`,
+  if (
+    !(await prisma.productVersion.findUnique({
+      where: { id: productVersionId },
+    }))
+  )
+    await prisma.productVersion.create({
+      data: {
+        createdBy: administratorId,
+        id: productVersionId,
+        productId,
         sku,
-        volume: '1',
+        snapshot: {
+          baseUom: 'EA',
+          grossWeight: '1',
+          name: `${sku} 验收商品`,
+          sku,
+          volume: '1',
+        },
+        tenantId,
+        updatedBy: administratorId,
+        versionNumber: 1,
       },
-      tenantId,
-      updatedBy: administratorId,
-      versionNumber: 1,
-    },
-    update: { updatedBy: administratorId },
-    where: { id: productVersionId },
-  });
-  await prisma.packageSpec.upsert({
-    create: {
-      baseUom: 'EA',
-      code: 'EA',
-      createdBy: administratorId,
-      id: packageSpecId,
-      level: 'EACH',
-      name: '单件',
-      originalUom: 'EA',
-      productId,
-      publishedAt: new Date(),
-      quantityInBase: '1',
-      status: 'PUBLISHED',
-      tenantId,
-      updatedBy: administratorId,
-      versionNumber: 1,
-    },
-    update: { updatedBy: administratorId },
-    where: { id: packageSpecId },
-  });
+    });
+  if (!(await prisma.packageSpec.findUnique({ where: { id: packageSpecId } })))
+    await prisma.packageSpec.create({
+      data: {
+        baseUom: 'EA',
+        code: 'EA',
+        createdBy: administratorId,
+        id: packageSpecId,
+        level: 'EACH',
+        name: '单件',
+        originalUom: 'EA',
+        productId,
+        publishedAt: new Date(),
+        quantityInBase: '1',
+        status: 'PUBLISHED',
+        tenantId,
+        updatedBy: administratorId,
+        versionNumber: 1,
+      },
+    });
 }
 
 async function createApprovedOrder(
@@ -368,6 +373,16 @@ test.beforeAll(async () => {
 });
 
 test.afterAll(async () => prisma.$disconnect());
+test.afterEach(async () => {
+  const worker = eventWorker;
+  eventWorker = undefined;
+  if (!worker || worker.exitCode !== null) return;
+  worker.kill('SIGTERM');
+  await Promise.race([
+    once(worker, 'exit'),
+    new Promise((resolve) => setTimeout(resolve, 5_000)),
+  ]);
+});
 
 test('场景① ERP 订单贯通审核、分配、波次、拣包、装运与事件回写', async ({
   request,
@@ -467,6 +482,95 @@ test('场景① ERP 订单贯通审核、分配、波次、拣包、装运与事
   const fulfillmentId = String((releasedOrder.fulfillmentIds as string[])[0]);
   const shipmentRef = String((releasedOrder.shipmentRequestIds as string[])[0]);
 
+  eventWorker = spawn(
+    'pnpm',
+    ['--filter', '@scm/worker', 'exec', 'tsx', 'src/main.ts'],
+    {
+      cwd: process.cwd(),
+      env: {
+        ...process.env,
+        WORKER_API_TOKEN: token,
+        WORKER_API_URL: 'http://127.0.0.1:3100',
+        WORKER_TENANT_ID: tenantId,
+      },
+      stdio: 'pipe',
+    },
+  );
+
+  await expect
+    .poll(
+      async () => {
+        const workbench = await get(request, token, '/api/v1/wms/outbounds');
+        return (workbench.orders as JsonObject[]).find(
+          (candidate) => candidate.sourceRef === fulfillmentId,
+        )?.status;
+      },
+      { timeout: 30_000 },
+    )
+    .toBe('RELEASED');
+  await expect
+    .poll(
+      async () => {
+        const workbench = await get(
+          request,
+          token,
+          `/api/v1/tms/transport-orders?query=${shipmentRef}`,
+        );
+        return (workbench.items as JsonObject[]).filter(
+          (candidate) => candidate.sourceRef === shipmentRef,
+        ).length;
+      },
+      { timeout: 30_000 },
+    )
+    .toBe(1);
+  await expect
+    .poll(
+      async () => {
+        const workbench = await get(
+          request,
+          token,
+          '/api/v1/oms/fulfillment-processes',
+        );
+        return (workbench.items as JsonObject[]).find(
+          (candidate) => candidate.id === releasedOrder.processId,
+        )?.status;
+      },
+      { timeout: 30_000 },
+    )
+    .toBe('EXECUTING');
+
+  const outboundWorkbench = await get(request, token, '/api/v1/wms/outbounds');
+  const automaticOutbound = (outboundWorkbench.orders as JsonObject[]).find(
+    (candidate) => candidate.sourceRef === fulfillmentId,
+  )!;
+  const outbound = {
+    outboundId: String(automaticOutbound.id),
+    version: Number(automaticOutbound.version),
+  };
+  const fulfillmentEvent = await prisma.platformOutbox.findFirstOrThrow({
+    where: {
+      aggregateId: fulfillmentId,
+      eventName: 'fulfillment.released.v2',
+      tenantId,
+    },
+  });
+  await post(request, token, '/api/v1/wms/events/fulfillment-released', {
+    aggregateId: fulfillmentEvent.aggregateId,
+    aggregateType: fulfillmentEvent.aggregateType,
+    aggregateVersion: fulfillmentEvent.aggregateVersion,
+    eventId: fulfillmentEvent.id,
+    eventType: fulfillmentEvent.eventName,
+    occurredAt: fulfillmentEvent.occurredAt.toISOString(),
+    payload: fulfillmentEvent.payload,
+    schemaVersion: fulfillmentEvent.schemaVersion,
+    traceId: fulfillmentEvent.traceId ?? fulfillmentEvent.correlationId,
+  });
+  expect(
+    await prisma.outboundOrder.count({
+      where: { sourceRef: fulfillmentId, tenantId },
+    }),
+  ).toBe(1);
+
   const stock = await post(request, token, '/api/v1/wms/inventory/receipts', {
     baseUom: 'EA',
     businessRef: fulfillmentId,
@@ -480,36 +584,6 @@ test('场景① ERP 订单贯通审核、分配、波次、拣包、装运与事
     status: 'AVAILABLE',
     warehouseId,
   });
-  const outbound = await post(request, token, '/api/v1/wms/outbounds', {
-    carrierMode: 'ROAD',
-    customerId,
-    cutoffAt: new Date(Date.now() + 86_400_000).toISOString(),
-    destinationSnapshot: { addressId, city: '上海' },
-    lines: [
-      {
-        baseUom: 'EA',
-        lineNo: 1,
-        originalUom: 'EA',
-        productId: primaryProductId,
-        quantityBase: '5',
-        quantityOriginal: '5',
-      },
-    ],
-    ownerId: customerId,
-    routeCode: 'P2-E2E-ROUTE',
-    serviceLevel: 'NEXT_DAY',
-    sourceRef: fulfillmentId,
-    temperatureZone: 'AMBIENT',
-    type: 'SALES',
-    warehouseId,
-  });
-  const outboundReleased = await post(
-    request,
-    token,
-    `/api/v1/wms/outbounds/${String(outbound.outboundId)}/release`,
-    { expectedVersion: Number(outbound.version) },
-  );
-  expect(outboundReleased.status).toBe('RELEASED');
   const template = await post(request, token, '/api/v1/wms/wave-templates', {
     capacitySnapshot: {
       maxLines: 10,
@@ -519,7 +593,7 @@ test('场景① ERP 订单贯通审核、分配、波次、拣包、装运与事
     criteria: {
       carrierMode: 'ROAD',
       orderType: 'SALES',
-      routeCode: 'P2-E2E-ROUTE',
+      routeCode: 'OMS_AUTO',
       temperatureZone: 'AMBIENT',
     },
     name: 'P2 验收波次模板',
@@ -704,7 +778,7 @@ test('场景① ERP 订单贯通审核、分配、波次、拣包、装运与事
   await post(request, token, `/api/v1/wms/packages/${packageId}/stage`, {
     loadSequence: 1,
     maxVolume: '100',
-    routeCode: 'P2-E2E-ROUTE',
+    routeCode: 'OMS_AUTO',
     shipmentRef,
     stagingLocationId: locationId,
     tripRef: 'P2-E2E-TRIP-01',

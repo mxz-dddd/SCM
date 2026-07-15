@@ -83,6 +83,24 @@ const reviewTransitions: Readonly<
 export class TransportOrderService {
   constructor(@Inject(PrismaService) private readonly prisma: PrismaService) {}
 
+  findBySource(
+    sourceType: string,
+    sourceRef: string,
+    sourceVersion: string,
+    context: TenantContext,
+  ) {
+    return this.prisma.transportOrder.findUnique({
+      where: {
+        tenantId_sourceType_sourceRef_sourceVersion: {
+          sourceRef,
+          sourceType,
+          sourceVersion,
+          tenantId: context.tenantId,
+        },
+      },
+    });
+  }
+
   async list(
     input: {
       page?: string;

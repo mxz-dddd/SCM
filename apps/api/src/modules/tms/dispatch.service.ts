@@ -231,6 +231,11 @@ export class DispatchService {
         },
         where: { id: shipment.id },
       });
+      const sourceRefs = await this.shipmentSources(
+        tx,
+        shipment.id,
+        context.tenantId,
+      );
       await this.emit(
         tx,
         shipment.id,
@@ -241,6 +246,7 @@ export class DispatchService {
         {
           driverRef: assignment.driverRef,
           shipmentId,
+          sourceRefs,
           vehicleAssignmentId: assignment.id,
           vehicleRef: assignment.vehicleRef,
         },
@@ -734,6 +740,29 @@ export class DispatchService {
       await tx.$executeRaw(
         Prisma.sql`SELECT pg_advisory_xact_lock(hashtextextended(${`${tenantId}:${resource}`},0))`,
       );
+  }
+  private async shipmentSources(
+    tx: Prisma.TransactionClient,
+    shipmentId: string,
+    tenantId: string,
+  ) {
+    const items = await tx.shipmentItem.findMany({
+      distinct: ['transportOrderId'],
+      select: { transportOrderId: true },
+      where: { shipmentId, tenantId },
+    });
+    if (!items.length) return [];
+    const orders = await tx.transportOrder.findMany({
+      select: { orderNo: true, sourceRef: true },
+      where: {
+        id: { in: items.map(({ transportOrderId }) => transportOrderId) },
+        tenantId,
+      },
+    });
+    return orders.map((order) => ({
+      sourceRef: order.sourceRef,
+      transportOrderNo: order.orderNo,
+    }));
   }
   private date(value: string) {
     const result = new Date(value);

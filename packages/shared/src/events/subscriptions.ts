@@ -132,6 +132,7 @@ export const EVENT_SUBSCRIPTIONS = [
       'shipment.*',
       'tracking.*',
       'tms.transport-order-received.v1',
+      'control.event-delivery-dead-lettered.v1',
     ],
     maxAttempts: 12,
     mode: 'EVERY_EVENT',

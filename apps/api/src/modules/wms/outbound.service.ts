@@ -1,10 +1,6 @@
 import { randomUUID } from 'node:crypto';
 import { Inject, Injectable } from '@nestjs/common';
-import {
-  PickMode,
-  Prisma,
-  type ShortageResolutionType,
-} from '@prisma/client';
+import { PickMode, Prisma, type ShortageResolutionType } from '@prisma/client';
 import type { TenantContext } from '@scm/shared';
 import { AppError } from '../../common/app-error';
 import { isUuid } from '../../common/validation';
@@ -46,6 +42,7 @@ export interface CreateOutboundInput {
   readonly routeCode?: string;
   readonly serviceLevel: string;
   readonly sourceRef: string;
+  readonly sourceVersion?: number;
   readonly sourceSnapshot?: Readonly<Record<string, unknown>>;
   readonly temperatureZone?: string;
   readonly type: 'SALES' | 'TRANSFER' | 'RETURN_VENDOR';
@@ -60,6 +57,22 @@ export class OutboundService {
     @Inject(MdmReferenceService) private readonly mdm: MdmReferenceService,
     @Inject(InventoryService) private readonly inventory: InventoryService,
   ) {}
+
+  findBySource(
+    sourceRef: string,
+    sourceVersion: number,
+    context: TenantContext,
+  ) {
+    return this.prisma.outboundOrder.findUnique({
+      where: {
+        tenantId_sourceRef_sourceVersion: {
+          sourceRef,
+          sourceVersion,
+          tenantId: context.tenantId,
+        },
+      },
+    });
+  }
 
   async createOutbound(
     input: CreateOutboundInput,
@@ -133,6 +146,7 @@ export class OutboundService {
           routeCode: input.routeCode?.trim() ?? null,
           serviceLevel: input.serviceLevel.trim(),
           sourceRef: input.sourceRef.trim(),
+          sourceVersion: input.sourceVersion ?? 1,
           sourceSnapshot: json(input.sourceSnapshot),
           temperatureZone: input.temperatureZone?.trim() ?? null,
           tenantId: context.tenantId,
@@ -170,7 +184,12 @@ export class OutboundService {
         'outbound.created.v1',
         context,
         metadata,
-        { outboundId: id, sourceRef: order.sourceRef },
+        {
+          outboundId: id,
+          outboundNo: order.outboundNo,
+          sourceRef: order.sourceRef,
+          sourceVersion: order.sourceVersion,
+        },
       );
       return { outboundId: id, status: order.status, version: order.version };
     });
@@ -216,7 +235,12 @@ export class OutboundService {
         'outbound.released.v1',
         context,
         metadata,
-        { outboundId: id },
+        {
+          outboundId: id,
+          outboundNo: changed.outboundNo,
+          sourceRef: changed.sourceRef,
+          sourceVersion: changed.sourceVersion,
+        },
       );
       return { status: changed.status, version: changed.version };
     });

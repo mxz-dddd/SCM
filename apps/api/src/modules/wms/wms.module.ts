@@ -21,6 +21,8 @@ import { QualityPutawayController } from './quality-putaway.controller';
 import { QualityPutawayService } from './quality-putaway.service';
 import { ReceivingDetailController } from './receiving-detail.controller';
 import { ReceivingDetailService } from './receiving-detail.service';
+import { WmsEventConsumerController } from './wms-event-consumer.controller';
+import { WmsEventConsumerService } from './wms-event-consumer.service';
 @Module({
   controllers: [
     InboundController,
@@ -32,6 +34,7 @@ import { ReceivingDetailService } from './receiving-detail.service';
     PickController,
     PackShipController,
     OperationsController,
+    WmsEventConsumerController,
   ],
   imports: [MdmModule, PlatformModule],
   providers: [
@@ -44,6 +47,7 @@ import { ReceivingDetailService } from './receiving-detail.service';
     PickService,
     PackShipService,
     OperationsService,
+    WmsEventConsumerService,
     PermissionGuard,
     PermissionService,
   ],

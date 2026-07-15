@@ -43,6 +43,7 @@ import { PartnerWorkbench } from '../mdm/PartnerWorkbench';
 import { WarehouseFleetWorkbench } from '../mdm/WarehouseFleetWorkbench';
 import { MdmGovernanceWorkbench } from '../mdm/MdmGovernanceWorkbench';
 import { OrderIntakeWorkbench } from '../oms/OrderIntakeWorkbench';
+import { FulfillmentProcessWorkbench } from '../oms/FulfillmentProcessWorkbench';
 import { TransportOrderWorkbench } from '../tms/TransportOrderWorkbench';
 import { InboundWorkbench } from '../wms/InboundWorkbench';
 import { InventoryWorkbench } from '../wms/InventoryWorkbench';
@@ -144,6 +145,12 @@ const pageRegistry: readonly WorkspaceTab[] = [
     title: '主数据治理',
   },
   { dirty: false, id: 'orders', route: '/oms/orders', title: '订单中心' },
+  {
+    dirty: false,
+    id: 'fulfillment-processes',
+    route: '/oms/fulfillment-processes',
+    title: '履约过程',
+  },
   { dirty: false, id: 'inbound', route: '/wms/inbounds', title: '入库接入' },
   { dirty: false, id: 'inventory', route: '/wms/inventory', title: '库存视图' },
   {
@@ -242,6 +249,7 @@ const modules = [
   ['仓库', 'warehouses'],
   ['治理', 'mdm-governance'],
   ['订单', 'orders'],
+  ['履约', 'fulfillment-processes'],
   ['入库', 'inbound'],
   ['仓储', 'inventory'],
   ['出库', 'outbound'],
@@ -408,6 +416,8 @@ export function ApplicationShell() {
     if (tabId === 'warehouses') return <WarehouseFleetWorkbench />;
     if (tabId === 'mdm-governance') return <MdmGovernanceWorkbench />;
     if (tabId === 'orders') return <OrderIntakeWorkbench />;
+    if (tabId === 'fulfillment-processes')
+      return <FulfillmentProcessWorkbench />;
     if (tabId === 'inbound') return <InboundWorkbench />;
     if (tabId === 'inventory') return <InventoryWorkbench />;
     if (tabId === 'outbound') return <OutboundWorkbench />;

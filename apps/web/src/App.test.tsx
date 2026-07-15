@@ -538,6 +538,17 @@ describe('App', () => {
     expect(screen.getByRole('button', { name: '批量逐单冻结' })).toBeDisabled();
     expect(screen.getByRole('button', { name: '客户门户预览' })).toBeDisabled();
   });
+  it('opens automatic fulfillment process monitoring and retry controls', () => {
+    render(<App />);
+    fireEvent.click(screen.getByRole('button', { name: '履约' }));
+    expect(
+      screen.getByRole('heading', { name: '履约过程中心' }),
+    ).toBeInTheDocument();
+    expect(screen.getByText('过程实例')).toBeInTheDocument();
+    expect(screen.getByText('步骤与重试')).toBeInTheDocument();
+    expect(screen.getByText('跨域对象链接')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: '重试失败步骤' })).toBeDisabled();
+  });
   it('opens transport order intake and supervisor review', () => {
     render(<App />);
     fireEvent.click(screen.getByRole('button', { name: '运输' }));

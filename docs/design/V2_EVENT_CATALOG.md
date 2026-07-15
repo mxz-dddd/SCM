@@ -15,11 +15,11 @@
 | `integration.portal-projection.v1` | `order.*, inventory.*, appointment.*, shipment.*, tracking.*, billing.*` | `/api/v1/integration/portal/projections/events` | LATEST_STATE | 否 | 8 | 3 |
 | `wms.fulfillment-command.v2` | `fulfillment.released.v2` | `/api/v1/wms/events/fulfillment-released` | EVERY_EVENT | 是 | 12 | 2 |
 | `tms.shipment-request.v2` | `shipment.requested.v2` | `/api/v1/tms/events/shipment-requested` | EVERY_EVENT | 是 | 12 | 2 |
-| `oms.order-fulfillment-process.v2` | `outbound.*, shipment.*, tracking.*, tms.transport-order-received.v1` | `/api/v1/oms/fulfillment-process/events` | EVERY_EVENT | 是 | 12 | 2 |
+| `oms.order-fulfillment-process.v2` | `outbound.*, shipment.*, tracking.*, tms.transport-order-received.v1, control.event-delivery-dead-lettered.v1` | `/api/v1/oms/fulfillment-process/events` | EVERY_EVENT | 是 | 12 | 2 |
 
 ## 代码扫描目录
 
-已发现 393 个静态事件名。动态事件名仍必须符合 `{domain}.{event}.v{n}` 并在代码评审中核对。
+已发现 400 个静态事件名。动态事件名仍必须符合 `{domain}.{event}.v{n}` 并在代码评审中核对。
 
 | 事件 | 匹配消费者 | 发现位置 |
 | --- | --- | --- |
@@ -86,7 +86,7 @@
 | `control.demand-forecast-deviation-recorded.v1` | control.projection.v1, control.alert-engine.v1, control.data-lake.v1 | `apps/api/src/modules/control/ai-optimization.service.ts` |
 | `control.demand-forecast-published.v1` | control.projection.v1, control.alert-engine.v1, control.data-lake.v1 | `apps/api/src/modules/control/ai-optimization.service.ts` |
 | `control.demand-forecast-retired.v1` | control.projection.v1, control.alert-engine.v1, control.data-lake.v1 | `apps/api/src/modules/control/ai-optimization.service.ts` |
-| `control.event-delivery-dead-lettered.v1` | control.projection.v1, control.alert-engine.v1, control.data-lake.v1 | `apps/api/src/modules/platform/event.service.ts` |
+| `control.event-delivery-dead-lettered.v1` | control.projection.v1, control.alert-engine.v1, control.data-lake.v1, oms.order-fulfillment-process.v2 | `apps/api/src/modules/platform/event.service.ts` |
 | `control.inventory-policy-recommendation-created.v1` | control.projection.v1, control.alert-engine.v1, control.data-lake.v1 | `apps/api/src/modules/control/ai-optimization.service.ts` |
 | `control.knowledge-published.v1` | control.projection.v1, control.alert-engine.v1, control.data-lake.v1 | `apps/api/src/modules/control/alert-governance.service.ts` |
 | `control.lake-recomputed.v1` | control.projection.v1, control.alert-engine.v1, control.data-lake.v1 | `apps/api/src/modules/control/bi-analytics.service.ts` |
@@ -126,6 +126,7 @@
 | `fleet.operating-fact-recorded.v1` | control.projection.v1, control.alert-engine.v1, control.data-lake.v1 | `apps/api/src/modules/tms/fleet-insights.service.ts` |
 | `fulfillment.progressed.v1` | oms.order-timeline.v1, control.projection.v1, control.alert-engine.v1, control.data-lake.v1, control.reconciliation.v1 | `apps/api/src/modules/oms/fulfillment-release.service.ts` |
 | `fulfillment.released.v1` | oms.order-timeline.v1, control.projection.v1, control.alert-engine.v1, control.data-lake.v1, control.reconciliation.v1 | `apps/api/src/modules/oms/fulfillment-release.service.ts` |
+| `fulfillment.released.v2` | oms.order-timeline.v1, control.projection.v1, control.alert-engine.v1, control.data-lake.v1, control.reconciliation.v1, wms.fulfillment-command.v2 | `apps/api/src/modules/oms/fulfillment-release.service.ts` |
 | `gate.access-recorded.v1` | control.projection.v1, control.alert-engine.v1, control.data-lake.v1 | `apps/api/src/modules/ams/onsite-operations.service.ts` |
 | `gate.pass-issued.v1` | control.projection.v1, control.alert-engine.v1, control.data-lake.v1 | `apps/api/src/modules/ams/onsite-operations.service.ts` |
 | `gate.verification-completed.v1` | control.projection.v1, control.alert-engine.v1, control.data-lake.v1 | `apps/api/src/modules/ams/onsite-operations.service.ts` |
@@ -229,6 +230,11 @@
 | `notification.requested.v1` | control.projection.v1, control.alert-engine.v1, control.data-lake.v1 | `apps/api/src/modules/ams/appointment-intake.service.ts`<br>`apps/api/src/modules/control/alert-governance.service.ts` |
 | `oms.availability-projected.v1` | control.projection.v1, control.alert-engine.v1, control.data-lake.v1 | `apps/api/src/modules/oms/atp-allocation.service.ts` |
 | `oms.availability-promised.v1` | control.projection.v1, control.alert-engine.v1, control.data-lake.v1 | `apps/api/src/modules/oms/atp-allocation.service.ts` |
+| `oms.fulfillment-process-completed.v1` | control.projection.v1, control.alert-engine.v1, control.data-lake.v1 | `apps/api/src/modules/oms/fulfillment-process.service.ts` |
+| `oms.fulfillment-process-failed.v1` | control.projection.v1, control.alert-engine.v1, control.data-lake.v1 | `apps/api/src/modules/oms/fulfillment-process.service.ts` |
+| `oms.fulfillment-process-started.v1` | control.projection.v1, control.alert-engine.v1, control.data-lake.v1 | `apps/api/src/modules/oms/fulfillment-release.service.ts` |
+| `oms.fulfillment-step-compensated.v1` | control.projection.v1, control.alert-engine.v1, control.data-lake.v1 | `apps/api/src/modules/oms/fulfillment-process.service.ts` |
+| `oms.fulfillment-step-retried.v1` | control.projection.v1, control.alert-engine.v1, control.data-lake.v1 | `apps/api/src/modules/oms/fulfillment-process.service.ts` |
 | `order.allocated.v1` | oms.order-timeline.v1, control.projection.v1, control.alert-engine.v1, control.data-lake.v1, control.reconciliation.v1, integration.portal-projection.v1 | `apps/api/src/modules/oms/atp-allocation.service.ts` |
 | `order.allocation-failed.v1` | oms.order-timeline.v1, control.projection.v1, control.alert-engine.v1, control.data-lake.v1, control.reconciliation.v1, integration.portal-projection.v1 | `apps/api/src/modules/oms/atp-allocation.service.ts` |
 | `order.cancelled.v1` | oms.order-timeline.v1, control.projection.v1, control.alert-engine.v1, control.data-lake.v1, control.reconciliation.v1, integration.portal-projection.v1 | `apps/api/src/modules/oms/change-reverse.service.ts` |
@@ -362,6 +368,7 @@
 | `shipment.pod-supplemented.v1` | oms.order-timeline.v1, control.projection.v1, control.alert-engine.v1, control.data-lake.v1, control.reconciliation.v1, integration.portal-projection.v1, oms.order-fulfillment-process.v2 | `apps/api/src/modules/tms/delivery-reverse.service.ts` |
 | `shipment.pod-uploaded.v1` | oms.order-timeline.v1, control.projection.v1, control.alert-engine.v1, control.data-lake.v1, control.reconciliation.v1, integration.portal-projection.v1, oms.order-fulfillment-process.v2 | `apps/api/src/modules/tms/delivery-reverse.service.ts` |
 | `shipment.requested.v1` | oms.order-timeline.v1, control.projection.v1, control.alert-engine.v1, control.data-lake.v1, control.reconciliation.v1, integration.portal-projection.v1, oms.order-fulfillment-process.v2 | `apps/api/src/modules/oms/fulfillment-release.service.ts` |
+| `shipment.requested.v2` | oms.order-timeline.v1, control.projection.v1, control.alert-engine.v1, control.data-lake.v1, control.reconciliation.v1, integration.portal-projection.v1, tms.shipment-request.v2, oms.order-fulfillment-process.v2 | `apps/api/src/modules/oms/fulfillment-release.service.ts` |
 | `shipment.return-requested.v1` | oms.order-timeline.v1, control.projection.v1, control.alert-engine.v1, control.data-lake.v1, control.reconciliation.v1, integration.portal-projection.v1, oms.order-fulfillment-process.v2 | `apps/api/src/modules/tms/delivery-reverse.service.ts` |
 | `shipment.settled.v1` | oms.order-timeline.v1, control.projection.v1, control.alert-engine.v1, control.data-lake.v1, control.reconciliation.v1, integration.portal-projection.v1, oms.order-fulfillment-process.v2 | `apps/api/src/modules/tms/freight-billing.service.ts` |
 | `shipment.tendered.v1` | oms.order-timeline.v1, control.projection.v1, control.alert-engine.v1, control.data-lake.v1, control.reconciliation.v1, integration.portal-projection.v1, oms.order-fulfillment-process.v2 | `apps/api/src/modules/tms/capacity-tender.service.ts` |

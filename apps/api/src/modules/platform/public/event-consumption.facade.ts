@@ -154,4 +154,65 @@ export class EventConsumptionFacade {
       handler,
     );
   }
+
+  consumeWmsFulfillmentCommand(
+    event: BusinessEventInput,
+    context: TenantContext,
+    metadata: CommandMetadata,
+    handler: (
+      event: BusinessEventInput,
+    ) => Promise<Readonly<Record<string, unknown>>>,
+  ) {
+    return this.events.consume(
+      {
+        consumer: 'wms.fulfillment-command.v2',
+        event,
+        mode: this.definition('wms.fulfillment-command.v2').mode,
+      },
+      context,
+      metadata,
+      async (message) => handler(message),
+    );
+  }
+
+  consumeTmsShipmentRequest(
+    event: BusinessEventInput,
+    context: TenantContext,
+    metadata: CommandMetadata,
+    handler: (
+      event: BusinessEventInput,
+    ) => Promise<Readonly<Record<string, unknown>>>,
+  ) {
+    return this.events.consume(
+      {
+        consumer: 'tms.shipment-request.v2',
+        event,
+        mode: this.definition('tms.shipment-request.v2').mode,
+      },
+      context,
+      metadata,
+      async (message) => handler(message),
+    );
+  }
+
+  consumeOmsFulfillmentProcess(
+    event: BusinessEventInput,
+    context: TenantContext,
+    metadata: CommandMetadata,
+    handler: (
+      event: BusinessEventInput,
+      transaction: Prisma.TransactionClient,
+    ) => Promise<Readonly<Record<string, unknown>>>,
+  ) {
+    return this.events.consume(
+      {
+        consumer: 'oms.order-fulfillment-process.v2',
+        event,
+        mode: this.definition('oms.order-fulfillment-process.v2').mode,
+      },
+      context,
+      metadata,
+      handler,
+    );
+  }
 }

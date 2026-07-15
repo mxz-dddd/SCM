@@ -237,6 +237,11 @@ export class DeliveryReverseService {
         },
         where: { id: shipmentId },
       });
+      const sourceRefs = await this.shipmentSources(
+        tx,
+        shipmentId,
+        context.tenantId,
+      );
       await this.emit(
         tx,
         changed.id,
@@ -249,6 +254,7 @@ export class DeliveryReverseService {
           deliveryConfirmationId: confirmation.id,
           podRef: null,
           shipmentId,
+          sourceRefs,
           varianceIds,
         },
         'Shipment',
@@ -471,6 +477,11 @@ export class DeliveryReverseService {
         const confirmation = await tx.deliveryConfirmation.findUniqueOrThrow({
           where: { id: pod.deliveryConfirmationId },
         });
+        const sourceRefs = await this.shipmentSources(
+          tx,
+          shipment.id,
+          context.tenantId,
+        );
         await this.emit(
           tx,
           updated.id,
@@ -482,6 +493,7 @@ export class DeliveryReverseService {
             deliveredAt: confirmation.signedAt,
             podRef: pod.id,
             shipmentId: shipment.id,
+            sourceRefs,
             variance: confirmation.hasVariance,
           },
           'Shipment',
@@ -498,6 +510,11 @@ export class DeliveryReverseService {
           podId: id,
           reviewId: review.id,
           shipmentId: pod.shipmentId,
+          sourceRefs: await this.shipmentSources(
+            tx,
+            pod.shipmentId,
+            context.tenantId,
+          ),
           status: next,
         },
         'ProofOfDelivery',
@@ -928,6 +945,29 @@ export class DeliveryReverseService {
 
   private async lock(tx: Prisma.TransactionClient, key: string) {
     await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtextextended(${key}, 0))`;
+  }
+  private async shipmentSources(
+    tx: Prisma.TransactionClient,
+    shipmentId: string,
+    tenantId: string,
+  ) {
+    const items = await tx.shipmentItem.findMany({
+      distinct: ['transportOrderId'],
+      select: { transportOrderId: true },
+      where: { shipmentId, tenantId },
+    });
+    if (!items.length) return [];
+    const orders = await tx.transportOrder.findMany({
+      select: { orderNo: true, sourceRef: true },
+      where: {
+        id: { in: items.map(({ transportOrderId }) => transportOrderId) },
+        tenantId,
+      },
+    });
+    return orders.map((order) => ({
+      sourceRef: order.sourceRef,
+      transportOrderNo: order.orderNo,
+    }));
   }
   private nonNegative(value: unknown) {
     const result = this.decimal(value);

@@ -827,6 +827,43 @@ enum ReleaseBatchStatus {
   @@schema("oms")
 }
 
+enum OrderFulfillmentProcessStatus {
+  STARTED
+  WAITING_DOWNSTREAM
+  EXECUTING
+  COMPLETED
+  FAILED
+  COMPENSATING
+  MANUAL_INTERVENTION
+
+  @@schema("oms")
+}
+
+enum OrderFulfillmentStepType {
+  CREATE_WMS_OUTBOUND
+  CREATE_TMS_ORDER
+  WAIT_WMS_READY
+  WAIT_DISPATCH
+  WAIT_DELIVERY
+  FINALIZE_ORDER
+  COMPENSATE_WMS_OUTBOUND
+  COMPENSATE_TMS_ORDER
+
+  @@schema("oms")
+}
+
+enum OrderFulfillmentStepStatus {
+  PENDING
+  PROCESSING
+  SUCCEEDED
+  FAILED
+  COMPENSATING
+  COMPENSATED
+  MANUAL
+
+  @@schema("oms")
+}
+
 enum CollaborationType {
   CUSTOMER_CONFIRMATION
   SUPPLIER_ACCEPTANCE
@@ -2755,6 +2792,86 @@ model ShipmentLeg {
   @@schema("oms")
 }
 
+model OrderFulfillmentProcess {
+  id                         String                        @id @default(uuid()) @db.Uuid
+  tenantId                   String                        @map("tenant_id") @db.Uuid
+  createdAt                  DateTime                      @default(now()) @map("created_at") @db.Timestamptz(3)
+  createdBy                  String                        @map("created_by") @db.Uuid
+  updatedAt                  DateTime                      @updatedAt @map("updated_at") @db.Timestamptz(3)
+  updatedBy                  String                        @map("updated_by") @db.Uuid
+  version                    Int                           @default(1)
+  status                     OrderFulfillmentProcessStatus @default(STARTED)
+  orderId                    String                        @map("order_id") @db.Uuid
+  orderVersion               Int                           @map("order_version")
+  orderNo                    String                        @map("order_no") @db.VarChar(100)
+  expectedStepCount          Int                           @map("expected_step_count")
+  succeededStepCount         Int                           @default(0) @map("succeeded_step_count")
+  failureCode                String?                       @map("failure_code") @db.VarChar(100)
+  failureMessage             String?                       @map("failure_message") @db.VarChar(2000)
+  manualInterventionRequired Boolean                       @default(false) @map("manual_intervention_required")
+  startedAt                  DateTime                      @default(now()) @map("started_at") @db.Timestamptz(3)
+  completedAt                DateTime?                     @map("completed_at") @db.Timestamptz(3)
+
+  @@unique([tenantId, orderId, orderVersion], map: "fulfillment_process_tenant_order_version_key")
+  @@index([tenantId, status, updatedAt, id], map: "fulfillment_process_tenant_status_idx")
+  @@map("order_fulfillment_process")
+  @@schema("oms")
+}
+
+model OrderFulfillmentStep {
+  id                   String                         @id @default(uuid()) @db.Uuid
+  tenantId             String                         @map("tenant_id") @db.Uuid
+  createdAt            DateTime                       @default(now()) @map("created_at") @db.Timestamptz(3)
+  createdBy            String                         @map("created_by") @db.Uuid
+  updatedAt            DateTime                       @updatedAt @map("updated_at") @db.Timestamptz(3)
+  updatedBy            String                         @map("updated_by") @db.Uuid
+  version              Int                            @default(1)
+  status               OrderFulfillmentStepStatus     @default(PENDING)
+  processId            String                         @map("process_id") @db.Uuid
+  stepType             OrderFulfillmentStepType       @map("step_type")
+  sourceEventId        String                         @map("source_event_id") @db.Uuid
+  idempotencyKey       String                         @map("idempotency_key") @db.VarChar(300)
+  targetType           String?                        @map("target_type") @db.VarChar(100)
+  targetId             String?                        @map("target_id") @db.Uuid
+  targetBusinessNo     String?                        @map("target_business_no") @db.VarChar(200)
+  inputSnapshot        Json                           @map("input_snapshot") @db.JsonB
+  resultSnapshot       Json                           @default("{}") @map("result_snapshot") @db.JsonB
+  compensationSnapshot Json                           @default("{}") @map("compensation_snapshot") @db.JsonB
+  attemptCount         Int                            @default(0) @map("attempt_count")
+  lastError            String?                        @map("last_error") @db.VarChar(2000)
+
+  @@unique([tenantId, idempotencyKey], map: "fulfillment_step_tenant_idempotency_key")
+  @@unique([tenantId, sourceEventId, stepType], map: "fulfillment_step_tenant_event_type_key")
+  @@index([tenantId, processId, status, createdAt], map: "fulfillment_step_tenant_process_idx")
+  @@index([tenantId, targetType, targetId], map: "fulfillment_step_tenant_target_idx")
+  @@map("order_fulfillment_step")
+  @@schema("oms")
+}
+
+model CrossDomainObjectLink {
+  id               String          @id @default(uuid()) @db.Uuid
+  tenantId         String          @map("tenant_id") @db.Uuid
+  createdAt        DateTime        @default(now()) @map("created_at") @db.Timestamptz(3)
+  createdBy        String          @map("created_by") @db.Uuid
+  updatedAt        DateTime        @updatedAt @map("updated_at") @db.Timestamptz(3)
+  updatedBy        String          @map("updated_by") @db.Uuid
+  version          Int             @default(1)
+  status           OmsRecordStatus @default(ACTIVE)
+  processId        String          @map("process_id") @db.Uuid
+  sourceType       String          @map("source_type") @db.VarChar(100)
+  sourceId         String          @map("source_id") @db.Uuid
+  sourceBusinessNo String          @map("source_business_no") @db.VarChar(200)
+  targetType       String          @map("target_type") @db.VarChar(100)
+  targetId         String          @map("target_id") @db.Uuid
+  targetBusinessNo String          @map("target_business_no") @db.VarChar(200)
+
+  @@unique([tenantId, sourceType, sourceId, targetType, targetId], map: "cross_domain_link_tenant_source_target_key")
+  @@index([tenantId, processId, status, createdAt], map: "cross_domain_link_tenant_process_idx")
+  @@index([tenantId, targetType, targetId], map: "cross_domain_link_tenant_target_idx")
+  @@map("cross_domain_object_link")
+  @@schema("oms")
+}
+
 model OrderReleaseBatch {
   id              String             @id @default(uuid()) @db.Uuid
   tenantId        String             @map("tenant_id") @db.Uuid
@@ -4385,6 +4502,7 @@ model OutboundOrder {
   status OutboundOrderStatus @default(DRAFT)
   outboundNo String @map("outbound_no") @db.VarChar(100)
   sourceRef String @map("source_ref") @db.VarChar(200)
+  sourceVersion Int @default(1) @map("source_version")
   type OutboundOrderType
   warehouseId String @map("warehouse_id") @db.Uuid
   ownerId String @map("owner_id") @db.Uuid
@@ -4398,7 +4516,7 @@ model OutboundOrder {
   sourceSnapshot Json @map("source_snapshot") @db.JsonB
   releasedAt DateTime? @map("released_at") @db.Timestamptz(3)
   @@unique([tenantId,outboundNo],map:"outbound_order_tenant_no_key")
-  @@unique([tenantId,sourceRef],map:"outbound_order_source_key")
+  @@unique([tenantId,sourceRef,sourceVersion],map:"outbound_order_source_version_key")
   @@index([tenantId,warehouseId,status,cutoffAt],map:"outbound_order_workbench_idx")
   @@map("outbound_order")
   @@schema("wms")

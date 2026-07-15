@@ -57,14 +57,14 @@ export interface FulfillmentReleasedV2Payload {
 export interface ShipmentRequestedV2Payload {
   readonly carrierSnapshot?: SnapshotReference;
   readonly chargeResponsibilitySnapshot: Readonly<Record<string, unknown>>;
-  readonly deliveryWindow?: Readonly<{ from?: string; until?: string }>;
+  readonly deliveryWindow: Readonly<{ from: string; until: string }>;
   readonly destination: SnapshotReference;
   readonly orderId: string;
   readonly orderNo: string;
   readonly orderVersion: number;
   readonly origin: SnapshotReference;
   readonly packageSnapshot: Readonly<Record<string, unknown>>;
-  readonly pickupWindow?: Readonly<{ from?: string; until?: string }>;
+  readonly pickupWindow: Readonly<{ from: string; until: string }>;
   readonly priority: number;
   readonly serviceLevel?: string;
   readonly shipmentRequestId: string;

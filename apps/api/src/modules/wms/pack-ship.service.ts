@@ -296,7 +296,7 @@ export class PackShipService {
       if (!remaining) {
         const order = await tx.outboundOrder.update({ data: { status: 'STAGED', updatedBy: context.accountId, version: { increment: 1 } }, where: { id: unit.outboundOrderId } });
         const packages = await tx.packageUnit.findMany({ where: { outboundOrderId: unit.outboundOrderId, tenantId: context.tenantId } });
-        await this.emit(tx, unit.outboundOrderId, order.version, 'outbound.ready.v1', context, metadata, { dock: input.stagingLocationId, outboundId: unit.outboundOrderId, packages: packages.map((row) => row.id), shipmentRef: input.shipmentRef.trim(), volume: packages.reduce((sum, row) => sum.add(row.actualVolume ?? 0), new Prisma.Decimal(0)).toString(), weight: packages.reduce((sum, row) => sum.add(row.actualWeight ?? 0), new Prisma.Decimal(0)).toString() });
+        await this.emit(tx, unit.outboundOrderId, order.version, 'outbound.ready.v1', context, metadata, { dock: input.stagingLocationId, outboundId: unit.outboundOrderId, outboundNo: order.outboundNo, packages: packages.map((row) => row.id), shipmentRef: input.shipmentRef.trim(), sourceRef: order.sourceRef, sourceVersion: order.sourceVersion, volume: packages.reduce((sum, row) => sum.add(row.actualVolume ?? 0), new Prisma.Decimal(0)).toString(), weight: packages.reduce((sum, row) => sum.add(row.actualWeight ?? 0), new Prisma.Decimal(0)).toString() });
       }
       return { stagingTaskId: task.id, status: task.status, version: task.version };
     });

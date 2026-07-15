@@ -17,6 +17,8 @@ import { ChangeReverseController } from './change-reverse.controller';
 import { ChangeReverseService } from './change-reverse.service';
 import { OrderOperationsController } from './order-operations.controller';
 import { OrderOperationsService } from './order-operations.service';
+import { FulfillmentProcessController } from './fulfillment-process.controller';
+import { FulfillmentProcessService } from './fulfillment-process.service';
 
 @Module({
   controllers: [
@@ -27,6 +29,7 @@ import { OrderOperationsService } from './order-operations.service';
     OrderGovernanceController,
     OrderIntakeController,
     OrderOperationsController,
+    FulfillmentProcessController,
   ],
   imports: [MdmModule, PlatformModule],
   providers: [
@@ -37,6 +40,7 @@ import { OrderOperationsService } from './order-operations.service';
     OrderGovernanceService,
     OrderIntakeService,
     OrderOperationsService,
+    FulfillmentProcessService,
     PermissionGuard,
     PermissionService,
   ],
