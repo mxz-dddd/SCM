@@ -189,6 +189,16 @@ describe('application route registry', () => {
     ).toBeInTheDocument();
   });
 
+  it('keeps the old transport workbench URL as a real redirect', async () => {
+    const router = createMemoryRouter(createAppRouteObjects(), {
+      initialEntries: ['/tms/shipments'],
+    });
+    render(<RouterProvider router={router} />);
+    await waitFor(() =>
+      expect(router.state.location.pathname).toBe('/tms/orders'),
+    );
+  });
+
   it('keeps every admin path addressable without hash routing', () => {
     expect(ADMIN_ROUTE_REGISTRY.every(({ path }) => path.startsWith('/'))).toBe(
       true,

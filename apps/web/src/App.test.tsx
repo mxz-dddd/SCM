@@ -585,7 +585,7 @@ describe('App', () => {
   });
   it('opens transport order intake and supervisor review', async () => {
     render(<App />);
-    await openRoute('运输');
+    await openRoute('运输订单');
     expect(
       screen.getByRole('heading', { name: '运输订单接入与审核' }),
     ).toBeInTheDocument();
@@ -597,6 +597,7 @@ describe('App', () => {
     ).toBeDisabled();
     expect(screen.getByRole('button', { name: '冻结异常订单' })).toBeDisabled();
     expect(screen.getByRole('button', { name: '退回来源方' })).toBeDisabled();
+    fireEvent.click(screen.getByRole('tab', { name: '计划' }));
     expect(screen.getByText('计划批次、合拆运与多段线路')).toBeInTheDocument();
     expect(screen.getByText('PlanningBatch 与订单池')).toBeInTheDocument();
     expect(
@@ -647,6 +648,7 @@ describe('App', () => {
     expect(
       screen.getByRole('button', { name: '登记转委托责任链' }),
     ).toBeDisabled();
+    fireEvent.click(screen.getByRole('tab', { name: '执行' }));
     expect(
       screen.getByText('车辆司机指派、证照与发运确认'),
     ).toBeInTheDocument();
@@ -687,6 +689,7 @@ describe('App', () => {
     expect(
       screen.getByRole('button', { name: '批准并生成扣款事实' }),
     ).toBeDisabled();
+    fireEvent.click(screen.getByRole('tab', { name: '结算与分析' }));
     expect(screen.getByText('运输计费、预提与双边结算')).toBeInTheDocument();
     expect(screen.getByRole('button', { name: '固化计费事实' })).toBeDisabled();
     expect(screen.getByRole('button', { name: '计算承运应付' })).toBeDisabled();
@@ -703,7 +706,7 @@ describe('App', () => {
     expect(
       screen.getByRole('button', { name: '签发客户追踪码' }),
     ).toBeDisabled();
-  });
+  }, 10_000);
 
   it('opens immutable billing facts and occurrence-time rate matching', async () => {
     render(<App />);

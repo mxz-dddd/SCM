@@ -48,6 +48,13 @@ export function createAppRouteObjects(): RouteObject[] {
           index: true,
           element: createElement(Navigate, { replace: true, to: '/workbench' }),
         },
+        {
+          path: 'tms/shipments',
+          element: createElement(Navigate, {
+            replace: true,
+            to: '/tms/orders',
+          }),
+        },
         ...ADMIN_ROUTE_REGISTRY.map((definition) =>
           definition.id === 'workbench'
             ? {

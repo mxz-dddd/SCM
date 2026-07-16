@@ -67,7 +67,16 @@ export const ADMIN_NAV_CATEGORIES: readonly AdminNavCategoryDefinition[] = [
     id: 'tms',
     label: '运输管理',
     shortLabel: '运输',
-    groups: [{ id: 'execution', label: '运输执行', routeIds: ['transport'] }],
+    groups: [
+      { id: 'orders', label: '订单', routeIds: ['transport-orders'] },
+      { id: 'planning', label: '计划', routeIds: ['transport-planning'] },
+      { id: 'execution', label: '执行', routeIds: ['transport-execution'] },
+      {
+        id: 'settlement',
+        label: '结算与分析',
+        routeIds: ['transport-settlement'],
+      },
+    ],
   },
   {
     id: 'ams',
@@ -396,13 +405,43 @@ export const ADMIN_ROUTE_REGISTRY: readonly AppRouteDefinition[] = [
       ),
   }),
   admin({
-    id: 'transport',
-    navLabel: '运输',
-    path: '/tms/shipments',
+    id: 'transport-orders',
+    navLabel: '运输订单',
+    path: '/tms/orders',
+    title: '运输订单',
+    load: () =>
+      import('../tms/TransportOrderWorkbench').then(
+        (module) => module.TransportOrdersPage,
+      ),
+  }),
+  admin({
+    id: 'transport-planning',
+    navLabel: '运输计划',
+    path: '/tms/planning',
+    title: '运输计划',
+    load: () =>
+      import('../tms/TransportOrderWorkbench').then(
+        (module) => module.TransportPlanningPage,
+      ),
+  }),
+  admin({
+    id: 'transport-execution',
+    navLabel: '运输执行',
+    path: '/tms/execution',
     title: '运输执行',
     load: () =>
       import('../tms/TransportOrderWorkbench').then(
-        (module) => module.TransportOrderWorkbench,
+        (module) => module.TransportExecutionPage,
+      ),
+  }),
+  admin({
+    id: 'transport-settlement',
+    navLabel: '运输结算',
+    path: '/tms/settlement',
+    title: '运输结算与分析',
+    load: () =>
+      import('../tms/TransportOrderWorkbench').then(
+        (module) => module.TransportSettlementPage,
       ),
   }),
   admin({
