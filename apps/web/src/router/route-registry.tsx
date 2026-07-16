@@ -14,6 +14,147 @@ export interface AppRouteDefinition {
   readonly title: string;
 }
 
+export interface AdminNavGroupDefinition {
+  readonly id: string;
+  readonly label: string;
+  readonly routeIds: readonly string[];
+}
+
+export interface AdminNavCategoryDefinition {
+  readonly id: string;
+  readonly label: string;
+  readonly shortLabel: string;
+  readonly groups: readonly AdminNavGroupDefinition[];
+}
+
+/**
+ * Admin information architecture. Every route id must occur exactly once.
+ * The same structure drives the primary categories, business groups and leaf
+ * page navigation; route components and URLs remain in ADMIN_ROUTE_REGISTRY.
+ */
+export const ADMIN_NAV_CATEGORIES: readonly AdminNavCategoryDefinition[] = [
+  {
+    id: 'workbench',
+    label: '工作台',
+    shortLabel: '工作台',
+    groups: [{ id: 'overview', label: '总览', routeIds: ['workbench'] }],
+  },
+  {
+    id: 'oms',
+    label: '订单管理',
+    shortLabel: '订单',
+    groups: [
+      { id: 'order-center', label: '订单中心', routeIds: ['orders'] },
+      {
+        id: 'fulfillment',
+        label: '履约协同',
+        routeIds: ['fulfillment-processes'],
+      },
+    ],
+  },
+  {
+    id: 'wms',
+    label: '仓储管理',
+    shortLabel: '仓储',
+    groups: [
+      { id: 'inbound', label: '入库管理', routeIds: ['inbound'] },
+      { id: 'inventory', label: '库存管理', routeIds: ['inventory'] },
+      { id: 'outbound', label: '出库管理', routeIds: ['outbound'] },
+      { id: 'tasks', label: '任务与 WES', routeIds: ['operations'] },
+    ],
+  },
+  {
+    id: 'tms',
+    label: '运输管理',
+    shortLabel: '运输',
+    groups: [{ id: 'execution', label: '运输执行', routeIds: ['transport'] }],
+  },
+  {
+    id: 'ams',
+    label: '预约管理',
+    shortLabel: '预约',
+    groups: [
+      { id: 'capacity', label: '容量与预约', routeIds: ['appointments'] },
+    ],
+  },
+  {
+    id: 'billing',
+    label: '结算管理',
+    shortLabel: '结算',
+    groups: [{ id: 'finance', label: '事实与结算', routeIds: ['billing'] }],
+  },
+  {
+    id: 'mdm',
+    label: '主数据',
+    shortLabel: '主数据',
+    groups: [
+      { id: 'products', label: '货品管理', routeIds: ['products'] },
+      { id: 'partners', label: '贸易伙伴', routeIds: ['partners'] },
+      { id: 'assets', label: '仓库与运力', routeIds: ['warehouses'] },
+      { id: 'governance', label: '数据治理', routeIds: ['mdm-governance'] },
+    ],
+  },
+  {
+    id: 'control',
+    label: '控制塔与分析',
+    shortLabel: '控制塔',
+    groups: [
+      { id: 'tower', label: '供应链控制塔', routeIds: ['control'] },
+      { id: 'alerts', label: '预警与例外', routeIds: ['control-alerts'] },
+      {
+        id: 'analytics',
+        label: '分析与优化',
+        routeIds: ['control-bi', 'control-acceptance', 'control-ai'],
+      },
+    ],
+  },
+  {
+    id: 'integration',
+    label: '协同与集成',
+    shortLabel: '协同',
+    groups: [
+      {
+        id: 'connectivity',
+        label: '开放与连接',
+        routeIds: [
+          'integration-gateway',
+          'integration-exchange',
+          'integration-adapter-iot',
+        ],
+      },
+      { id: 'portal', label: '移动与门户', routeIds: ['mobile-portal'] },
+    ],
+  },
+  {
+    id: 'platform',
+    label: '平台与系统',
+    shortLabel: '平台',
+    groups: [
+      { id: 'identity', label: '租户与权限', routeIds: ['identity', 'rbac'] },
+      {
+        id: 'experience',
+        label: '体验与配置',
+        routeIds: [
+          'components',
+          'configuration',
+          'attachments',
+          'data-exchange',
+        ],
+      },
+      {
+        id: 'automation',
+        label: '流程与自动化',
+        routeIds: ['workflow', 'rules', 'jobs', 'events', 'inbox'],
+      },
+      {
+        id: 'governance',
+        label: '审计与运维',
+        routeIds: ['audit', 'finalization', 'platform-operations'],
+      },
+    ],
+  },
+] as const;
+
 const admin = (
   definition: Omit<AppRouteDefinition, 'shell'>,
 ): AppRouteDefinition => ({ ...definition, shell: 'ADMIN' });

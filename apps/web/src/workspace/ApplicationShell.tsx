@@ -16,6 +16,7 @@ import {
 } from 'antd';
 import { Outlet, useLocation, useNavigate } from 'react-router-dom';
 import {
+  ADMIN_NAV_CATEGORIES,
   ADMIN_ROUTE_REGISTRY,
   type AppRouteDefinition,
 } from '../router/route-registry';
@@ -75,6 +76,37 @@ export function ApplicationShell() {
       ),
     [claims],
   );
+
+  const navigation = useMemo(() => {
+    const permittedById = new Map(
+      permittedRoutes.map((route) => [route.id, route] as const),
+    );
+    return ADMIN_NAV_CATEGORIES.map((category) => ({
+      ...category,
+      groups: category.groups
+        .map((group) => ({
+          ...group,
+          routes: group.routeIds.flatMap((routeId) => {
+            const route = permittedById.get(routeId);
+            return route ? [route] : [];
+          }),
+        }))
+        .filter((group) => group.routes.length > 0),
+    })).filter((category) => category.groups.length > 0);
+  }, [permittedRoutes]);
+
+  const activeRoute =
+    findAdminRouteByPath(location.pathname) ?? findAdminRouteById(activeTabId);
+  const activeCategory =
+    navigation.find((category) =>
+      category.groups.some((group) =>
+        group.routes.some((route) => route.id === activeRoute?.id),
+      ),
+    ) ?? navigation[0];
+  const activeGroup =
+    activeCategory?.groups.find((group) =>
+      group.routes.some((route) => route.id === activeRoute?.id),
+    ) ?? activeCategory?.groups[0];
 
   useEffect(() => {
     const route = findAdminRouteByPath(location.pathname);
@@ -154,15 +186,30 @@ export function ApplicationShell() {
 
   const commands = useMemo(
     () =>
-      permittedRoutes.filter(({ title }) =>
-        title.toLowerCase().includes(query.toLowerCase()),
-      ),
+      permittedRoutes.filter(({ navLabel, title }) => {
+        const normalized = query.trim().toLowerCase();
+        return (
+          title.toLowerCase().includes(normalized) ||
+          navLabel.toLowerCase().includes(normalized)
+        );
+      }),
     [permittedRoutes, query],
   );
 
   function openRoute(route: AppRouteDefinition) {
-    open(routeToWorkspaceTab(route));
     void navigate(route.path);
+  }
+
+  function openCategory(categoryId: string) {
+    const category = navigation.find(({ id }) => id === categoryId);
+    const firstRoute = category?.groups[0]?.routes[0];
+    if (firstRoute) openRoute(firstRoute);
+  }
+
+  function openGroup(groupId: string) {
+    const group = activeCategory?.groups.find(({ id }) => id === groupId);
+    const firstRoute = group?.routes[0];
+    if (firstRoute) openRoute(firstRoute);
   }
 
   function activateTab(tabId: string) {
@@ -201,25 +248,28 @@ export function ApplicationShell() {
 
   return (
     <Layout className="app-shell">
-      <Sider className="app-sidebar" collapsed width={216}>
+      <Sider className="app-sidebar" collapsedWidth={72} width={72}>
         <div className="app-mark" aria-label="澄链 SCM">
           澄
         </div>
         <nav aria-label="模块导航" className="module-nav">
-          {permittedRoutes.map((route) => (
+          {navigation.map((category) => (
             <Button
-              aria-label={route.navLabel}
+              aria-label={category.label}
               className={
-                activeTabId === route.id
+                activeCategory?.id === category.id
                   ? 'module-button active'
                   : 'module-button'
               }
-              key={route.id}
-              onClick={() => openRoute(route)}
-              title={route.title}
+              key={category.id}
+              onClick={() => openCategory(category.id)}
+              title={category.label}
               type="text"
             >
-              {route.navLabel.slice(0, 1)}
+              <span className="module-button-mark" aria-hidden="true">
+                {category.shortLabel.slice(0, 1)}
+              </span>
+              <span className="module-button-label">{category.shortLabel}</span>
             </Button>
           ))}
         </nav>
@@ -268,6 +318,56 @@ export function ApplicationShell() {
             <Avatar>{claims?.accountKind.slice(0, 1) ?? '访'}</Avatar>
           </Space>
         </Header>
+        {activeCategory && activeGroup ? (
+          <section
+            aria-label={`${activeCategory.label}分层导航`}
+            className="business-navigation"
+          >
+            <div className="business-navigation-title">
+              <Typography.Text type="secondary">当前模块</Typography.Text>
+              <Typography.Text strong>{activeCategory.label}</Typography.Text>
+            </div>
+            <nav aria-label="业务分组" className="business-group-nav">
+              {activeCategory.groups.map((group) => (
+                <Button
+                  aria-current={
+                    activeGroup.id === group.id ? 'page' : undefined
+                  }
+                  className={
+                    activeGroup.id === group.id
+                      ? 'business-group-button active'
+                      : 'business-group-button'
+                  }
+                  key={group.id}
+                  onClick={() => openGroup(group.id)}
+                  type="text"
+                >
+                  {group.label}
+                </Button>
+              ))}
+            </nav>
+            <nav aria-label="页面导航" className="page-nav">
+              {activeGroup.routes.map((route) => (
+                <Button
+                  aria-current={
+                    activeRoute?.id === route.id ? 'page' : undefined
+                  }
+                  className={
+                    activeRoute?.id === route.id
+                      ? 'page-nav-button active'
+                      : 'page-nav-button'
+                  }
+                  key={route.id}
+                  onClick={() => openRoute(route)}
+                  size="small"
+                  type="text"
+                >
+                  {route.title}
+                </Button>
+              ))}
+            </nav>
+          </section>
+        ) : null}
         <Tabs
           activeKey={activeTabId}
           className="workspace-tabs"

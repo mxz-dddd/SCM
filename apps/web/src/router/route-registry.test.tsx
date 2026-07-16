@@ -14,7 +14,11 @@ import {
 } from 'react-router-dom';
 import { useSessionStore } from '../platform/session-store';
 import { useWorkspaceStore } from '../workspace/workspace-store';
-import { ADMIN_ROUTE_REGISTRY, APP_ROUTE_REGISTRY } from './route-registry';
+import {
+  ADMIN_NAV_CATEGORIES,
+  ADMIN_ROUTE_REGISTRY,
+  APP_ROUTE_REGISTRY,
+} from './route-registry';
 import { createAppRouteObjects } from './app-router';
 
 const userClaims: SessionClaims = {
@@ -61,6 +65,33 @@ beforeEach(() => {
 });
 
 describe('application route registry', () => {
+  it('assigns every admin route to exactly one category and business group', () => {
+    const assignments = ADMIN_NAV_CATEGORIES.flatMap((category) =>
+      category.groups.flatMap((group) =>
+        group.routeIds.map((routeId) => ({
+          categoryId: category.id,
+          groupId: group.id,
+          routeId,
+        })),
+      ),
+    );
+    expect(
+      ADMIN_NAV_CATEGORIES.every((category) => category.groups.length > 0),
+    ).toBe(true);
+    expect(
+      ADMIN_NAV_CATEGORIES.every((category) =>
+        category.groups.every((group) => group.routeIds.length > 0),
+      ),
+    ).toBe(true);
+    expect(assignments).toHaveLength(ADMIN_ROUTE_REGISTRY.length);
+    expect(new Set(assignments.map(({ routeId }) => routeId)).size).toBe(
+      ADMIN_ROUTE_REGISTRY.length,
+    );
+    expect(assignments.map(({ routeId }) => routeId).sort()).toEqual(
+      ADMIN_ROUTE_REGISTRY.map(({ id }) => id).sort(),
+    );
+  });
+
   it('matches and lazy-loads every registered primary route', async () => {
     const routeObjects = createAppRouteObjects();
     expect(new Set(APP_ROUTE_REGISTRY.map(({ id }) => id)).size).toBe(
@@ -82,11 +113,13 @@ describe('application route registry', () => {
     });
     render(<RouterProvider router={router} />);
 
-    fireEvent.click(await screen.findByRole('button', { name: '组件' }));
+    fireEvent.click(await screen.findByRole('button', { name: '平台与系统' }));
+    await screen.findByRole('region', { name: '平台与系统分层导航' });
+    fireEvent.click(screen.getByRole('button', { name: '体验与配置' }));
     await screen.findByRole('heading', { name: '统一业务组件' });
     expect(router.state.location.pathname).toBe('/platform/components');
 
-    fireEvent.click(screen.getByRole('button', { name: '配置' }));
+    fireEvent.click(screen.getByRole('button', { name: '配置中心' }));
     await screen.findByRole('heading', { name: '配置、字典与单号中心' });
     expect(router.state.location.pathname).toBe('/platform/configuration');
 
@@ -94,7 +127,9 @@ describe('application route registry', () => {
     await waitFor(() =>
       expect(router.state.location.pathname).toBe('/platform/components'),
     );
-    expect(screen.getByRole('button', { name: '组件' })).toHaveClass('active');
+    expect(screen.getByRole('button', { name: '统一组件' })).toHaveClass(
+      'active',
+    );
 
     fireEvent.click(screen.getByRole('tab', { name: '配置中心' }));
     await waitFor(() =>

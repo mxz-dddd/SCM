@@ -89,6 +89,50 @@ export function CommandBar(props: {
   );
 }
 
+interface PageTemplateProps {
+  readonly children: ReactNode;
+  readonly description?: ReactNode;
+  readonly eyebrow?: string;
+  readonly feedback?: ReactNode;
+  readonly title: string;
+}
+
+function PageTemplate(
+  props: PageTemplateProps & {
+    readonly variant: 'configuration' | 'list' | 'master-detail' | 'task';
+  },
+) {
+  return (
+    <section className={`scm-page-template scm-page-template-${props.variant}`}>
+      <header className="scm-page-heading">
+        {props.eyebrow ? <span>{props.eyebrow}</span> : null}
+        <h2>{props.title}</h2>
+        {props.description ? <p>{props.description}</p> : null}
+      </header>
+      {props.feedback ? (
+        <div className="scm-page-feedback">{props.feedback}</div>
+      ) : null}
+      <div className="scm-page-body">{props.children}</div>
+    </section>
+  );
+}
+
+export function ListPageTemplate(props: PageTemplateProps) {
+  return <PageTemplate {...props} variant="list" />;
+}
+
+export function MasterDetailPageTemplate(props: PageTemplateProps) {
+  return <PageTemplate {...props} variant="master-detail" />;
+}
+
+export function TaskPageTemplate(props: PageTemplateProps) {
+  return <PageTemplate {...props} variant="task" />;
+}
+
+export function ConfigurationPageTemplate(props: PageTemplateProps) {
+  return <PageTemplate {...props} variant="configuration" />;
+}
+
 export interface DataGridColumn<TRow> {
   readonly fixed?: 'left' | 'right';
   readonly key: keyof TRow & string;

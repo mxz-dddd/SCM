@@ -1,11 +1,39 @@
-import { fireEvent, render, screen, waitFor } from '@testing-library/react';
+import {
+  fireEvent,
+  render,
+  screen,
+  waitFor,
+  within,
+} from '@testing-library/react';
 import { describe, expect, it } from 'vitest';
 import { App } from './App';
+import { ADMIN_ROUTE_REGISTRY } from './router/route-registry';
 
 async function openRoute(name: string) {
-  const button = screen.getByRole('button', { name });
-  fireEvent.click(button);
-  await waitFor(() => expect(button).toHaveClass('active'));
+  const route = ADMIN_ROUTE_REGISTRY.find(({ navLabel }) => navLabel === name);
+  expect(route, `missing admin route for ${name}`).toBeDefined();
+  fireEvent.click(screen.getByRole('button', { name: '⌘K 命令' }));
+  const dialog = screen.getByRole('dialog', { name: '全局命令面板' });
+  fireEvent.change(within(dialog).getByLabelText('搜索命令'), {
+    target: { value: route!.title },
+  });
+  await waitFor(() =>
+    expect(
+      within(dialog).getAllByRole('button', { name: /打\s*开/ }),
+    ).toHaveLength(1),
+  );
+  fireEvent.click(within(dialog).getByRole('button', { name: /打\s*开/ }));
+  await waitFor(() =>
+    expect(
+      screen.queryByRole('dialog', { name: '全局命令面板' }),
+    ).not.toBeInTheDocument(),
+  );
+  await waitFor(() =>
+    expect(screen.getByRole('tab', { name: route!.title })).toHaveAttribute(
+      'aria-selected',
+      'true',
+    ),
+  );
 }
 
 describe('App', () => {
