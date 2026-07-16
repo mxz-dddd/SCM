@@ -5,6 +5,7 @@ coverage/
 playwright-report/
 test-results/
 artifacts/
+.artifacts/
 .env
 .env.*
 !.env.example
