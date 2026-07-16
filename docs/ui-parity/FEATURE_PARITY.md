@@ -28,8 +28,8 @@
 ## 当前统计
 
 - IMPLEMENTED：15 个核心映射项
-- PARTIAL：7 个
+- PARTIAL：5 个
 - MISSING：0 个已确认核心项（叶子逐页取证尚未完成，不能据此宣称最终为 0）
-- IN_REVIEW：1 个
+- IN_REVIEW：0 个当前核心映射项；矩阵外的参考站叶子页面仍在逐页审查
 
-下一步将以参考站叶子页面 manifest、本地 Controller/Workbench/测试扫描为证据，继续拆细矩阵。
+当前核心映射完整实现率为 75%（15/20），能力覆盖率为 100%（IMPLEMENTED + PARTIAL）。下一步将以参考站叶子页面 manifest、本地 Controller/Workbench/测试扫描为证据，继续拆细矩阵。
