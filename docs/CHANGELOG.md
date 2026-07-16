@@ -2,6 +2,7 @@
 
 按任务卡记录已完成的工作包。
 
+- 2026-07-17 UI 对标重构：完成参考站 8 个一级入口及代表性列表叶子的只读取证与脱敏，建立功能矩阵和布局观察；将 37 条管理端路由重组为一级大类、二级业务组、三级页面，修复 URL/工作区 Tab 导航竞态，新增四类共享页面模板和可复用取证对比脚本。
 - 2026-07-16 V2-07：以单一 route registry 建立 Browser Router、深链/刷新/历史与 Workspace Tabs 双向同步、懒加载/错误边界/403 和旧链接重定向，拆分客户/伙伴/司机/RF 四类独立移动终端，新增原创 Design Tokens 并连接 Ant Design 与 CSS variables，保留 P0-01/P0-02 为待人工批准。
 - 2026-07-16 V2-06：新增租户/组织规则回退、原子序列、周期重置、模板校验、宽度耗尽、审计与幂等的公共编号门面，统一 OMS/WMS/TMS/AMS/Billing/Control 业务单号，补齐默认规则 seed、租户唯一索引、并发测试和源码静态门禁。
 - 2026-07-14 P1-01：完成 pnpm/Turborepo Monorepo、Web/API/Worker/Shared/UI 骨架、PostgreSQL/Redis/MinIO 本地基础设施与统一 CI 验证门禁。
