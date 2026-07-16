@@ -5,7 +5,7 @@
 - 记录日期：2026-07-17（Asia/Shanghai）
 - 目标分支：`codex/frontend-parity`
 - `origin/main`：`2ffe648820ce484e3ee3b6b09695f0a0f8820d54`
-- 当前工作树 HEAD：`690f0507eabf29127f73b756d52054858d1258cd`
+- 任务起始 HEAD：`690f0507eabf29127f73b756d52054858d1258cd`
 - Node.js：`v24.16.0`
 - pnpm：`11.9.0`
 - 工作树在本任务开始前已有未提交的 V2 业务改动；本任务保留这些改动，没有 reset、checkout 或覆盖。
@@ -29,10 +29,11 @@
 | `pnpm db:seed` | 通过 | 隔离数据库 seed 完成 |
 | `pnpm lint` | 通过 | 5 个 workspace package |
 | `pnpm typecheck` | 通过 | 5 个 workspace package |
-| `pnpm test`（由 `pnpm verify` 触发） | 未通过 | API 157 个测试文件中 1 个既有多租户 Worker 数据库用例失败；API 387 项通过，失败断言位于 `worker-principal.database.test.ts:105` |
+| `pnpm verify` | 通过 | lint、typecheck、test 全绿；API 157 个文件 388/388、Web 38/38、Worker 31/31、UI 8/8、Shared 31/31 |
+| `pnpm test:e2e` | 通过 | Playwright 12/12；验收 Worker 使用独立健康端口，避免与常驻本地 Worker 冲突 |
 | `pnpm build` | 通过 | 5 个 workspace package 均构建成功；Web 主 chunk 存在大于 500 kB 的既有警告 |
 
-失败未被跳过、注释或降级。后续会在隔离数据库中单独复测，并在最终门禁再次运行全量 `pnpm verify`。
+基线阶段出现的单个 Worker 数据库用例已在隔离数据库中单独复测通过，最终全量门禁没有跳过、注释或降低任何断言。
 
 ## 当前前端结构
 

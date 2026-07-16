@@ -492,6 +492,9 @@ test('场景① ERP 订单贯通审核、分配、波次、拣包、装运与事
         WORKER_API_URL: 'http://127.0.0.1:3100',
         WORKER_ACTOR_ID: process.env.WORKER_ACTOR_ID,
         WORKER_CONTROL_TOKEN: process.env.WORKER_CONTROL_TOKEN,
+        // Keep the acceptance worker isolated from a developer's long-running
+        // local worker, whose health endpoint uses the default port 3001.
+        WORKER_HEALTH_PORT: '3101',
       },
       stdio: 'pipe',
     },
