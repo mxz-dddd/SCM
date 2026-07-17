@@ -26,6 +26,9 @@
     "test:p4-e2e": "node scripts/run-p4-e2e.mjs",
     "test:p5-readiness": "node scripts/run-p5-readiness.mjs",
     "test:v2-e2e": "node scripts/run-v2-e2e.mjs",
+    "test:ui-reference": "node scripts/ui-reference/validate-reference-catalog.mjs && pnpm --filter @scm/web exec vitest run src/router/route-registry.test.tsx",
+    "test:visual": "playwright test --config=playwright.ui-parity.config.ts",
+    "test:ui-parity": "pnpm test:ui-reference && node scripts/ui-reference/validate-layout-comparison.mjs && pnpm test:visual",
     "typecheck": "turbo run typecheck",
     "verify": "pnpm lint && pnpm typecheck && pnpm test"
   },
