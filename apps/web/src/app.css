@@ -12,6 +12,7 @@ body {
   margin: 0;
   min-width: 320px;
   min-height: 100vh;
+  font-size: 14px;
 }
 
 .app-shell {
@@ -22,16 +23,16 @@ body {
   position: sticky;
   top: 0;
   height: 100vh;
-  min-width: 72px !important;
-  max-width: 72px !important;
+  min-width: 56px !important;
+  max-width: 56px !important;
   background: var(--scm-surface-sidebar);
 }
 
 .app-mark {
   display: grid;
-  width: 40px;
-  height: 40px;
-  margin: var(--scm-space-4) auto;
+  width: 32px;
+  height: 32px;
+  margin: var(--scm-space-2) auto;
   border-radius: var(--scm-radius-md);
   color: var(--scm-surface-sidebar);
   background: var(--scm-color-accent);
@@ -52,21 +53,23 @@ body {
   z-index: var(--scm-z-header);
   top: 0;
   justify-content: space-between;
-  height: auto;
-  min-height: 64px;
+  height: 56px;
+  min-height: 56px;
+  padding-block: var(--scm-space-2);
+  line-height: normal;
   gap: var(--scm-space-4);
 }
 
 .module-nav {
   display: grid;
   gap: var(--scm-space-1);
-  padding: var(--scm-space-1) var(--scm-space-2);
+  padding: var(--scm-space-1);
 }
 
 .module-button {
   display: grid;
-  width: 56px;
-  height: 52px;
+  width: 48px;
+  height: 50px;
   padding: 4px 2px;
   color: var(--scm-text-sidebar);
   font-size: 11px;
@@ -103,18 +106,16 @@ body {
 
 .business-navigation {
   display: grid;
-  grid-template-columns: max-content minmax(0, 1fr);
-  min-height: 76px;
+  grid-template-columns: minmax(0, 1fr);
+  grid-template-rows: 26px 22px;
+  height: 48px;
+  min-height: 48px;
   border-bottom: 1px solid var(--scm-border-default);
   background: var(--scm-surface-elevated);
 }
 
 .business-navigation-title {
-  display: grid;
-  align-content: center;
-  min-width: 152px;
-  padding: var(--scm-space-2) var(--scm-space-5);
-  border-right: 1px solid var(--scm-border-default);
+  display: none;
 }
 
 .business-group-nav,
@@ -128,19 +129,25 @@ body {
 
 .business-group-nav {
   gap: var(--scm-space-1);
-  padding: var(--scm-space-1) var(--scm-space-4) 0;
+  height: 26px;
+  padding: 0 var(--scm-space-4);
 }
 
 .page-nav {
-  grid-column: 2;
+  grid-column: 1;
   gap: var(--scm-space-1);
-  padding: 0 var(--scm-space-4) var(--scm-space-1);
+  height: 22px;
+  padding: 0 var(--scm-space-4);
 }
 
 .business-group-button,
 .page-nav-button {
   flex: 0 0 auto;
+  height: 21px;
+  padding: 0 var(--scm-space-2);
   border-radius: 0;
+  font-size: 12px;
+  line-height: 20px;
 }
 
 .business-group-button.active {
@@ -159,15 +166,21 @@ body {
 }
 
 .workspace-tabs > .ant-tabs-nav {
+  height: 37px;
+  min-height: 37px;
   margin: 0;
-  padding: var(--scm-radius-md) var(--scm-space-5) 0;
+  padding: 0 var(--scm-space-4);
   border-bottom: 1px solid var(--scm-border-default);
   background: var(--scm-surface-muted);
 }
 
+.workspace-tabs > .ant-tabs-nav .ant-tabs-tab {
+  padding-block: var(--scm-space-1) !important;
+}
+
 .app-content {
-  margin: var(--scm-space-4);
-  padding: var(--scm-space-5);
+  margin: var(--scm-space-3);
+  padding: var(--scm-space-4);
   border: 1px solid var(--scm-border-default);
   border-radius: var(--scm-radius-lg);
   background: var(--scm-surface-elevated);

@@ -55,6 +55,27 @@ export function createAppRouteObjects(): RouteObject[] {
             to: '/tms/orders',
           }),
         },
+        {
+          path: 'wms/operations',
+          element: createElement(Navigate, {
+            replace: true,
+            to: '/wms/operations/tasks',
+          }),
+        },
+        {
+          path: 'mdm/warehouses',
+          element: createElement(Navigate, {
+            replace: true,
+            to: '/mdm/capacity',
+          }),
+        },
+        {
+          path: 'mdm/governance',
+          element: createElement(Navigate, {
+            replace: true,
+            to: '/mdm/charges',
+          }),
+        },
         ...ADMIN_ROUTE_REGISTRY.map((definition) =>
           definition.id === 'workbench'
             ? {

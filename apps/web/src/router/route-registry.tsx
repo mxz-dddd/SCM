@@ -60,7 +60,15 @@ export const ADMIN_NAV_CATEGORIES: readonly AdminNavCategoryDefinition[] = [
       { id: 'inbound', label: '入库管理', routeIds: ['inbound'] },
       { id: 'inventory', label: '库存管理', routeIds: ['inventory'] },
       { id: 'outbound', label: '出库管理', routeIds: ['outbound'] },
-      { id: 'tasks', label: '任务与 WES', routeIds: ['operations'] },
+      { id: 'tasks', label: '仓储任务', routeIds: ['warehouse-tasks'] },
+      { id: 'wes', label: 'WES 调度', routeIds: ['warehouse-wes'] },
+      {
+        id: 'performance',
+        label: '作业绩效',
+        routeIds: ['warehouse-performance'],
+      },
+      { id: 'rules', label: '作业规则', routeIds: ['warehouse-rules'] },
+      { id: 'devices', label: '设备协同', routeIds: ['warehouse-devices'] },
     ],
   },
   {
@@ -99,8 +107,21 @@ export const ADMIN_NAV_CATEGORIES: readonly AdminNavCategoryDefinition[] = [
     groups: [
       { id: 'products', label: '货品管理', routeIds: ['products'] },
       { id: 'partners', label: '贸易伙伴', routeIds: ['partners'] },
-      { id: 'assets', label: '仓库与运力', routeIds: ['warehouses'] },
-      { id: 'governance', label: '数据治理', routeIds: ['mdm-governance'] },
+      { id: 'regions', label: '地域管理', routeIds: ['master-regions'] },
+      { id: 'capacity', label: '运力管理', routeIds: ['master-capacity'] },
+      { id: 'fleet', label: '车队管理', routeIds: ['master-fleet'] },
+      { id: 'charges', label: '费用设置', routeIds: ['master-charges'] },
+      {
+        id: 'organizations',
+        label: '组织管理',
+        routeIds: ['master-organizations'],
+      },
+      {
+        id: 'attachments',
+        label: '附件中心',
+        routeIds: ['master-attachments'],
+      },
+      { id: 'settings', label: '综合设置', routeIds: ['master-settings'] },
     ],
   },
   {
@@ -114,6 +135,26 @@ export const ADMIN_NAV_CATEGORIES: readonly AdminNavCategoryDefinition[] = [
         id: 'analytics',
         label: '分析与优化',
         routeIds: ['control-bi', 'control-acceptance', 'control-ai'],
+      },
+      {
+        id: 'reports',
+        label: '报表中心',
+        routeIds: [
+          'report-center',
+          'report-subjects',
+          'my-reports',
+          'report-templates',
+        ],
+      },
+      {
+        id: 'screens',
+        label: '数据大屏',
+        routeIds: [
+          'screen-manage',
+          'screen-groups',
+          'my-screens',
+          'screen-maps',
+        ],
       },
     ],
   },
@@ -159,6 +200,17 @@ export const ADMIN_NAV_CATEGORIES: readonly AdminNavCategoryDefinition[] = [
         id: 'governance',
         label: '审计与运维',
         routeIds: ['audit', 'finalization', 'platform-operations'],
+      },
+      {
+        id: 'support',
+        label: '系统支持',
+        routeIds: [
+          'support-help',
+          'support-user',
+          'support-operations',
+          'support-api',
+          'support-releases',
+        ],
       },
     ],
   },
@@ -306,12 +358,12 @@ export const ADMIN_ROUTE_REGISTRY: readonly AppRouteDefinition[] = [
   }),
   admin({
     id: 'products',
-    navLabel: '商品',
+    navLabel: '货品',
     path: '/mdm/products',
-    title: '商品主数据',
+    title: '货品主数据',
     load: () =>
-      import('../mdm/ProductWorkbench').then(
-        (module) => module.ProductWorkbench,
+      import('../mdm/MasterDataHub').then(
+        (module) => module.MasterProductsPage,
       ),
   }),
   admin({
@@ -320,28 +372,72 @@ export const ADMIN_ROUTE_REGISTRY: readonly AppRouteDefinition[] = [
     path: '/mdm/partners',
     title: '伙伴与地址',
     load: () =>
-      import('../mdm/PartnerWorkbench').then(
-        (module) => module.PartnerWorkbench,
+      import('../mdm/MasterDataHub').then(
+        (module) => module.MasterPartnersPage,
       ),
   }),
   admin({
-    id: 'warehouses',
-    navLabel: '仓库',
-    path: '/mdm/warehouses',
-    title: '仓库与车队',
+    id: 'master-regions',
+    navLabel: '地域',
+    path: '/mdm/regions',
+    title: '地域管理',
     load: () =>
-      import('../mdm/WarehouseFleetWorkbench').then(
-        (module) => module.WarehouseFleetWorkbench,
+      import('../mdm/MasterDataHub').then((module) => module.MasterRegionsPage),
+  }),
+  admin({
+    id: 'master-capacity',
+    navLabel: '运力',
+    path: '/mdm/capacity',
+    title: '运力管理',
+    load: () =>
+      import('../mdm/MasterDataHub').then(
+        (module) => module.MasterCapacityPage,
       ),
   }),
   admin({
-    id: 'mdm-governance',
-    navLabel: '治理',
-    path: '/mdm/governance',
-    title: '主数据治理',
+    id: 'master-fleet',
+    navLabel: '车队',
+    path: '/mdm/fleet',
+    title: '车队管理',
     load: () =>
-      import('../mdm/MdmGovernanceWorkbench').then(
-        (module) => module.MdmGovernanceWorkbench,
+      import('../mdm/MasterDataHub').then((module) => module.MasterFleetPage),
+  }),
+  admin({
+    id: 'master-charges',
+    navLabel: '费用',
+    path: '/mdm/charges',
+    title: '费用设置',
+    load: () =>
+      import('../mdm/MasterDataHub').then((module) => module.MasterChargesPage),
+  }),
+  admin({
+    id: 'master-organizations',
+    navLabel: '组织',
+    path: '/mdm/organizations',
+    title: '组织管理',
+    load: () =>
+      import('../mdm/MasterDataHub').then(
+        (module) => module.MasterOrganizationsPage,
+      ),
+  }),
+  admin({
+    id: 'master-attachments',
+    navLabel: '附件',
+    path: '/mdm/attachments',
+    title: '主数据附件',
+    load: () =>
+      import('../mdm/MasterDataHub').then(
+        (module) => module.MasterAttachmentsPage,
+      ),
+  }),
+  admin({
+    id: 'master-settings',
+    navLabel: '设置',
+    path: '/mdm/settings',
+    title: '主数据综合设置',
+    load: () =>
+      import('../mdm/MasterDataHub').then(
+        (module) => module.MasterSettingsPage,
       ),
   }),
   admin({
@@ -395,13 +491,53 @@ export const ADMIN_ROUTE_REGISTRY: readonly AppRouteDefinition[] = [
       ),
   }),
   admin({
-    id: 'operations',
-    navLabel: '作业',
-    path: '/wms/operations',
-    title: '移动作业与看板',
+    id: 'warehouse-tasks',
+    navLabel: '任务',
+    path: '/wms/operations/tasks',
+    title: '仓储任务中心',
     load: () =>
-      import('../wms/MobileOperationsWorkbench').then(
-        (module) => module.MobileOperationsWorkbench,
+      import('../wms/WarehouseOperationsHub').then(
+        (module) => module.WarehouseTasksPage,
+      ),
+  }),
+  admin({
+    id: 'warehouse-wes',
+    navLabel: 'WES',
+    path: '/wms/operations/wes',
+    title: 'WES 调度',
+    load: () =>
+      import('../wms/WarehouseOperationsHub').then(
+        (module) => module.WarehouseWesPage,
+      ),
+  }),
+  admin({
+    id: 'warehouse-performance',
+    navLabel: '绩效',
+    path: '/wms/operations/performance',
+    title: '作业绩效',
+    load: () =>
+      import('../wms/WarehouseOperationsHub').then(
+        (module) => module.WarehousePerformancePage,
+      ),
+  }),
+  admin({
+    id: 'warehouse-rules',
+    navLabel: '规则',
+    path: '/wms/operations/rules',
+    title: '作业规则',
+    load: () =>
+      import('../wms/WarehouseOperationsHub').then(
+        (module) => module.WarehouseRulesPage,
+      ),
+  }),
+  admin({
+    id: 'warehouse-devices',
+    navLabel: '设备',
+    path: '/wms/operations/devices',
+    title: '设备协同',
+    load: () =>
+      import('../wms/WarehouseOperationsHub').then(
+        (module) => module.WarehouseDevicesPage,
       ),
   }),
   admin({
@@ -515,6 +651,86 @@ export const ADMIN_ROUTE_REGISTRY: readonly AppRouteDefinition[] = [
       ),
   }),
   admin({
+    id: 'report-center',
+    navLabel: '报表中心',
+    path: '/reports/center',
+    title: '报表中心',
+    load: () =>
+      import('../reports/ReportCenterWorkbench').then(
+        (module) => module.ReportCenterPage,
+      ),
+  }),
+  admin({
+    id: 'report-subjects',
+    navLabel: '主题分析',
+    path: '/reports/subjects',
+    title: '主题分析',
+    load: () =>
+      import('../reports/ReportCenterWorkbench').then(
+        (module) => module.ReportSubjectsPage,
+      ),
+  }),
+  admin({
+    id: 'my-reports',
+    navLabel: '我的报表',
+    path: '/reports/mine',
+    title: '我的报表',
+    load: () =>
+      import('../reports/ReportCenterWorkbench').then(
+        (module) => module.MyReportsPage,
+      ),
+  }),
+  admin({
+    id: 'report-templates',
+    navLabel: '模板',
+    path: '/reports/templates',
+    title: '报表模板管理',
+    load: () =>
+      import('../reports/ReportCenterWorkbench').then(
+        (module) => module.ReportTemplatesPage,
+      ),
+  }),
+  admin({
+    id: 'screen-manage',
+    navLabel: '大屏管理',
+    path: '/screens/manage',
+    title: '大屏管理',
+    load: () =>
+      import('../screens/DataScreenWorkbench').then(
+        (module) => module.DataScreenManagePage,
+      ),
+  }),
+  admin({
+    id: 'screen-groups',
+    navLabel: '大屏分组',
+    path: '/screens/groups',
+    title: '大屏分组',
+    load: () =>
+      import('../screens/DataScreenWorkbench').then(
+        (module) => module.DataScreenGroupsPage,
+      ),
+  }),
+  admin({
+    id: 'my-screens',
+    navLabel: '我的大屏',
+    path: '/screens/mine',
+    title: '我的大屏',
+    load: () =>
+      import('../screens/DataScreenWorkbench').then(
+        (module) => module.MyDataScreensPage,
+      ),
+  }),
+  admin({
+    id: 'screen-maps',
+    navLabel: '地图',
+    path: '/screens/maps',
+    title: '地图配置',
+    load: () =>
+      import('../screens/DataScreenWorkbench').then(
+        (module) => module.DataScreenMapsPage,
+      ),
+  }),
+  admin({
     id: 'integration-gateway',
     navLabel: '集成',
     path: '/integration/gateway',
@@ -563,6 +779,56 @@ export const ADMIN_ROUTE_REGISTRY: readonly AppRouteDefinition[] = [
     load: () =>
       import('../platform/OperationsWorkbench').then(
         (module) => module.OperationsWorkbench,
+      ),
+  }),
+  admin({
+    id: 'support-help',
+    navLabel: '帮助',
+    path: '/support/help',
+    title: '帮助中心',
+    load: () =>
+      import('../support/HelpCenterWorkbench').then(
+        (module) => module.HelpHomePage,
+      ),
+  }),
+  admin({
+    id: 'support-user',
+    navLabel: '用户手册',
+    path: '/support/user-guide',
+    title: '用户手册',
+    load: () =>
+      import('../support/HelpCenterWorkbench').then(
+        (module) => module.UserGuidePage,
+      ),
+  }),
+  admin({
+    id: 'support-operations',
+    navLabel: '运维手册',
+    path: '/support/operations',
+    title: '运维手册',
+    load: () =>
+      import('../support/HelpCenterWorkbench').then(
+        (module) => module.OperationsGuidePage,
+      ),
+  }),
+  admin({
+    id: 'support-api',
+    navLabel: 'API 文档',
+    path: '/support/api',
+    title: 'API 与架构',
+    load: () =>
+      import('../support/HelpCenterWorkbench').then(
+        (module) => module.ApiGuidePage,
+      ),
+  }),
+  admin({
+    id: 'support-releases',
+    navLabel: '版本说明',
+    path: '/support/releases',
+    title: '版本说明',
+    load: () =>
+      import('../support/HelpCenterWorkbench').then(
+        (module) => module.ReleaseNotesPage,
       ),
   }),
 ] as const;

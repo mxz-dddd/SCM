@@ -383,7 +383,7 @@ describe('App', () => {
 
   it('opens versioned product, barcode and packaging master data', async () => {
     render(<App />);
-    await openRoute('商品');
+    await openRoute('货品');
     expect(
       screen.getByRole('heading', { name: '商品、条码与包装主数据' }),
     ).toBeInTheDocument();
@@ -478,7 +478,7 @@ describe('App', () => {
   });
   it('opens warehouse hierarchy and fleet eligibility master data', async () => {
     render(<App />);
-    await openRoute('仓库');
+    await openRoute('运力');
     expect(
       screen.getByRole('heading', { name: '仓库层级与车辆司机' }),
     ).toBeInTheDocument();
@@ -488,7 +488,7 @@ describe('App', () => {
   });
   it('opens contract, rate, calendar and quality governance', async () => {
     render(<App />);
-    await openRoute('治理');
+    await openRoute('费用');
     expect(
       screen.getByRole('heading', { name: '合同、费率与主数据治理' }),
     ).toBeInTheDocument();
@@ -499,9 +499,12 @@ describe('App', () => {
   });
   it('opens mobile warehouse operations with large offline controls', async () => {
     render(<App />);
-    await openRoute('作业');
+    await openRoute('任务');
     expect(
-      screen.getByRole('heading', { name: '移动仓库作业与运营看板' }),
+      screen.getByRole('heading', { name: '仓储任务与 WES' }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole('heading', { name: '仓储任务执行' }),
     ).toBeInTheDocument();
     expect(
       screen.getByPlaceholderText('扫描商品、LPN、库位或容器后回车'),

@@ -248,7 +248,7 @@ export function ApplicationShell() {
 
   return (
     <Layout className="app-shell">
-      <Sider className="app-sidebar" collapsedWidth={72} width={72}>
+      <Sider className="app-sidebar" collapsedWidth={56} width={56}>
         <div className="app-mark" aria-label="澄链 SCM">
           澄
         </div>

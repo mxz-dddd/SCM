@@ -67,7 +67,35 @@ const emptyOperations: OperationsView = {
   valueAddedOrders: [],
 };
 
-export function MobileOperationsWorkbench() {
+type OperationsFocus = 'tasks' | 'wes' | 'performance' | 'devices';
+
+const focusCopy: Record<
+  OperationsFocus,
+  { description: string; title: string }
+> = {
+  tasks: {
+    title: '仓储任务执行',
+    description: '聚合拣选、包装、装车、增值作业与离线任务队列。',
+  },
+  wes: {
+    title: 'WES 作业调度',
+    description: '以设备命令、离线同步和冲突队列连接现场执行。',
+  },
+  performance: {
+    title: '仓储作业绩效',
+    description: '呈现劳务分配、质量评分、任务积压和作业异常。',
+  },
+  devices: {
+    title: '仓储设备协同',
+    description: '管理打印、扫码、设备命令与回执状态。',
+  },
+};
+
+export function MobileOperationsWorkbench({
+  focus = 'tasks',
+}: {
+  focus?: OperationsFocus;
+}) {
   const accessToken = useSessionStore((state) => state.accessToken);
   const claims = useSessionStore((state) => state.claims);
   const [operations, setOperations] = useState<OperationsView>(emptyOperations);
@@ -297,9 +325,9 @@ export function MobileOperationsWorkbench() {
   } as const;
   return (
     <section>
-      <Typography.Title level={2}>移动仓库作业与运营看板</Typography.Title>
+      <Typography.Title level={2}>{focusCopy[focus].title}</Typography.Title>
       <Typography.Paragraph>
-        扫码枪回车即入队；绿色成功、黄色待人工、红色阻止，并用设备振动反馈。
+        {focusCopy[focus].description}
       </Typography.Paragraph>
       {feedback ? (
         <Alert message={feedback.message} showIcon type={feedback.type} />

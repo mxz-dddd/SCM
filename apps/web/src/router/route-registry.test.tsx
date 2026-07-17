@@ -107,6 +107,58 @@ describe('application route registry', () => {
     expect(pages.every((page) => typeof page === 'function')).toBe(true);
   });
 
+  it('keeps the five audited long-tail families on explicit stable routes', () => {
+    const registeredPaths = new Set(
+      ADMIN_ROUTE_REGISTRY.map(({ path }) => path),
+    );
+    const expectedFamilies = {
+      warehouse: [
+        '/wms/operations/tasks',
+        '/wms/operations/wes',
+        '/wms/operations/performance',
+        '/wms/operations/rules',
+        '/wms/operations/devices',
+      ],
+      masterData: [
+        '/mdm/products',
+        '/mdm/partners',
+        '/mdm/regions',
+        '/mdm/capacity',
+        '/mdm/fleet',
+        '/mdm/charges',
+        '/mdm/organizations',
+        '/mdm/attachments',
+        '/mdm/settings',
+      ],
+      reports: [
+        '/reports/center',
+        '/reports/subjects',
+        '/reports/mine',
+        '/reports/templates',
+      ],
+      support: [
+        '/support/help',
+        '/support/user-guide',
+        '/support/operations',
+        '/support/api',
+        '/support/releases',
+      ],
+      dataScreens: [
+        '/screens/manage',
+        '/screens/groups',
+        '/screens/mine',
+        '/screens/maps',
+      ],
+    };
+
+    for (const [family, paths] of Object.entries(expectedFamilies)) {
+      expect(
+        paths.every((path) => registeredPaths.has(path)),
+        `${family} route coverage`,
+      ).toBe(true);
+    }
+  });
+
   it('opens an admin deep link and synchronizes history with workspace tabs', async () => {
     const router = createMemoryRouter(createAppRouteObjects(), {
       initialEntries: ['/workbench'],
