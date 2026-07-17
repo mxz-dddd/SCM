@@ -25,14 +25,16 @@ describe('S3-compatible presigned uploads', () => {
     const replay = createS3PresignedUrl(input);
 
     expect(replay).toEqual(first);
-    expect(first.url).toContain('/attachments/tenant/%E4%B8%9A%E5%8A%A1%E6%96%87%E4%BB%B6.pdf');
+    expect(first.url).toContain(
+      '/attachments/tenant/%E4%B8%9A%E5%8A%A1%E6%96%87%E4%BB%B6.pdf',
+    );
     expect(first.url).toContain('X-Amz-Signature=');
     expect(decodeURIComponent(first.url)).toContain(
       'X-Amz-SignedHeaders=content-type;host;x-amz-checksum-sha256;x-amz-meta-sha256',
     );
     expect(first.headers).toEqual(input.headers);
-    expect(
-      createS3PresignedUrl({ ...input, method: 'GET' }).url,
-    ).not.toBe(first.url);
+    expect(createS3PresignedUrl({ ...input, method: 'GET' }).url).not.toBe(
+      first.url,
+    );
   });
 });

@@ -18,30 +18,38 @@ const event: BusinessEvent = {
 };
 
 describe('outbox relay', () => {
-  it('publishes a claimed event then acknowledges its lease', async () => {
+  it('publishes a claimed event into persistent deliveries', async () => {
     const request = vi
       .fn()
       .mockResolvedValueOnce({ events: [event] })
-      .mockResolvedValueOnce({ eventId: event.eventId, status: 'PUBLISHED' });
-    const publish = vi.fn().mockResolvedValue(undefined);
+      .mockResolvedValueOnce({
+        deliveryCount: 2,
+        eventId: event.eventId,
+        status: 'PUBLISHED',
+      });
 
     await expect(
-      runRelayOnce(event.tenantId, 'relay-1', { request } as never, { publish }),
-    ).resolves.toEqual([{ eventId: event.eventId, status: 'PUBLISHED' }]);
-    expect(publish).toHaveBeenCalledWith(event);
-    expect(request.mock.calls[1]?.[1]).toContain('/ack');
+      runRelayOnce(event.tenantId, 'relay-1', { request } as never),
+    ).resolves.toEqual([
+      {
+        deliveryCount: 2,
+        eventId: event.eventId,
+        status: 'PUBLISHED',
+      },
+    ]);
+    expect(request.mock.calls[1]?.[1]).toContain('/publish');
   });
 
-  it('records a retry failure when publishing fails', async () => {
+  it('records a retry failure when fan-out publishing fails', async () => {
     const request = vi
       .fn()
       .mockResolvedValueOnce({ events: [event] })
+      .mockRejectedValueOnce(new Error('database unavailable'))
       .mockResolvedValueOnce({ eventId: event.eventId, status: 'FAILED' });
-    const publish = vi.fn().mockRejectedValue(new Error('broker unavailable'));
 
     await expect(
-      runRelayOnce(event.tenantId, 'relay-1', { request } as never, { publish }),
+      runRelayOnce(event.tenantId, 'relay-1', { request } as never),
     ).resolves.toEqual([{ eventId: event.eventId, status: 'FAILED' }]);
-    expect(request.mock.calls[1]?.[1]).toContain('/fail');
+    expect(request.mock.calls[2]?.[1]).toContain('/fail');
   });
 });

@@ -18,13 +18,17 @@ describe('Customer mobile and partner portal HTTP contract', () => {
       expect(
         Reflect.getMetadata(
           IDEMPOTENCY_SCOPE,
-          MobilePortalController.prototype[method as keyof MobilePortalController],
+          MobilePortalController.prototype[
+            method as keyof MobilePortalController
+          ],
         ),
       ).toBe(scope);
   });
 
   it('denies portal commands without portal command permission', async () => {
-    const decide = vi.fn().mockResolvedValue({ allowed: false, reason: 'NO_MATCHING_GRANT' });
+    const decide = vi
+      .fn()
+      .mockResolvedValue({ allowed: false, reason: 'NO_MATCHING_GRANT' });
     const guard = new PermissionGuard(new Reflector(), { decide } as never);
     const request = {
       header: () => 'mobile-portal-permission-test',
@@ -44,7 +48,12 @@ describe('Customer mobile and partner portal HTTP contract', () => {
       getHandler: () => MobilePortalController.prototype.createCommand,
       switchToHttp: () => ({ getRequest: () => request }),
     };
-    await expect(guard.canActivate(execution as never)).rejects.toMatchObject({ code: 'AUTH_PERMISSION_DENIED', statusCode: 403 });
-    expect(decide).toHaveBeenCalledWith(expect.objectContaining({ permissionCode: 'integration.portal.command' }));
+    await expect(guard.canActivate(execution as never)).rejects.toMatchObject({
+      code: 'AUTH_PERMISSION_DENIED',
+      statusCode: 403,
+    });
+    expect(decide).toHaveBeenCalledWith(
+      expect.objectContaining({ permissionCode: 'integration.portal.command' }),
+    );
   });
 });

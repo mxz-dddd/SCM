@@ -31,7 +31,7 @@ services:
     image: redis:7-alpine
     command: ['redis-server', '--appendonly', 'yes']
     ports:
-      - '6379:6379'
+      - '${REDIS_PORT:-6379}:6379'
     healthcheck:
       test: ['CMD', 'redis-cli', 'ping']
       interval: 5s
@@ -58,7 +58,7 @@ services:
       - minio-data:/data
 
   optimizer:
-    image: scm-optimizer:9.14.6206
+    image: scm-optimizer:9.15.6755
     build:
       context: ./services/optimizer
       dockerfile: Dockerfile

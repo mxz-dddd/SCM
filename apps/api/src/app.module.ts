@@ -4,7 +4,7 @@ import {
   RequestMethod,
   type NestModule,
 } from '@nestjs/common';
-import { APP_FILTER, APP_INTERCEPTOR } from '@nestjs/core';
+import { APP_FILTER, APP_GUARD, APP_INTERCEPTOR } from '@nestjs/core';
 import { ApiExceptionFilter } from './common/api-exception.filter';
 import { DatabaseModule } from './database/database.module';
 import { HealthController } from './health.controller';
@@ -16,6 +16,8 @@ import { IntegrationModule } from './modules/integration/integration.module';
 import { OmsModule } from './modules/oms/oms.module';
 import { AuthModule } from './modules/platform/auth/auth.module';
 import { TenantContextMiddleware } from './modules/platform/auth/tenant-context.middleware';
+import { WorkerAccessGuard } from './modules/platform/auth/worker-access.guard';
+import { ApiRateLimitGuard } from './modules/platform/auth/api-rate-limit.guard';
 import { PlatformModule } from './modules/platform/platform.module';
 import { IdempotencyInterceptor } from './modules/platform/idempotency.interceptor';
 import { OperationalTelemetryInterceptor } from './modules/platform/operational-telemetry.interceptor';
@@ -39,6 +41,8 @@ import { WmsModule } from './modules/wms/wms.module';
   controllers: [HealthController],
   providers: [
     { provide: APP_FILTER, useClass: ApiExceptionFilter },
+    { provide: APP_GUARD, useClass: ApiRateLimitGuard },
+    { provide: APP_GUARD, useClass: WorkerAccessGuard },
     { provide: APP_INTERCEPTOR, useClass: OperationalTelemetryInterceptor },
     { provide: APP_INTERCEPTOR, useClass: IdempotencyInterceptor },
   ],
@@ -54,11 +58,11 @@ export class AppModule implements NestModule {
           path: 'api/v1/public/tracking/:token',
         },
         { method: RequestMethod.POST, path: 'api/v1/auth/login' },
-        { method: RequestMethod.POST, path: 'api/v1/external/oauth/token' },
         {
-          method: RequestMethod.POST,
-          path: 'api/v1/external/gateway/authorize',
+          method: RequestMethod.GET,
+          path: 'api/v1/internal/worker/tenants',
         },
+        { method: RequestMethod.POST, path: 'api/v1/external/oauth/token' },
         { method: RequestMethod.POST, path: 'api/v1/external/iot/heartbeat' },
         { method: RequestMethod.POST, path: 'api/v1/external/iot/telemetry' },
         {

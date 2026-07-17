@@ -222,7 +222,8 @@ interface BillingView {
     id: string;
     statementId: string;
     statementLineId: string | null;
-    status: 'ACCEPTED' | 'ADJUSTED' | 'EVIDENCE_REQUESTED' | 'OPEN' | 'REJECTED';
+    status:
+      'ACCEPTED' | 'ADJUSTED' | 'EVIDENCE_REQUESTED' | 'OPEN' | 'REJECTED';
     version: number;
   }[];
   reconciliationLines: readonly {
@@ -243,7 +244,11 @@ interface BillingView {
   }[];
   invoices: readonly InvoiceRow[];
   payments: readonly PaymentRow[];
-  periodCloseChecks: readonly { id: string; passed: boolean; periodId: string }[];
+  periodCloseChecks: readonly {
+    id: string;
+    passed: boolean;
+    periodId: string;
+  }[];
   periodHistories: readonly { id: string; periodId: string }[];
   settlementAllocations: readonly { id: string; paymentId: string }[];
   settlementMetricTraces: readonly { id: string; metricId: string }[];
@@ -364,7 +369,9 @@ const reconciliationActions = createActionRegistry<
   },
 ]);
 
-const adjustmentActions = createActionRegistry<AdjustmentRow['status'] | 'NONE'>([
+const adjustmentActions = createActionRegistry<
+  AdjustmentRow['status'] | 'NONE'
+>([
   {
     allowedStatuses: ['DRAFT'],
     id: 'submitAdjustment',
@@ -510,9 +517,9 @@ export function BillingFactWorkbench() {
   const [selectedPaymentIds, setSelectedPaymentIds] = useState<
     readonly string[]
   >([]);
-  const [selectedPeriodIds, setSelectedPeriodIds] = useState<
-    readonly string[]
-  >([]);
+  const [selectedPeriodIds, setSelectedPeriodIds] = useState<readonly string[]>(
+    [],
+  );
   const [query, setQuery] = useState('');
   const [error, setError] = useState<string>();
   const [notice, setNotice] = useState<string>();
@@ -851,7 +858,9 @@ export function BillingFactWorkbench() {
         await request(
           `/api/v1/billing/reconciliation-statements/${selectedStatement.id}/publish`,
           {
-            body: JSON.stringify({ expectedVersion: selectedStatement.version }),
+            body: JSON.stringify({
+              expectedVersion: selectedStatement.version,
+            }),
             method: 'POST',
           },
         );
@@ -951,7 +960,9 @@ export function BillingFactWorkbench() {
         await request(
           `/api/v1/billing/reconciliation-statements/${selectedStatement.id}/reconcile`,
           {
-            body: JSON.stringify({ expectedVersion: selectedStatement.version }),
+            body: JSON.stringify({
+              expectedVersion: selectedStatement.version,
+            }),
             method: 'POST',
           },
         );
@@ -971,7 +982,9 @@ export function BillingFactWorkbench() {
         await request(
           `/api/v1/billing/adjustments/${selectedAdjustment.id}/submit`,
           {
-            body: JSON.stringify({ expectedVersion: selectedAdjustment.version }),
+            body: JSON.stringify({
+              expectedVersion: selectedAdjustment.version,
+            }),
             method: 'POST',
           },
         );
@@ -979,7 +992,9 @@ export function BillingFactWorkbench() {
         await request(
           `/api/v1/billing/adjustments/${selectedAdjustment.id}/post`,
           {
-            body: JSON.stringify({ expectedVersion: selectedAdjustment.version }),
+            body: JSON.stringify({
+              expectedVersion: selectedAdjustment.version,
+            }),
             method: 'POST',
           },
         );
@@ -990,18 +1005,21 @@ export function BillingFactWorkbench() {
             item.status === 'PENDING',
         );
         if (!task) throw new Error('该调整单没有待处理审批任务');
-        await request(`/api/v1/billing/adjustment-approvals/${task.id}/decide`, {
-          body: JSON.stringify({
-            decision: actionId === 'approveAdjustment' ? 'APPROVE' : 'REJECT',
-            expectedAdjustmentVersion: selectedAdjustment.version,
-            expectedTaskVersion: task.version,
-            reason:
-              actionId === 'approveAdjustment'
-                ? '调整分摊复核通过'
-                : '调整分摊需重新提交',
-          }),
-          method: 'POST',
-        });
+        await request(
+          `/api/v1/billing/adjustment-approvals/${task.id}/decide`,
+          {
+            body: JSON.stringify({
+              decision: actionId === 'approveAdjustment' ? 'APPROVE' : 'REJECT',
+              expectedAdjustmentVersion: selectedAdjustment.version,
+              expectedTaskVersion: task.version,
+              reason:
+                actionId === 'approveAdjustment'
+                  ? '调整分摊复核通过'
+                  : '调整分摊需重新提交',
+            }),
+            method: 'POST',
+          },
+        );
       }
       setNotice('调整单状态已推进，原凭证金额与历史明细未被覆盖');
       setSelectedAdjustmentIds([]);
@@ -1047,8 +1065,7 @@ export function BillingFactWorkbench() {
       const invoice = view.invoices.find(
         (item) =>
           item.direction === selectedPayment.direction &&
-          (Number(item.totalAmount) < 0) ===
-            (Number(selectedPayment.amount) < 0),
+          Number(item.totalAmount) < 0 === Number(selectedPayment.amount) < 0,
       );
       if (!invoice) throw new Error('没有方向与符号匹配的待核销发票');
       const amount = Math.min(
@@ -1084,10 +1101,13 @@ export function BillingFactWorkbench() {
     if (!decision?.enabled || !selectedPeriod) return;
     try {
       if (actionId === 'startPeriodClose')
-        await request(`/api/v1/billing/periods/${selectedPeriod.id}/start-close`, {
-          body: JSON.stringify({ expectedVersion: selectedPeriod.version }),
-          method: 'POST',
-        });
+        await request(
+          `/api/v1/billing/periods/${selectedPeriod.id}/start-close`,
+          {
+            body: JSON.stringify({ expectedVersion: selectedPeriod.version }),
+            method: 'POST',
+          },
+        );
       else if (actionId === 'closePeriod')
         await request(`/api/v1/billing/periods/${selectedPeriod.id}/close`, {
           body: JSON.stringify({ expectedVersion: selectedPeriod.version }),
@@ -1147,8 +1167,10 @@ export function BillingFactWorkbench() {
         });
       } else {
         const voucher = view.vouchers[0];
-        const periodFrom = voucher?.periodFrom.slice(0, 10) ?? `${today.getUTCFullYear()}-01-01`;
-        const periodTo = voucher?.periodTo.slice(0, 10) ?? today.toISOString().slice(0, 10);
+        const periodFrom =
+          voucher?.periodFrom.slice(0, 10) ?? `${today.getUTCFullYear()}-01-01`;
+        const periodTo =
+          voucher?.periodTo.slice(0, 10) ?? today.toISOString().slice(0, 10);
         await request('/api/v1/billing/settlement-reports', {
           body: JSON.stringify({
             currency: voucher?.currency ?? 'CNY',
@@ -1313,7 +1335,8 @@ export function BillingFactWorkbench() {
         />
         <Typography.Paragraph>
           已记录差异 {view.reconciliationDisputes.length} 条、沟通与证据版本{' '}
-          {view.reconciliationCommunications.length} 条；发布后的明细与附件只追加留痕。
+          {view.reconciliationCommunications.length}{' '}
+          条；发布后的明细与附件只追加留痕。
         </Typography.Paragraph>
       </Card>
       <Card title="调整、索赔扣款与跨订单 / 成本中心分摊">
@@ -1345,7 +1368,8 @@ export function BillingFactWorkbench() {
         />
         <Typography.Paragraph>
           分摊明细 {view.allocationDetails.length} 条、审批任务{' '}
-          {view.adjustmentApprovals.length} 条；调整始终引用原凭证并保持分摊金额守恒。
+          {view.adjustmentApprovals.length}{' '}
+          条；调整始终引用原凭证并保持分摊金额守恒。
         </Typography.Paragraph>
       </Card>
       <Card title="开票收票、红冲与收付款核销">
@@ -1406,7 +1430,8 @@ export function BillingFactWorkbench() {
         />
         <Typography.Paragraph>
           发票行 {view.invoiceLines.length} 条、核销事实{' '}
-          {view.settlementAllocations.length} 条；部分、多票、红冲、退款与手续费均不覆盖原记录。
+          {view.settlementAllocations.length}{' '}
+          条；部分、多票、红冲、退款与手续费均不覆盖原记录。
         </Typography.Paragraph>
       </Card>
       <Card title="会计期间关闭、重开与毛利追溯">

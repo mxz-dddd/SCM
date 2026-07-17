@@ -7,6 +7,7 @@ import {
   createActionRegistry,
 } from '@scm/ui';
 import { Alert, Button, Card, Checkbox, Input, Space, Typography } from 'antd';
+import { useNavigate } from 'react-router-dom';
 import { useSessionStore } from './session-store';
 
 type InboxStatus = 'ARCHIVED' | 'READ' | 'UNREAD';
@@ -86,20 +87,31 @@ const deliveryActions = createActionRegistry<NotificationStatus>([
 ]);
 
 export function NotificationWorkbench() {
+  const navigate = useNavigate();
   const accessToken = useSessionStore((state) => state.accessToken);
   const claims = useSessionStore((state) => state.claims);
   const [inbox, setInbox] = useState<readonly InboxRow[]>([]);
-  const [notifications, setNotifications] = useState<readonly NotificationRow[]>([]);
+  const [notifications, setNotifications] = useState<
+    readonly NotificationRow[]
+  >([]);
   const [templates, setTemplates] = useState<readonly TemplateRow[]>([]);
   const [preferences, setPreferences] = useState<readonly PreferenceRow[]>([]);
-  const [selectedInboxIds, setSelectedInboxIds] = useState<readonly string[]>([]);
-  const [selectedNotificationIds, setSelectedNotificationIds] = useState<readonly string[]>([]);
-  const [selectedTemplateIds, setSelectedTemplateIds] = useState<readonly string[]>([]);
+  const [selectedInboxIds, setSelectedInboxIds] = useState<readonly string[]>(
+    [],
+  );
+  const [selectedNotificationIds, setSelectedNotificationIds] = useState<
+    readonly string[]
+  >([]);
+  const [selectedTemplateIds, setSelectedTemplateIds] = useState<
+    readonly string[]
+  >([]);
   const [filters, setFilters] = useState<Readonly<Record<string, string>>>({});
   const [page, setPage] = useState(1);
   const [total, setTotal] = useState(0);
   const [templateCode, setTemplateCode] = useState('ORDER_EXCEPTION');
-  const [templateSubject, setTemplateSubject] = useState('订单 {{businessRef}} 异常');
+  const [templateSubject, setTemplateSubject] = useState(
+    '订单 {{businessRef}} 异常',
+  );
   const [templateBody, setTemplateBody] = useState('{{summary}}');
   const [notice, setNotice] = useState<string>();
   const [error, setError] = useState<string>();
@@ -137,9 +149,14 @@ export function NotificationWorkbench() {
           ...init?.headers,
         },
       });
-      const body = (await response.json()) as { code?: string; message?: string };
+      const body = (await response.json()) as {
+        code?: string;
+        message?: string;
+      };
       if (!response.ok) {
-        throw new Error(`${body.code ?? 'REQUEST_FAILED'}: ${body.message ?? '请求失败'}`);
+        throw new Error(
+          `${body.code ?? 'REQUEST_FAILED'}: ${body.message ?? '请求失败'}`,
+        );
       }
       return body;
     },
@@ -151,7 +168,9 @@ export function NotificationWorkbench() {
     const parameters = new URLSearchParams({
       page: String(page),
       pageSize: '20',
-      ...Object.fromEntries(Object.entries(filters).filter(([, value]) => value.trim())),
+      ...Object.fromEntries(
+        Object.entries(filters).filter(([, value]) => value.trim()),
+      ),
     });
     try {
       const inboxResponse = (await request(
@@ -185,13 +204,16 @@ export function NotificationWorkbench() {
   const selectedNotification = notifications.find(
     ({ id }) => id === selectedNotificationIds[0],
   );
-  const selectedTemplate = templates.find(({ id }) => id === selectedTemplateIds[0]);
-  const inboxDecisions = (['read', 'archive', 'open-business'] as const).map((id) =>
-    inboxActions.decide(id, {
-      dataScopeAllowed: true,
-      permissions,
-      status: selectedInbox?.status ?? 'UNREAD',
-    }),
+  const selectedTemplate = templates.find(
+    ({ id }) => id === selectedTemplateIds[0],
+  );
+  const inboxDecisions = (['read', 'archive', 'open-business'] as const).map(
+    (id) =>
+      inboxActions.decide(id, {
+        dataScopeAllowed: true,
+        permissions,
+        status: selectedInbox?.status ?? 'UNREAD',
+      }),
   );
   const deliveryDecision = deliveryActions.decide('dispatch', {
     dataScopeAllowed: true,
@@ -215,11 +237,12 @@ export function NotificationWorkbench() {
   async function executeInbox(actionId: string) {
     const decision = inboxDecisions.find(({ id }) => id === actionId);
     if (!decision?.enabled || !selectedInbox) return;
-    if (decision.confirmMessage && !window.confirm(decision.confirmMessage)) return;
+    if (decision.confirmMessage && !window.confirm(decision.confirmMessage))
+      return;
     try {
       if (actionId === 'read') await transitionInbox('read');
       if (actionId === 'archive') await transitionInbox('archive');
-      if (actionId === 'open-business') window.location.hash = selectedInbox.route;
+      if (actionId === 'open-business') void navigate(selectedInbox.route);
     } catch (caught) {
       setError(caught instanceof Error ? caught.message : '待办操作失败');
     }
@@ -227,12 +250,18 @@ export function NotificationWorkbench() {
 
   async function dispatch() {
     if (!selectedNotification || !deliveryDecision.enabled) return;
-    if (deliveryDecision.confirmMessage && !window.confirm(deliveryDecision.confirmMessage)) return;
+    if (
+      deliveryDecision.confirmMessage &&
+      !window.confirm(deliveryDecision.confirmMessage)
+    )
+      return;
     try {
       await request(
         `/api/v1/platform/notifications/${selectedNotification.id}/dispatch`,
         {
-          body: JSON.stringify({ expectedVersion: selectedNotification.version }),
+          body: JSON.stringify({
+            expectedVersion: selectedNotification.version,
+          }),
           method: 'POST',
         },
       );
@@ -243,7 +272,11 @@ export function NotificationWorkbench() {
     }
   }
 
-  async function savePreference(channel: string, enabled: boolean, version?: number) {
+  async function savePreference(
+    channel: string,
+    enabled: boolean,
+    version?: number,
+  ) {
     try {
       await request('/api/v1/platform/notifications/preferences', {
         body: JSON.stringify({ channel, enabled, expectedVersion: version }),
@@ -316,7 +349,10 @@ export function NotificationWorkbench() {
           }}
           onReset={() => setFilters({})}
         />
-        <CommandBar actions={inboxDecisions} onAction={({ id }) => void executeInbox(id)} />
+        <CommandBar
+          actions={inboxDecisions}
+          onAction={({ id }) => void executeInbox(id)}
+        />
         <DataGrid
           columns={[
             { fixed: 'left', key: 'title', label: '标题' },
@@ -324,8 +360,16 @@ export function NotificationWorkbench() {
             { key: 'businessDomain', label: '业务域' },
             { key: 'businessRef', label: '业务号' },
             { key: 'responsibilityGroup', label: '责任组' },
-            { key: 'severity', label: '严重度', render: (value) => <StatusBadge status={String(value)} /> },
-            { key: 'status', label: '状态', render: (value) => <StatusBadge status={String(value)} /> },
+            {
+              key: 'severity',
+              label: '严重度',
+              render: (value) => <StatusBadge status={String(value)} />,
+            },
+            {
+              key: 'status',
+              label: '状态',
+              render: (value) => <StatusBadge status={String(value)} />,
+            },
             { fixed: 'right', key: 'createdAt', label: '创建时间' },
           ]}
           onPageChange={setPage}
@@ -341,13 +385,19 @@ export function NotificationWorkbench() {
       <Card title="订阅与免打扰">
         <Space wrap>
           {['IN_APP', 'EMAIL', 'SMS', 'WECHAT', 'PUSH'].map((channel) => {
-            const preference = preferences.find((item) => item.channel === channel);
+            const preference = preferences.find(
+              (item) => item.channel === channel,
+            );
             return (
               <Checkbox
                 checked={preference?.enabled ?? true}
                 key={channel}
                 onChange={(event) =>
-                  void savePreference(channel, event.target.checked, preference?.version)
+                  void savePreference(
+                    channel,
+                    event.target.checked,
+                    preference?.version,
+                  )
                 }
               >
                 {channel}
@@ -361,13 +411,32 @@ export function NotificationWorkbench() {
         <>
           <Card title="通知模板版本">
             <Space wrap>
-              <Input aria-label="模板代码" onChange={(event) => setTemplateCode(event.target.value)} value={templateCode} />
-              <Input aria-label="主题模板" onChange={(event) => setTemplateSubject(event.target.value)} value={templateSubject} />
-              <Input aria-label="正文模板" onChange={(event) => setTemplateBody(event.target.value)} value={templateBody} />
-              <Button disabled={!permissions.has('platform.notification.manage')} onClick={() => void createTemplate()}>
+              <Input
+                aria-label="模板代码"
+                onChange={(event) => setTemplateCode(event.target.value)}
+                value={templateCode}
+              />
+              <Input
+                aria-label="主题模板"
+                onChange={(event) => setTemplateSubject(event.target.value)}
+                value={templateSubject}
+              />
+              <Input
+                aria-label="正文模板"
+                onChange={(event) => setTemplateBody(event.target.value)}
+                value={templateBody}
+              />
+              <Button
+                disabled={!permissions.has('platform.notification.manage')}
+                onClick={() => void createTemplate()}
+              >
                 新建模板草稿
               </Button>
-              <Button disabled={selectedTemplate?.status !== 'DRAFT'} onClick={() => void publishTemplate()} type="primary">
+              <Button
+                disabled={selectedTemplate?.status !== 'DRAFT'}
+                onClick={() => void publishTemplate()}
+                type="primary"
+              >
                 发布选中版本
               </Button>
             </Space>
@@ -375,7 +444,11 @@ export function NotificationWorkbench() {
               columns={[
                 { key: 'code', label: '代码' },
                 { key: 'versionNumber', label: '内容版本' },
-                { key: 'status', label: '状态', render: (value) => <StatusBadge status={String(value)} /> },
+                {
+                  key: 'status',
+                  label: '状态',
+                  render: (value) => <StatusBadge status={String(value)} />,
+                },
               ]}
               onPageChange={() => undefined}
               onSelectionChange={(ids) => setSelectedTemplateIds(ids.slice(-1))}
@@ -387,7 +460,10 @@ export function NotificationWorkbench() {
             />
           </Card>
           <Card title="投递与重试">
-            <CommandBar actions={[deliveryDecision]} onAction={() => void dispatch()} />
+            <CommandBar
+              actions={[deliveryDecision]}
+              onAction={() => void dispatch()}
+            />
             <DataGrid
               columns={[
                 { fixed: 'left', key: 'renderedSubject', label: '主题' },
@@ -395,10 +471,17 @@ export function NotificationWorkbench() {
                 { key: 'severity', label: '严重度' },
                 { key: 'requestedChannels', label: '请求渠道' },
                 { key: 'deliveredChannels', label: '成功渠道' },
-                { fixed: 'right', key: 'status', label: '状态', render: (value) => <StatusBadge status={String(value)} /> },
+                {
+                  fixed: 'right',
+                  key: 'status',
+                  label: '状态',
+                  render: (value) => <StatusBadge status={String(value)} />,
+                },
               ]}
               onPageChange={() => undefined}
-              onSelectionChange={(ids) => setSelectedNotificationIds(ids.slice(-1))}
+              onSelectionChange={(ids) =>
+                setSelectedNotificationIds(ids.slice(-1))
+              }
               page={1}
               pageSize={100}
               rows={notifications}

@@ -1,4 +1,3 @@
-import { randomUUID } from 'node:crypto';
 import { Inject, Injectable } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 import type { TenantContext } from '@scm/shared';
@@ -7,6 +6,7 @@ import { toHttpJson } from '../../common/http-json';
 import { isPrismaErrorCode } from '../../common/prisma-error';
 import { isUuid } from '../../common/validation';
 import { PrismaService } from '../../database/prisma.service';
+import { businessNumber } from '../platform/public/numbering.facade';
 import type { CommandMetadata } from '../platform/tenant.service';
 
 type Direction = 'PAYABLE' | 'RECEIVABLE';
@@ -120,7 +120,15 @@ export class SettlementVoucherService {
           periodTo: this.date(input.periodTo, 'periodTo'),
           tenantId: context.tenantId,
           updatedBy: context.accountId,
-          voucherNo: `${input.direction === 'PAYABLE' ? 'AP' : 'AR'}-${new Date().toISOString().replace(/\D/g, '').slice(0, 14)}-${randomUUID().slice(0, 8).toUpperCase()}`,
+          voucherNo: await businessNumber(
+            this.prisma,
+            input.direction === 'PAYABLE'
+              ? 'BILLING_AP_VOUCHER'
+              : 'BILLING_AR_VOUCHER',
+            context,
+            metadata,
+            `settlement-voucher:${input.direction}:${input.partnerRef}:${from.toISOString()}:${input.periodTo}`,
+          ),
         },
       });
       for (const calculation of calculations)
@@ -607,7 +615,13 @@ export class SettlementVoucherService {
       const accrual = await tx.billingAccrualVoucher.create({
         data: {
           accountingDate,
-          accrualNo: `ACR-${new Date().toISOString().replace(/\D/g, '').slice(0, 14)}-${randomUUID().slice(0, 8).toUpperCase()}`,
+          accrualNo: await businessNumber(
+            this.prisma,
+            'BILLING_ACCRUAL',
+            context,
+            metadata,
+            `billing-accrual:${calculationId}`,
+          ),
           amount: calculation.totalAmount,
           basisSnapshot: json({
             businessRef: calculation.businessRef,
@@ -743,7 +757,12 @@ export class SettlementVoucherService {
       context,
       { approvalTaskId },
     );
-    const reversalIds = await this.reverseAccruals(tx, changed.id, context);
+    const reversalIds = await this.reverseAccruals(
+      tx,
+      changed.id,
+      context,
+      metadata,
+    );
     await this.emit(
       tx,
       changed.id,
@@ -772,6 +791,7 @@ export class SettlementVoucherService {
     tx: Prisma.TransactionClient,
     voucherId: string,
     context: TenantContext,
+    metadata: CommandMetadata,
   ) {
     const actualLines = await tx.billingVoucherLine.findMany({
       orderBy: { lineNo: 'asc' },
@@ -839,7 +859,13 @@ export class SettlementVoucherService {
           currency: accrual.currency,
           differenceAmount: actualTotal.minus(accrual.amount),
           reversalAmount: accrual.amount.negated(),
-          reversalNo: `REV-${new Date().toISOString().replace(/\D/g, '').slice(0, 14)}-${randomUUID().slice(0, 8).toUpperCase()}`,
+          reversalNo: await businessNumber(
+            this.prisma,
+            'BILLING_REVERSAL',
+            context,
+            metadata,
+            `billing-reversal:${accrual.id}:${voucherId}`,
+          ),
           tenantId: context.tenantId,
           updatedBy: context.accountId,
         },

@@ -145,34 +145,32 @@ export function LoadRouteOptimizationPanel() {
   const load = view.loadPlans.find(({ id }) => id === loadId);
   const route = view.routePlans.find(({ id }) => id === routeId);
   const scenario = view.scenarios.find(({ id }) => id === scenarioId);
-  const decisions = actions
-    .list()
-    .map(({ id }) =>
-      actions.decide(id, {
-        dataScopeAllowed: true,
-        permissions,
-        status:
-          id === 'create-load' || id === 'optimize-route'
-            ? shipment
-              ? 'SHIPMENT'
+  const decisions = actions.list().map(({ id }) =>
+    actions.decide(id, {
+      dataScopeAllowed: true,
+      permissions,
+      status:
+        id === 'create-load' || id === 'optimize-route'
+          ? shipment
+            ? 'SHIPMENT'
+            : 'NONE'
+          : id === 'adjust-load' || id === 'validate-load'
+            ? load?.status === 'DRAFT'
+              ? 'LOAD_DRAFT'
               : 'NONE'
-            : id === 'adjust-load' || id === 'validate-load'
-              ? load?.status === 'DRAFT'
-                ? 'LOAD_DRAFT'
+            : id === 'publish-load'
+              ? load?.status === 'VALIDATED'
+                ? 'LOAD_VALIDATED'
                 : 'NONE'
-              : id === 'publish-load'
-                ? load?.status === 'VALIDATED'
-                  ? 'LOAD_VALIDATED'
+              : id === 'select-route'
+                ? route?.status === 'OPTIMIZED'
+                  ? 'ROUTE_OPTIMIZED'
                   : 'NONE'
-                : id === 'select-route'
-                  ? route?.status === 'OPTIMIZED'
-                    ? 'ROUTE_OPTIMIZED'
-                    : 'NONE'
-                  : scenario
-                    ? 'SCENARIO'
-                    : 'NONE',
-      }),
-    );
+                : scenario
+                  ? 'SCENARIO'
+                  : 'NONE',
+    }),
+  );
   const request = useCallback(
     async (path: string, init?: RequestInit) => {
       if (!accessToken || !claims)

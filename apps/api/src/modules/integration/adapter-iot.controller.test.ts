@@ -14,7 +14,10 @@ describe('Integration adapter and IoT HTTP contract', () => {
       ['transitionAdapter', 'integration.adapter.transition.v1'],
       ['submitAdapterCommand', 'integration.adapter-command.submit.v1'],
       ['dispatchAdapterCommand', 'integration.adapter-command.dispatch.v1'],
-      ['acknowledgeAdapterCommand', 'integration.adapter-command.acknowledge.v1'],
+      [
+        'acknowledgeAdapterCommand',
+        'integration.adapter-command.acknowledge.v1',
+      ],
       ['registerDevice', 'integration.device.register.v1'],
       ['transitionDevice', 'integration.device.transition.v1'],
       ['rotateDeviceCertificate', 'integration.device-certificate.rotate.v1'],
@@ -31,7 +34,9 @@ describe('Integration adapter and IoT HTTP contract', () => {
   });
 
   it('denies device commands without their dedicated permission', async () => {
-    const decide = vi.fn().mockResolvedValue({ allowed: false, reason: 'NO_MATCHING_GRANT' });
+    const decide = vi
+      .fn()
+      .mockResolvedValue({ allowed: false, reason: 'NO_MATCHING_GRANT' });
     const guard = new PermissionGuard(new Reflector(), { decide } as never);
     const request = {
       header: () => 'adapter-iot-permission-test',

@@ -1,28 +1,263 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { CommandBar, DataGrid, QueryPanel, StatusBadge, createActionRegistry } from '@scm/ui';
+import {
+  CommandBar,
+  DataGrid,
+  QueryPanel,
+  StatusBadge,
+  createActionRegistry,
+} from '@scm/ui';
 import { Alert, Card, Col, Row, Typography } from 'antd';
 import { useSessionStore } from '../platform/session-store';
 
-interface WarehouseRow { code: string; id: string; name: string; status: 'DRAFT' | 'ACTIVE' | 'INACTIVE'; timeZone: string; version: number }
-interface VehicleRow { id: string; plateNumber: string; status: string; temperatureControlled: boolean }
-interface DriverRow { driverNo: string; id: string; name: string; status: string }
-interface CertificateRow { certificateNo: string; certificateType: string; driverId: string; id: string; status: string; validUntil: string }
-interface FleetResponse { certificates: CertificateRow[]; drivers: DriverRow[]; vehicles: VehicleRow[] }
+interface WarehouseRow {
+  code: string;
+  id: string;
+  name: string;
+  status: 'DRAFT' | 'ACTIVE' | 'INACTIVE';
+  timeZone: string;
+  version: number;
+}
+interface VehicleRow {
+  id: string;
+  plateNumber: string;
+  status: string;
+  temperatureControlled: boolean;
+}
+interface DriverRow {
+  driverNo: string;
+  id: string;
+  name: string;
+  status: string;
+}
+interface CertificateRow {
+  certificateNo: string;
+  certificateType: string;
+  driverId: string;
+  id: string;
+  status: string;
+  validUntil: string;
+}
+interface FleetResponse {
+  certificates: CertificateRow[];
+  drivers: DriverRow[];
+  vehicles: VehicleRow[];
+}
 const registry = createActionRegistry<WarehouseRow['status'] | 'NONE'>([
-  { allowedStatuses: ['DRAFT'], confirmMessage: '启用后可创建库区、库位、门岗和月台。', id: 'ACTIVE', label: '启用仓库', requiredPermissions: ['mdm.warehouse.write'] },
-  { allowedStatuses: ['ACTIVE'], confirmMessage: '将检查库存、未完任务和未来预约；存在任一阻塞项时不会停用。', id: 'INACTIVE', label: '停用仓库', requiredPermissions: ['mdm.warehouse.write'] },
+  {
+    allowedStatuses: ['DRAFT'],
+    confirmMessage: '启用后可创建库区、库位、门岗和月台。',
+    id: 'ACTIVE',
+    label: '启用仓库',
+    requiredPermissions: ['mdm.warehouse.write'],
+  },
+  {
+    allowedStatuses: ['ACTIVE'],
+    confirmMessage:
+      '将检查库存、未完任务和未来预约；存在任一阻塞项时不会停用。',
+    id: 'INACTIVE',
+    label: '停用仓库',
+    requiredPermissions: ['mdm.warehouse.write'],
+  },
 ]);
 export function WarehouseFleetWorkbench() {
-  const accessToken = useSessionStore((state) => state.accessToken); const claims = useSessionStore((state) => state.claims);
-  const [warehouses, setWarehouses] = useState<readonly WarehouseRow[]>([]); const [fleet, setFleet] = useState<FleetResponse>({ certificates: [], drivers: [], vehicles: [] }); const [selectedIds, setSelectedIds] = useState<readonly string[]>([]); const [error, setError] = useState<string>(); const [notice, setNotice] = useState<string>();
-  const permissions = useMemo(() => new Set(claims ? ['mdm.warehouse.read', 'mdm.warehouse.write', 'mdm.fleet.read'] : []), [claims]);
-  const request = useCallback(async (path: string, init?: RequestInit) => { if (!accessToken || !claims) throw new Error('请先登录后使用仓库与车队工作台'); const response = await fetch(path, { ...init, headers: { Authorization: `Bearer ${accessToken}`, 'Content-Type': 'application/json', 'X-Correlation-Id': crypto.randomUUID(), 'X-Tenant-Id': claims.tenantId, ...(init?.method && init.method !== 'GET' ? { 'Idempotency-Key': crypto.randomUUID() } : {}), ...init?.headers } }); const body = (await response.json()) as { code?: string; message?: string }; if (!response.ok) throw new Error(`${body.code ?? 'REQUEST_FAILED'}: ${body.message ?? '请求失败'}`); return body; }, [accessToken, claims]);
-  const refresh = useCallback(async () => { if (!accessToken || !claims) return; try { const [warehouseRows, fleetRows] = await Promise.all([request('/api/v1/mdm/warehouses'), request('/api/v1/mdm/fleet')]); setWarehouses(warehouseRows as unknown as WarehouseRow[]); setFleet(fleetRows as unknown as FleetResponse); setError(undefined); } catch (caught) { setError(caught instanceof Error ? caught.message : '主数据查询失败'); } }, [accessToken, claims, request]);
-  useEffect(() => { void refresh(); }, [refresh]); const selected = warehouses.find(({ id }) => id === selectedIds[0]); const actions = registry.list().map(({ id }) => registry.decide(id, { dataScopeAllowed: true, permissions, status: selected?.status ?? 'NONE' }));
-  async function execute(id: string) { const decision = actions.find((item) => item.id === id); if (!selected || !decision?.enabled) return; if (decision.confirmMessage && !window.confirm(decision.confirmMessage)) return; try { await request(`/api/v1/mdm/warehouses/${selected.id}/${id}`, { body: JSON.stringify({ expectedVersion: selected.version }), method: 'POST' }); setNotice(id === 'ACTIVE' ? '仓库已启用' : '仓库停用检查通过并已停用'); await refresh(); } catch (caught) { setError(caught instanceof Error ? caught.message : '仓库动作失败'); } }
-  const certificateRows = fleet.certificates.map((item) => ({ ...item, eligibility: item.status === 'ACTIVE' && new Date(item.validUntil) >= new Date() ? 'VALID' : 'BLOCKED' }));
-  return <section className="warehouse-fleet-workbench"><Typography.Title level={2}>仓库层级与车辆司机</Typography.Title><Typography.Paragraph>仓库停用只读取事件维护的使用投影，不跨域查询 WMS/AMS 内部表；车辆指派前统一校验载重、容积、温控和司机证照有效期。</Typography.Paragraph>{notice ? <Alert message={notice} showIcon type="success" /> : null}{error ? <Alert message={error} showIcon type="error" /> : null}
-    <Card title="仓库、库区、门岗与月台"><QueryPanel fields={[{ label: '仓库代码', name: 'code', quick: true }]} onQuery={() => undefined} onReset={() => undefined} /><CommandBar actions={actions} onAction={(action) => void execute(action.id)} /><DataGrid columns={[{ key: 'code', label: '仓库代码' }, { key: 'name', label: '名称' }, { key: 'timeZone', label: '时区' }, { key: 'status', label: '状态', render: (value) => <StatusBadge status={String(value)} /> }, { key: 'version', label: '版本' }]} onPageChange={() => undefined} onSelectionChange={(ids) => setSelectedIds(ids.slice(-1))} page={1} pageSize={300} rows={warehouses} selectedIds={selectedIds} total={warehouses.length} /></Card>
-    <Row gutter={[16, 16]}><Col span={12}><Card title="车辆与温控能力"><DataGrid columns={[{ key: 'plateNumber', label: '车牌' }, { key: 'temperatureControlled', label: '温控' }, { key: 'status', label: '状态' }]} onPageChange={() => undefined} onSelectionChange={() => undefined} page={1} pageSize={300} rows={fleet.vehicles} selectedIds={[]} total={fleet.vehicles.length} /></Card></Col><Col span={12}><Card title="司机与可用状态"><DataGrid columns={[{ key: 'driverNo', label: '司机编号' }, { key: 'name', label: '姓名' }, { key: 'status', label: '状态' }]} onPageChange={() => undefined} onSelectionChange={() => undefined} page={1} pageSize={300} rows={fleet.drivers} selectedIds={[]} total={fleet.drivers.length} /></Card></Col><Col span={24}><Card title="司机证照到期预警"><DataGrid columns={[{ key: 'certificateType', label: '证照类型' }, { key: 'certificateNo', label: '证照编号' }, { key: 'validUntil', label: '有效期至' }, { key: 'eligibility', label: '指派资格', render: (value) => <StatusBadge status={String(value)} /> }]} onPageChange={() => undefined} onSelectionChange={() => undefined} page={1} pageSize={300} rows={certificateRows} selectedIds={[]} total={certificateRows.length} /></Card></Col></Row>
-  </section>;
+  const accessToken = useSessionStore((state) => state.accessToken);
+  const claims = useSessionStore((state) => state.claims);
+  const [warehouses, setWarehouses] = useState<readonly WarehouseRow[]>([]);
+  const [fleet, setFleet] = useState<FleetResponse>({
+    certificates: [],
+    drivers: [],
+    vehicles: [],
+  });
+  const [selectedIds, setSelectedIds] = useState<readonly string[]>([]);
+  const [error, setError] = useState<string>();
+  const [notice, setNotice] = useState<string>();
+  const permissions = useMemo(
+    () =>
+      new Set(
+        claims
+          ? ['mdm.warehouse.read', 'mdm.warehouse.write', 'mdm.fleet.read']
+          : [],
+      ),
+    [claims],
+  );
+  const request = useCallback(
+    async (path: string, init?: RequestInit) => {
+      if (!accessToken || !claims)
+        throw new Error('请先登录后使用仓库与车队工作台');
+      const response = await fetch(path, {
+        ...init,
+        headers: {
+          Authorization: `Bearer ${accessToken}`,
+          'Content-Type': 'application/json',
+          'X-Correlation-Id': crypto.randomUUID(),
+          'X-Tenant-Id': claims.tenantId,
+          ...(init?.method && init.method !== 'GET'
+            ? { 'Idempotency-Key': crypto.randomUUID() }
+            : {}),
+          ...init?.headers,
+        },
+      });
+      const body = (await response.json()) as {
+        code?: string;
+        message?: string;
+      };
+      if (!response.ok)
+        throw new Error(
+          `${body.code ?? 'REQUEST_FAILED'}: ${body.message ?? '请求失败'}`,
+        );
+      return body;
+    },
+    [accessToken, claims],
+  );
+  const refresh = useCallback(async () => {
+    if (!accessToken || !claims) return;
+    try {
+      const [warehouseRows, fleetRows] = await Promise.all([
+        request('/api/v1/mdm/warehouses'),
+        request('/api/v1/mdm/fleet'),
+      ]);
+      setWarehouses(warehouseRows as unknown as WarehouseRow[]);
+      setFleet(fleetRows as unknown as FleetResponse);
+      setError(undefined);
+    } catch (caught) {
+      setError(caught instanceof Error ? caught.message : '主数据查询失败');
+    }
+  }, [accessToken, claims, request]);
+  useEffect(() => {
+    void refresh();
+  }, [refresh]);
+  const selected = warehouses.find(({ id }) => id === selectedIds[0]);
+  const actions = registry.list().map(({ id }) =>
+    registry.decide(id, {
+      dataScopeAllowed: true,
+      permissions,
+      status: selected?.status ?? 'NONE',
+    }),
+  );
+  async function execute(id: string) {
+    const decision = actions.find((item) => item.id === id);
+    if (!selected || !decision?.enabled) return;
+    if (decision.confirmMessage && !window.confirm(decision.confirmMessage))
+      return;
+    try {
+      await request(`/api/v1/mdm/warehouses/${selected.id}/${id}`, {
+        body: JSON.stringify({ expectedVersion: selected.version }),
+        method: 'POST',
+      });
+      setNotice(id === 'ACTIVE' ? '仓库已启用' : '仓库停用检查通过并已停用');
+      await refresh();
+    } catch (caught) {
+      setError(caught instanceof Error ? caught.message : '仓库动作失败');
+    }
+  }
+  const certificateRows = fleet.certificates.map((item) => ({
+    ...item,
+    eligibility:
+      item.status === 'ACTIVE' && new Date(item.validUntil) >= new Date()
+        ? 'VALID'
+        : 'BLOCKED',
+  }));
+  return (
+    <section className="warehouse-fleet-workbench">
+      <Typography.Title level={2}>仓库层级与车辆司机</Typography.Title>
+      <Typography.Paragraph>
+        仓库停用只读取事件维护的使用投影，不跨域查询 WMS/AMS
+        内部表；车辆指派前统一校验载重、容积、温控和司机证照有效期。
+      </Typography.Paragraph>
+      {notice ? <Alert message={notice} showIcon type="success" /> : null}
+      {error ? <Alert message={error} showIcon type="error" /> : null}
+      <Card title="仓库、库区、门岗与月台">
+        <QueryPanel
+          fields={[{ label: '仓库代码', name: 'code', quick: true }]}
+          onQuery={() => undefined}
+          onReset={() => undefined}
+        />
+        <CommandBar
+          actions={actions}
+          onAction={(action) => void execute(action.id)}
+        />
+        <DataGrid
+          columns={[
+            { key: 'code', label: '仓库代码' },
+            { key: 'name', label: '名称' },
+            { key: 'timeZone', label: '时区' },
+            {
+              key: 'status',
+              label: '状态',
+              render: (value) => <StatusBadge status={String(value)} />,
+            },
+            { key: 'version', label: '版本' },
+          ]}
+          onPageChange={() => undefined}
+          onSelectionChange={(ids) => setSelectedIds(ids.slice(-1))}
+          page={1}
+          pageSize={300}
+          rows={warehouses}
+          selectedIds={selectedIds}
+          total={warehouses.length}
+        />
+      </Card>
+      <Row gutter={[16, 16]}>
+        <Col span={12}>
+          <Card title="车辆与温控能力">
+            <DataGrid
+              columns={[
+                { key: 'plateNumber', label: '车牌' },
+                { key: 'temperatureControlled', label: '温控' },
+                { key: 'status', label: '状态' },
+              ]}
+              onPageChange={() => undefined}
+              onSelectionChange={() => undefined}
+              page={1}
+              pageSize={300}
+              rows={fleet.vehicles}
+              selectedIds={[]}
+              total={fleet.vehicles.length}
+            />
+          </Card>
+        </Col>
+        <Col span={12}>
+          <Card title="司机与可用状态">
+            <DataGrid
+              columns={[
+                { key: 'driverNo', label: '司机编号' },
+                { key: 'name', label: '姓名' },
+                { key: 'status', label: '状态' },
+              ]}
+              onPageChange={() => undefined}
+              onSelectionChange={() => undefined}
+              page={1}
+              pageSize={300}
+              rows={fleet.drivers}
+              selectedIds={[]}
+              total={fleet.drivers.length}
+            />
+          </Card>
+        </Col>
+        <Col span={24}>
+          <Card title="司机证照到期预警">
+            <DataGrid
+              columns={[
+                { key: 'certificateType', label: '证照类型' },
+                { key: 'certificateNo', label: '证照编号' },
+                { key: 'validUntil', label: '有效期至' },
+                {
+                  key: 'eligibility',
+                  label: '指派资格',
+                  render: (value) => <StatusBadge status={String(value)} />,
+                },
+              ]}
+              onPageChange={() => undefined}
+              onSelectionChange={() => undefined}
+              page={1}
+              pageSize={300}
+              rows={certificateRows}
+              selectedIds={[]}
+              total={certificateRows.length}
+            />
+          </Card>
+        </Col>
+      </Row>
+    </section>
+  );
 }

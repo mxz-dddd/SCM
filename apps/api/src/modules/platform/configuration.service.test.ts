@@ -6,6 +6,7 @@ import {
   configurationDifference,
   configurationScopeAllowed,
   formatReservedNumber,
+  numberRulePrefixSupportsReset,
   resolveConfigurationLayers,
   sequencePeriodKey,
   validateReasonEvidence,
@@ -168,5 +169,11 @@ describe('dictionary and number rule contracts', () => {
         sequenceWidth: 6,
       }),
     ).toBe('ORDER-20260714-000042');
+    expect(numberRulePrefixSupportsReset('DAILY', '{YYYY}{MM}{DD}-')).toBe(
+      true,
+    );
+    expect(numberRulePrefixSupportsReset('DAILY', 'ORDER-')).toBe(false);
+    expect(numberRulePrefixSupportsReset('MONTHLY', '{YYYY}{MM}-')).toBe(true);
+    expect(numberRulePrefixSupportsReset('MONTHLY', '{YYYY}-')).toBe(false);
   });
 });

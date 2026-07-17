@@ -28,7 +28,9 @@ describe('WMS value-added, labor, mobile and device HTTP contract', () => {
   });
 
   it('denies offline conflict resolution without supervisor permission', async () => {
-    const decide = vi.fn().mockResolvedValue({ allowed: false, reason: 'NO_MATCHING_GRANT' });
+    const decide = vi
+      .fn()
+      .mockResolvedValue({ allowed: false, reason: 'NO_MATCHING_GRANT' });
     const guard = new PermissionGuard(new Reflector(), { decide } as never);
     const request = {
       header: () => 'offline-permission-test',
@@ -48,7 +50,12 @@ describe('WMS value-added, labor, mobile and device HTTP contract', () => {
       getHandler: () => OperationsController.prototype.resolveOfflineConflict,
       switchToHttp: () => ({ getRequest: () => request }),
     };
-    await expect(guard.canActivate(execution as never)).rejects.toMatchObject({ code: 'AUTH_PERMISSION_DENIED', statusCode: 403 });
-    expect(decide).toHaveBeenCalledWith(expect.objectContaining({ permissionCode: 'wms.mobile.supervise' }));
+    await expect(guard.canActivate(execution as never)).rejects.toMatchObject({
+      code: 'AUTH_PERMISSION_DENIED',
+      statusCode: 403,
+    });
+    expect(decide).toHaveBeenCalledWith(
+      expect.objectContaining({ permissionCode: 'wms.mobile.supervise' }),
+    );
   });
 });

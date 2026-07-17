@@ -4,6 +4,7 @@ import type { TenantContext } from '@scm/shared';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { ChangeRecordingFacade } from '../platform/public/change-recording.facade';
 import { MessageExchangeService } from './message-exchange.service';
+import { WebhookEndpointPolicy } from './webhook-endpoint.policy';
 
 const databaseDescribe = process.env.DATABASE_URL ? describe : describe.skip;
 const prisma = new PrismaClient();
@@ -33,6 +34,9 @@ databaseDescribe(
       service = new MessageExchangeService(
         prisma as never,
         new ChangeRecordingFacade(),
+        new WebhookEndpointPolicy(async () => [
+          { address: '93.184.216.34', family: 4 },
+        ]),
       );
     });
     afterAll(() => prisma.$disconnect());

@@ -95,9 +95,13 @@ export function assertJobTransition(
   const allowed =
     (current === 'QUEUED' && ['RUNNING', 'CANCELLED'].includes(target)) ||
     (current === 'RUNNING' &&
-      ['CANCEL_REQUESTED', 'FAILED', 'QUEUED', 'SUCCEEDED', 'TIMED_OUT'].includes(
-        target,
-      )) ||
+      [
+        'CANCEL_REQUESTED',
+        'FAILED',
+        'QUEUED',
+        'SUCCEEDED',
+        'TIMED_OUT',
+      ].includes(target)) ||
     (current === 'CANCEL_REQUESTED' && target === 'CANCELLED');
   if (!allowed || TERMINAL.includes(current)) {
     throw new AppError(
@@ -120,8 +124,7 @@ function parseDate(value: string | undefined, field: string): Date | null {
 function validCron(value: string): boolean {
   const fields = value.trim().split(/\s+/);
   return (
-    fields.length === 5 &&
-    fields.every((field) => /^[0-9*/?,-]+$/.test(field))
+    fields.length === 5 && fields.every((field) => /^[0-9*/?,-]+$/.test(field))
   );
 }
 
@@ -155,12 +158,19 @@ export class JobService {
         'TIMED_OUT',
       ].includes(status)
     ) {
-      throw new AppError('JOB_RUN_STATUS_INVALID', 'Job run status is invalid', 400);
+      throw new AppError(
+        'JOB_RUN_STATUS_INVALID',
+        'Job run status is invalid',
+        400,
+      );
     }
     return this.prisma.jobRun.findMany({
       orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
       take: 300,
-      where: { ...(status ? { status: status as never } : {}), tenantId: context.tenantId },
+      where: {
+        ...(status ? { status: status as never } : {}),
+        tenantId: context.tenantId,
+      },
     });
   }
 
@@ -208,7 +218,11 @@ export class JobService {
       backoffSeconds > 86_400 ||
       (input.jobDefinitionId !== undefined && !isUuid(input.jobDefinitionId))
     ) {
-      throw new AppError('JOB_DEFINITION_INVALID', 'Job definition input is invalid', 400);
+      throw new AppError(
+        'JOB_DEFINITION_INVALID',
+        'Job definition input is invalid',
+        400,
+      );
     }
     const result = await this.idempotency.execute(
       {
@@ -226,13 +240,21 @@ export class JobService {
             })
           : null;
         if (input.jobDefinitionId && !existing) {
-          throw new AppError('JOB_DEFINITION_NOT_FOUND', 'Job definition was not found', 404);
+          throw new AppError(
+            'JOB_DEFINITION_NOT_FOUND',
+            'Job definition was not found',
+            404,
+          );
         }
         if (existing && existing.version !== input.expectedVersion) {
           throw this.versionConflict();
         }
         if (existing && existing.code !== code) {
-          throw new AppError('JOB_DEFINITION_CODE_IMMUTABLE', 'Job definition code cannot change', 409);
+          throw new AppError(
+            'JOB_DEFINITION_CODE_IMMUTABLE',
+            'Job definition code cannot change',
+            409,
+          );
         }
         const definition = existing
           ? await transaction.jobDefinition.update({
@@ -243,9 +265,12 @@ export class JobService {
                   input.triggerType === 'CRON'
                     ? input.cronExpression!.trim()
                     : null,
-                defaultPayload: (input.defaultPayload ?? {}) as Prisma.InputJsonObject,
+                defaultPayload: (input.defaultPayload ??
+                  {}) as Prisma.InputJsonObject,
                 eventName:
-                  input.triggerType === 'EVENT' ? input.eventName!.trim() : null,
+                  input.triggerType === 'EVENT'
+                    ? input.eventName!.trim()
+                    : null,
                 handler,
                 maxAttempts,
                 name: input.name.trim(),
@@ -268,9 +293,12 @@ export class JobService {
                     ? input.cronExpression!.trim()
                     : null,
                 createdBy: context.accountId,
-                defaultPayload: (input.defaultPayload ?? {}) as Prisma.InputJsonObject,
+                defaultPayload: (input.defaultPayload ??
+                  {}) as Prisma.InputJsonObject,
                 eventName:
-                  input.triggerType === 'EVENT' ? input.eventName!.trim() : null,
+                  input.triggerType === 'EVENT'
+                    ? input.eventName!.trim()
+                    : null,
                 handler,
                 id: randomUUID(),
                 maxAttempts,
@@ -324,7 +352,8 @@ export class JobService {
     const run = await this.prisma.jobRun.findFirst({
       where: { id: jobRunId, tenantId: context.tenantId },
     });
-    if (!run) throw new AppError('JOB_RUN_NOT_FOUND', 'Job run was not found', 404);
+    if (!run)
+      throw new AppError('JOB_RUN_NOT_FOUND', 'Job run was not found', 404);
     return run;
   }
 
@@ -367,7 +396,8 @@ export class JobService {
     context: TenantContext,
     metadata: CommandMetadata,
   ) {
-    const scheduledAt = parseDate(input.scheduledAt, 'scheduledAt') ?? new Date();
+    const scheduledAt =
+      parseDate(input.scheduledAt, 'scheduledAt') ?? new Date();
     const result = await this.idempotency.execute(
       {
         actorId: context.accountId,
@@ -381,9 +411,18 @@ export class JobService {
         const definition = await transaction.jobDefinition.findFirst({
           where: { id: jobDefinitionId, tenantId: context.tenantId },
         });
-        if (!definition) throw new AppError('JOB_DEFINITION_NOT_FOUND', 'Job definition was not found', 404);
+        if (!definition)
+          throw new AppError(
+            'JOB_DEFINITION_NOT_FOUND',
+            'Job definition was not found',
+            404,
+          );
         if (definition.status !== 'ACTIVE') {
-          throw new AppError('JOB_DEFINITION_PAUSED', 'Job definition is paused', 409);
+          throw new AppError(
+            'JOB_DEFINITION_PAUSED',
+            'Job definition is paused',
+            409,
+          );
         }
         const jobRunId = randomUUID();
         const payload = {
@@ -408,7 +447,14 @@ export class JobService {
             updatedBy: context.accountId,
           },
         });
-        await this.log(transaction, jobRunId, 'INFO', 'Job run queued', {}, context);
+        await this.log(
+          transaction,
+          jobRunId,
+          'INFO',
+          'Job run queued',
+          {},
+          context,
+        );
         await this.record(
           transaction,
           jobRunId,
@@ -417,7 +463,11 @@ export class JobService {
           'platform.job-run-queued.v1',
           context,
           metadata,
-          { handler: definition.handler, scheduledAt: scheduledAt.toISOString(), status: 'QUEUED' },
+          {
+            handler: definition.handler,
+            scheduledAt: scheduledAt.toISOString(),
+            status: 'QUEUED',
+          },
         );
         return {
           accepted: true,
@@ -457,7 +507,11 @@ export class JobService {
       leaseSeconds < 10 ||
       leaseSeconds > 3600
     ) {
-      throw new AppError('JOB_LEASE_INVALID', 'Job lease input is invalid', 400);
+      throw new AppError(
+        'JOB_LEASE_INVALID',
+        'Job lease input is invalid',
+        400,
+      );
     }
     return this.idempotency.execute(
       {
@@ -472,7 +526,8 @@ export class JobService {
         const run = await transaction.jobRun.findFirst({
           where: { id: jobRunId, tenantId: context.tenantId },
         });
-        if (!run) throw new AppError('JOB_RUN_NOT_FOUND', 'Job run was not found', 404);
+        if (!run)
+          throw new AppError('JOB_RUN_NOT_FOUND', 'Job run was not found', 404);
         const staleLease =
           run.status === 'RUNNING' &&
           run.leaseExpiresAt !== null &&
@@ -484,9 +539,14 @@ export class JobService {
           throw this.versionConflict();
         }
         if (run.status === 'QUEUED' && run.scheduledAt > new Date()) {
-          throw new AppError('JOB_RUN_NOT_READY', 'Job run is not scheduled yet', 409, {
-            retryable: true,
-          });
+          throw new AppError(
+            'JOB_RUN_NOT_READY',
+            'Job run is not scheduled yet',
+            409,
+            {
+              retryable: true,
+            },
+          );
         }
         await transaction.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${`${context.tenantId}:${run.jobDefinitionId}`}))`;
         const definition = await transaction.jobDefinition.findFirst({
@@ -501,9 +561,14 @@ export class JobService {
           },
         });
         if (!definition || running >= definition.concurrencyLimit) {
-          throw new AppError('JOB_CONCURRENCY_LIMIT', 'Job concurrency limit is reached', 409, {
-            retryable: true,
-          });
+          throw new AppError(
+            'JOB_CONCURRENCY_LIMIT',
+            'Job concurrency limit is reached',
+            409,
+            {
+              retryable: true,
+            },
+          );
         }
         if (run.status === 'QUEUED') assertJobTransition(run.status, 'RUNNING');
         const now = new Date();
@@ -545,7 +610,9 @@ export class JobService {
         return {
           attempt: run.attempt + 1,
           jobRunId: run.id,
-          leaseExpiresAt: new Date(now.getTime() + leaseSeconds * 1000).toISOString(),
+          leaseExpiresAt: new Date(
+            now.getTime() + leaseSeconds * 1000,
+          ).toISOString(),
           payload: run.payload,
           status: 'RUNNING',
           timeoutSeconds: run.timeoutSeconds,
@@ -568,7 +635,11 @@ export class JobService {
       !input.leaseOwner?.trim() ||
       (input.message?.length ?? 0) > 1000
     ) {
-      throw new AppError('JOB_PROGRESS_INVALID', 'Job progress input is invalid', 400);
+      throw new AppError(
+        'JOB_PROGRESS_INVALID',
+        'Job progress input is invalid',
+        400,
+      );
     }
     return this.idempotency.execute(
       {
@@ -583,7 +654,11 @@ export class JobService {
         const run = await this.findRun(transaction, jobRunId, context);
         this.assertLease(run, input.leaseOwner, input.expectedVersion);
         if (input.progress < run.progress) {
-          throw new AppError('JOB_PROGRESS_REGRESSION', 'Job progress cannot decrease', 409);
+          throw new AppError(
+            'JOB_PROGRESS_REGRESSION',
+            'Job progress cannot decrease',
+            409,
+          );
         }
         await transaction.jobRun.update({
           data: {
@@ -595,9 +670,21 @@ export class JobService {
           where: { id: run.id },
         });
         if (input.message) {
-          await this.log(transaction, run.id, 'INFO', input.message, { progress: input.progress }, context);
+          await this.log(
+            transaction,
+            run.id,
+            'INFO',
+            input.message,
+            { progress: input.progress },
+            context,
+          );
         }
-        return { jobRunId: run.id, progress: input.progress, status: run.status, version: run.version + 1 };
+        return {
+          jobRunId: run.id,
+          progress: input.progress,
+          status: run.status,
+          version: run.version + 1,
+        };
       },
     );
   }
@@ -615,7 +702,11 @@ export class JobService {
       leaseSeconds < 10 ||
       leaseSeconds > 3600
     ) {
-      throw new AppError('JOB_HEARTBEAT_INVALID', 'Job heartbeat input is invalid', 400);
+      throw new AppError(
+        'JOB_HEARTBEAT_INVALID',
+        'Job heartbeat input is invalid',
+        400,
+      );
     }
     return this.idempotency.execute(
       {
@@ -658,10 +749,16 @@ export class JobService {
   ) {
     if (
       !input.leaseOwner?.trim() ||
-      (input.failureCode !== undefined && !CODE_PATTERN.test(input.failureCode)) ||
-      (input.resultFileObjectId !== undefined && !isUuid(input.resultFileObjectId))
+      (input.failureCode !== undefined &&
+        !CODE_PATTERN.test(input.failureCode)) ||
+      (input.resultFileObjectId !== undefined &&
+        !isUuid(input.resultFileObjectId))
     ) {
-      throw new AppError('JOB_RESULT_INVALID', 'Job result input is invalid', 400);
+      throw new AppError(
+        'JOB_RESULT_INVALID',
+        'Job result input is invalid',
+        400,
+      );
     }
     return this.idempotency.execute(
       {
@@ -695,7 +792,11 @@ export class JobService {
             },
           });
           if (!file) {
-            throw new AppError('JOB_RESULT_FILE_UNAVAILABLE', 'Result file is unavailable', 409);
+            throw new AppError(
+              'JOB_RESULT_FILE_UNAVAILABLE',
+              'Result file is unavailable',
+              409,
+            );
           }
         }
         if (input.success) {
@@ -712,7 +813,8 @@ export class JobService {
         const terminalTarget = input.timedOut ? 'TIMED_OUT' : 'FAILED';
         if (run.attempt < run.maxAttempts) {
           assertJobTransition(run.status, 'QUEUED');
-          const delaySeconds = run.backoffSeconds * 2 ** Math.max(0, run.attempt - 1);
+          const delaySeconds =
+            run.backoffSeconds * 2 ** Math.max(0, run.attempt - 1);
           await transaction.jobRun.update({
             data: {
               failureCode: input.failureCode ?? 'JOB_ATTEMPT_FAILED',
@@ -771,7 +873,11 @@ export class JobService {
     metadata: CommandMetadata,
   ) {
     if (!input.reason?.trim() || input.reason.length > 500) {
-      throw new AppError('JOB_CANCEL_INVALID', 'Cancellation reason is required', 400);
+      throw new AppError(
+        'JOB_CANCEL_INVALID',
+        'Cancellation reason is required',
+        400,
+      );
     }
     return this.idempotency.execute(
       {
@@ -785,7 +891,8 @@ export class JobService {
       async (transaction) => {
         const run = await this.findRun(transaction, jobRunId, context);
         if (run.version !== input.expectedVersion) throw this.versionConflict();
-        const target = run.status === 'QUEUED' ? 'CANCELLED' : 'CANCEL_REQUESTED';
+        const target =
+          run.status === 'QUEUED' ? 'CANCELLED' : 'CANCEL_REQUESTED';
         assertJobTransition(run.status, target);
         await transaction.jobRun.update({
           data: {
@@ -797,7 +904,14 @@ export class JobService {
           },
           where: { id: run.id },
         });
-        await this.log(transaction, run.id, 'WARNING', 'Job cancellation requested', {}, context);
+        await this.log(
+          transaction,
+          run.id,
+          'WARNING',
+          'Job cancellation requested',
+          {},
+          context,
+        );
         await this.record(
           transaction,
           run.id,
@@ -875,12 +989,18 @@ export class JobService {
     const run = await transaction.jobRun.findFirst({
       where: { id, tenantId: context.tenantId },
     });
-    if (!run) throw new AppError('JOB_RUN_NOT_FOUND', 'Job run was not found', 404);
+    if (!run)
+      throw new AppError('JOB_RUN_NOT_FOUND', 'Job run was not found', 404);
     return run;
   }
 
   private assertLease(
-    run: { leaseExpiresAt: Date | null; leaseOwner: string | null; status: JobRunStatus; version: number },
+    run: {
+      leaseExpiresAt: Date | null;
+      leaseOwner: string | null;
+      status: JobRunStatus;
+      version: number;
+    },
     leaseOwner: string,
     expectedVersion: number,
   ) {
@@ -891,9 +1011,14 @@ export class JobService {
       !run.leaseExpiresAt ||
       run.leaseExpiresAt <= new Date()
     ) {
-      throw new AppError('JOB_LEASE_LOST', 'Job lease is invalid or expired', 409, {
-        retryable: true,
-      });
+      throw new AppError(
+        'JOB_LEASE_LOST',
+        'Job lease is invalid or expired',
+        409,
+        {
+          retryable: true,
+        },
+      );
     }
   }
 
@@ -953,7 +1078,11 @@ export class JobService {
           correlationId: metadata.correlationId,
           createdBy: context.accountId,
           eventName,
-          payload: { jobRunId: aggregateId, tenantId: context.tenantId, version: aggregateVersion },
+          payload: {
+            jobRunId: aggregateId,
+            tenantId: context.tenantId,
+            version: aggregateVersion,
+          },
           tenantId: context.tenantId,
           updatedBy: context.accountId,
         },

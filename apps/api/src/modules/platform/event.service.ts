@@ -1,10 +1,24 @@
 import { Inject, Injectable } from '@nestjs/common';
-import { Prisma, type OutboxStatus } from '@prisma/client';
-import type { TenantContext } from '@scm/shared';
+import {
+  Prisma,
+  type EventDelivery,
+  type EventDeliveryStatus,
+  type OutboxStatus,
+} from '@prisma/client';
+import {
+  subscriptionsForEvent,
+  subscriptionForConsumer,
+  type ConsumerMode,
+  type EventSubscriptionDefinition,
+  type TenantContext,
+} from '@scm/shared';
 import { AppError } from '../../common/app-error';
 import { isUuid } from '../../common/validation';
 import { PrismaService } from '../../database/prisma.service';
-import { hashIdempotencyRequest, IdempotencyService } from './idempotency.service';
+import {
+  hashIdempotencyRequest,
+  IdempotencyService,
+} from './idempotency.service';
 import type { CommandMetadata } from './tenant.service';
 
 type JsonObject = Readonly<Record<string, unknown>>;
@@ -17,6 +31,26 @@ export interface ClaimEventsInput {
 
 export interface EventLeaseInput {
   readonly error?: string;
+  readonly expectedVersion: number;
+  readonly leaseOwner: string;
+}
+
+export interface DeliveryClaimInput {
+  readonly consumer?: string;
+  readonly leaseOwner: string;
+  readonly leaseSeconds?: number;
+  readonly limit?: number;
+}
+
+export interface DeliveryCompleteInput {
+  readonly expectedVersion: number;
+  readonly leaseOwner: string;
+  readonly outcome?: 'IGNORED' | 'PROCESSED';
+  readonly responseSnapshot?: JsonObject;
+}
+
+export interface DeliveryFailInput {
+  readonly error: string;
   readonly expectedVersion: number;
   readonly leaseOwner: string;
 }
@@ -36,6 +70,7 @@ export interface BusinessEventInput {
 export interface ConsumeEventInput {
   readonly consumer: string;
   readonly event: BusinessEventInput;
+  readonly mode: ConsumerMode;
 }
 
 interface OutboxRow {
@@ -58,15 +93,42 @@ const CODE_PATTERN = /^[a-z][a-z0-9.-]{2,149}\.v\d+$/;
 const NAME_PATTERN = /^[A-Za-z][A-Za-z0-9_.-]{2,149}$/;
 const OUTBOX_TERMINAL: readonly OutboxStatus[] = ['DEAD_LETTER', 'PUBLISHED'];
 
-export function assertOutboxTransition(current: OutboxStatus, target: OutboxStatus): void {
+export function assertOutboxTransition(
+  current: OutboxStatus,
+  target: OutboxStatus,
+): void {
   const allowed =
-    (['FAILED', 'PENDING', 'PROCESSING'].includes(current) && target === 'PROCESSING') ||
-    (current === 'PROCESSING' && ['DEAD_LETTER', 'FAILED', 'PUBLISHED'].includes(target)) ||
+    (['FAILED', 'PENDING', 'PROCESSING'].includes(current) &&
+      target === 'PROCESSING') ||
+    (current === 'PROCESSING' &&
+      ['DEAD_LETTER', 'FAILED', 'PUBLISHED'].includes(target)) ||
     (current === 'DEAD_LETTER' && target === 'PENDING');
-  if (!allowed || OUTBOX_TERMINAL.includes(current) && current !== 'DEAD_LETTER') {
+  if (
+    !allowed ||
+    (OUTBOX_TERMINAL.includes(current) && current !== 'DEAD_LETTER')
+  ) {
     throw new AppError(
       'EVENT_TRANSITION_INVALID',
       `Outbox transition ${current} -> ${target} is not allowed`,
+      409,
+    );
+  }
+}
+
+export function assertDeliveryTransition(
+  current: EventDeliveryStatus,
+  target: EventDeliveryStatus,
+): void {
+  const allowed =
+    (['FAILED', 'PENDING', 'PROCESSING'].includes(current) &&
+      target === 'PROCESSING') ||
+    (current === 'PROCESSING' &&
+      ['DEAD_LETTER', 'FAILED', 'IGNORED', 'PROCESSED'].includes(target)) ||
+    (current === 'DEAD_LETTER' && ['IGNORED', 'PENDING'].includes(target));
+  if (!allowed) {
+    throw new AppError(
+      'EVENT_DELIVERY_TRANSITION_INVALID',
+      `Delivery transition ${current} -> ${target} is not allowed`,
       409,
     );
   }
@@ -89,14 +151,19 @@ function validateBusinessEvent(event: BusinessEventInput): void {
     !event.payload ||
     Array.isArray(event.payload)
   ) {
-    throw new AppError('BUSINESS_EVENT_INVALID', 'Business event envelope is invalid', 400);
+    throw new AppError(
+      'BUSINESS_EVENT_INVALID',
+      'Business event envelope is invalid',
+      400,
+    );
   }
 }
 
 @Injectable()
 export class EventService {
   constructor(
-    @Inject(IdempotencyService) private readonly idempotency: IdempotencyService,
+    @Inject(IdempotencyService)
+    private readonly idempotency: IdempotencyService,
     @Inject(PrismaService) private readonly prisma: PrismaService,
   ) {}
 
@@ -109,12 +176,19 @@ export class EventService {
       'PUBLISHED',
     ];
     if (status && !allowed.includes(status as OutboxStatus)) {
-      throw new AppError('EVENT_STATUS_INVALID', 'Outbox status is invalid', 400);
+      throw new AppError(
+        'EVENT_STATUS_INVALID',
+        'Outbox status is invalid',
+        400,
+      );
     }
     return this.prisma.platformOutbox.findMany({
       orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
       take: 300,
-      where: { ...(status ? { status: status as OutboxStatus } : {}), tenantId: context.tenantId },
+      where: {
+        ...(status ? { status: status as OutboxStatus } : {}),
+        tenantId: context.tenantId,
+      },
     });
   }
 
@@ -126,7 +200,189 @@ export class EventService {
     });
   }
 
-  claim(input: ClaimEventsInput, context: TenantContext, metadata: CommandMetadata) {
+  listDeliveries(
+    context: TenantContext,
+    filters: { readonly consumer?: string; readonly status?: string },
+  ) {
+    const allowed = [
+      'DEAD_LETTER',
+      'FAILED',
+      'IGNORED',
+      'PENDING',
+      'PROCESSED',
+      'PROCESSING',
+    ];
+    if (filters.status && !allowed.includes(filters.status)) {
+      throw new AppError(
+        'EVENT_DELIVERY_STATUS_INVALID',
+        'Delivery status is invalid',
+        400,
+      );
+    }
+    return this.prisma.eventDelivery.findMany({
+      orderBy: [
+        { sourceOccurredAt: 'desc' },
+        { sourceEventCreatedAt: 'desc' },
+        { eventId: 'desc' },
+      ],
+      take: 300,
+      where: {
+        ...(filters.consumer ? { consumer: filters.consumer } : {}),
+        ...(filters.status
+          ? { status: filters.status as EventDeliveryStatus }
+          : {}),
+        tenantId: context.tenantId,
+      },
+    });
+  }
+
+  listCheckpoints(context: TenantContext, consumer?: string) {
+    return this.prisma.consumerCheckpoint.findMany({
+      orderBy: [{ updatedAt: 'desc' }, { id: 'desc' }],
+      take: 300,
+      where: { ...(consumer ? { consumer } : {}), tenantId: context.tenantId },
+    });
+  }
+
+  publish(
+    eventId: string,
+    input: EventLeaseInput,
+    context: TenantContext,
+    metadata: CommandMetadata,
+  ) {
+    if (!isUuid(eventId) || !input.leaseOwner?.trim()) {
+      throw new AppError(
+        'EVENT_LEASE_INVALID',
+        'Event lease input is invalid',
+        400,
+      );
+    }
+    return this.idempotency.execute(
+      {
+        actorId: context.accountId,
+        key: metadata.idempotencyKey,
+        payload: { eventId, ...input },
+        responseCode: 200,
+        scope: 'platform.event-relay.publish.v2',
+        tenantId: context.tenantId,
+      },
+      async (transaction) => {
+        await transaction.$queryRaw`
+          SELECT id
+          FROM "platform"."outbox"
+          WHERE id = ${eventId}::uuid AND tenant_id = ${context.tenantId}::uuid
+          FOR UPDATE
+        `;
+        const event = await transaction.platformOutbox.findFirst({
+          where: { id: eventId, tenantId: context.tenantId },
+        });
+        if (!event) {
+          throw new AppError(
+            'BUSINESS_EVENT_NOT_FOUND',
+            'Business event was not found',
+            404,
+          );
+        }
+        if (
+          event.status !== 'PROCESSING' ||
+          event.version !== input.expectedVersion ||
+          event.leaseOwner !== input.leaseOwner.trim() ||
+          !event.leaseExpiresAt ||
+          event.leaseExpiresAt <= new Date()
+        ) {
+          throw this.versionConflict();
+        }
+        const subscriptions = subscriptionsForEvent(event.eventName);
+        const partitionKey =
+          event.partitionKey ?? `${event.aggregateType}:${event.aggregateId}`;
+        await transaction.eventDelivery.createMany({
+          data: subscriptions.map((subscription) => ({
+            aggregateId: event.aggregateId,
+            aggregateType: event.aggregateType,
+            aggregateVersion: event.aggregateVersion,
+            availableAt: new Date(),
+            consumer: subscription.consumer,
+            createdBy: context.accountId,
+            endpoint: subscription.endpoint,
+            eventId: event.id,
+            maxAttempts: subscription.maxAttempts,
+            mode: subscription.mode,
+            partitionKey,
+            required: subscription.required,
+            sourceEventCreatedAt: event.createdAt,
+            sourceOccurredAt: event.occurredAt,
+            tenantId: context.tenantId,
+            updatedBy: context.accountId,
+          })),
+          skipDuplicates: true,
+        });
+        const persisted = await transaction.eventDelivery.findMany({
+          where: { eventId: event.id, tenantId: context.tenantId },
+        });
+        const definitionByConsumer = new Map<
+          string,
+          EventSubscriptionDefinition
+        >(
+          subscriptions.map((subscription) => [
+            subscription.consumer,
+            subscription,
+          ]),
+        );
+        if (
+          persisted.length !== subscriptions.length ||
+          persisted.some((delivery) => {
+            const definition = definitionByConsumer.get(delivery.consumer);
+            return (
+              !definition ||
+              delivery.endpoint !== definition.endpoint ||
+              delivery.mode !== definition.mode ||
+              delivery.required !== definition.required ||
+              delivery.maxAttempts !== definition.maxAttempts
+            );
+          })
+        ) {
+          throw new AppError(
+            'EVENT_FANOUT_INCOMPLETE',
+            'Event subscriptions were not persisted exactly',
+            409,
+          );
+        }
+        assertOutboxTransition(event.status, 'PUBLISHED');
+        const updated = await transaction.platformOutbox.update({
+          data: {
+            lastError: null,
+            leaseExpiresAt: null,
+            leaseOwner: null,
+            publishedAt: new Date(),
+            status: 'PUBLISHED',
+            updatedBy: context.accountId,
+            version: { increment: 1 },
+          },
+          where: { id: event.id },
+        });
+        await this.audit(
+          transaction,
+          event.id,
+          'event.published.v2',
+          context,
+          metadata,
+          { deliveryCount: persisted.length, eventType: event.eventName },
+        );
+        return {
+          deliveryCount: persisted.length,
+          eventId: event.id,
+          status: updated.status,
+          version: updated.version,
+        };
+      },
+    );
+  }
+
+  claim(
+    input: ClaimEventsInput,
+    context: TenantContext,
+    metadata: CommandMetadata,
+  ) {
     const leaseSeconds = input.leaseSeconds ?? 60;
     const limit = input.limit ?? 20;
     if (
@@ -139,7 +395,11 @@ export class EventService {
       limit < 1 ||
       limit > 100
     ) {
-      throw new AppError('EVENT_LEASE_INVALID', 'Outbox lease input is invalid', 400);
+      throw new AppError(
+        'EVENT_LEASE_INVALID',
+        'Outbox lease input is invalid',
+        400,
+      );
     }
     return this.idempotency.execute(
       {
@@ -224,7 +484,7 @@ export class EventService {
     context: TenantContext,
     metadata: CommandMetadata,
   ) {
-    return this.finishLease('PUBLISHED', eventId, input, context, metadata);
+    return this.publish(eventId, input, context, metadata);
   }
 
   fail(
@@ -233,8 +493,18 @@ export class EventService {
     context: TenantContext,
     metadata: CommandMetadata,
   ) {
-    if (!input.error?.trim() || input.error.length > 1000) {
-      throw new AppError('EVENT_FAILURE_INVALID', 'Relay failure reason is required', 400);
+    if (
+      !isUuid(eventId) ||
+      !input.leaseOwner?.trim() ||
+      !Number.isInteger(input.expectedVersion) ||
+      !input.error?.trim() ||
+      input.error.length > 1000
+    ) {
+      throw new AppError(
+        'EVENT_FAILURE_INVALID',
+        'Relay failure reason is required',
+        400,
+      );
     }
     return this.finishLease('FAILED', eventId, input, context, metadata);
   }
@@ -246,7 +516,11 @@ export class EventService {
     metadata: CommandMetadata,
   ) {
     if (!isUuid(eventId) || !Number.isInteger(expectedVersion)) {
-      throw new AppError('EVENT_REPLAY_INVALID', 'Dead-letter replay input is invalid', 400);
+      throw new AppError(
+        'EVENT_REPLAY_INVALID',
+        'Dead-letter replay input is invalid',
+        400,
+      );
     }
     return this.idempotency.execute(
       {
@@ -261,8 +535,16 @@ export class EventService {
         const event = await transaction.platformOutbox.findFirst({
           where: { id: eventId, tenantId: context.tenantId },
         });
-        if (!event) throw new AppError('BUSINESS_EVENT_NOT_FOUND', 'Business event was not found', 404);
-        if (event.version !== expectedVersion || event.status !== 'DEAD_LETTER') {
+        if (!event)
+          throw new AppError(
+            'BUSINESS_EVENT_NOT_FOUND',
+            'Business event was not found',
+            404,
+          );
+        if (
+          event.version !== expectedVersion ||
+          event.status !== 'DEAD_LETTER'
+        ) {
           throw this.versionConflict();
         }
         assertOutboxTransition(event.status, 'PENDING');
@@ -280,12 +562,358 @@ export class EventService {
           },
           where: { id: event.id },
         });
-        await this.audit(transaction, event.id, 'event.dead-letter.replayed', context, metadata, {
-          eventType: event.eventName,
+        await this.audit(
+          transaction,
+          event.id,
+          'event.dead-letter.replayed',
+          context,
+          metadata,
+          {
+            eventType: event.eventName,
+            status: updated.status,
+          },
+        );
+        return {
+          eventId: event.id,
           status: updated.status,
-        });
-        return { eventId: event.id, status: updated.status, version: updated.version };
+          version: updated.version,
+        };
       },
+    );
+  }
+
+  claimDeliveries(
+    input: DeliveryClaimInput,
+    context: TenantContext,
+    metadata: CommandMetadata,
+  ) {
+    const leaseSeconds = input.leaseSeconds ?? 60;
+    const limit = input.limit ?? 20;
+    if (
+      !input.leaseOwner?.trim() ||
+      input.leaseOwner.length > 200 ||
+      !Number.isInteger(leaseSeconds) ||
+      leaseSeconds < 10 ||
+      leaseSeconds > 3600 ||
+      !Number.isInteger(limit) ||
+      limit < 1 ||
+      limit > 100 ||
+      (input.consumer && !subscriptionForConsumer(input.consumer))
+    ) {
+      throw new AppError(
+        'EVENT_DELIVERY_LEASE_INVALID',
+        'Delivery lease input is invalid',
+        400,
+      );
+    }
+    return this.idempotency.execute(
+      {
+        actorId: context.accountId,
+        key: metadata.idempotencyKey,
+        payload: input,
+        responseCode: 200,
+        scope: 'platform.event-delivery.claim.v2',
+        tenantId: context.tenantId,
+      },
+      async (transaction) => {
+        const consumerFilter = input.consumer
+          ? Prisma.sql`AND current.consumer = ${input.consumer}`
+          : Prisma.empty;
+        const claimed = await transaction.$queryRaw<readonly { id: string }[]>`
+          WITH candidates AS (
+            SELECT current.id
+            FROM "platform"."event_delivery" current
+            WHERE current.tenant_id = ${context.tenantId}::uuid
+              ${consumerFilter}
+              AND (
+                (current.status IN ('PENDING', 'FAILED') AND current.available_at <= CURRENT_TIMESTAMP)
+                OR (
+                  current.status = 'PROCESSING'
+                  AND current.lease_expires_at <= CURRENT_TIMESTAMP
+                )
+              )
+              AND NOT EXISTS (
+                SELECT 1
+                FROM "platform"."event_delivery" earlier
+                WHERE earlier.tenant_id = current.tenant_id
+                  AND earlier.consumer = current.consumer
+                  AND earlier.partition_key = current.partition_key
+                  AND (
+                    earlier.source_occurred_at,
+                    earlier.source_event_created_at,
+                    earlier.event_id
+                  ) < (
+                    current.source_occurred_at,
+                    current.source_event_created_at,
+                    current.event_id
+                  )
+                  AND (
+                    earlier.status IN ('PENDING', 'PROCESSING', 'FAILED')
+                    OR (earlier.status = 'DEAD_LETTER' AND earlier.required)
+                  )
+              )
+            ORDER BY current.source_occurred_at ASC,
+              current.source_event_created_at ASC,
+              current.event_id ASC
+            FOR UPDATE SKIP LOCKED
+            LIMIT ${limit}
+          )
+          UPDATE "platform"."event_delivery" target
+          SET status = 'PROCESSING',
+              attempt_count = target.attempt_count + 1,
+              lease_owner = ${input.leaseOwner.trim()},
+              lease_expires_at = CURRENT_TIMESTAMP + make_interval(secs => ${leaseSeconds}),
+              updated_at = CURRENT_TIMESTAMP,
+              updated_by = ${context.accountId}::uuid,
+              version = target.version + 1
+          FROM candidates
+          WHERE target.id = candidates.id
+          RETURNING target.id
+        `;
+        const ids = claimed.map(({ id }) => id);
+        if (ids.length === 0) {
+          return { deliveries: [], leaseOwner: input.leaseOwner.trim() };
+        }
+        const deliveries = await transaction.eventDelivery.findMany({
+          where: { id: { in: ids }, tenantId: context.tenantId },
+        });
+        const outbox = await transaction.platformOutbox.findMany({
+          where: {
+            id: { in: deliveries.map(({ eventId }) => eventId) },
+            tenantId: context.tenantId,
+          },
+        });
+        const eventById = new Map(outbox.map((event) => [event.id, event]));
+        const deliveryById = new Map(
+          deliveries.map((delivery) => [delivery.id, delivery]),
+        );
+        return {
+          deliveries: ids.map((id) => {
+            const delivery = deliveryById.get(id)!;
+            const event = eventById.get(delivery.eventId);
+            if (!event) {
+              throw new AppError(
+                'EVENT_DELIVERY_SOURCE_MISSING',
+                'Delivery source event was not found',
+                409,
+              );
+            }
+            return {
+              ...delivery,
+              event: {
+                aggregateId: event.aggregateId,
+                aggregateType: event.aggregateType,
+                aggregateVersion: event.aggregateVersion,
+                eventId: event.id,
+                eventType: event.eventName,
+                occurredAt: event.occurredAt.toISOString(),
+                partitionKey:
+                  event.partitionKey ??
+                  `${event.aggregateType}:${event.aggregateId}`,
+                payload: event.payload,
+                schemaVersion: event.schemaVersion,
+                tenantId: event.tenantId,
+                traceId: event.traceId ?? event.correlationId,
+              },
+            };
+          }),
+          leaseOwner: input.leaseOwner.trim(),
+        };
+      },
+    );
+  }
+
+  completeDelivery(
+    deliveryId: string,
+    input: DeliveryCompleteInput,
+    context: TenantContext,
+    metadata: CommandMetadata,
+  ) {
+    if (
+      !isUuid(deliveryId) ||
+      !input.leaseOwner?.trim() ||
+      !Number.isInteger(input.expectedVersion) ||
+      (input.outcome && !['IGNORED', 'PROCESSED'].includes(input.outcome))
+    ) {
+      throw new AppError(
+        'EVENT_DELIVERY_COMPLETION_INVALID',
+        'Delivery completion input is invalid',
+        400,
+      );
+    }
+    return this.idempotency.execute(
+      {
+        actorId: context.accountId,
+        key: metadata.idempotencyKey,
+        payload: { deliveryId, ...input },
+        responseCode: 200,
+        scope: 'platform.event-delivery.complete.v2',
+        tenantId: context.tenantId,
+      },
+      async (transaction) => {
+        const delivery = await this.lockDelivery(
+          transaction,
+          deliveryId,
+          context.tenantId,
+        );
+        this.assertDeliveryLease(delivery, input);
+        const target = input.outcome ?? 'PROCESSED';
+        assertDeliveryTransition(delivery.status, target);
+        const updated = await transaction.eventDelivery.update({
+          data: {
+            lastError: null,
+            leaseExpiresAt: null,
+            leaseOwner: null,
+            processedAt: new Date(),
+            responseSnapshot: (input.responseSnapshot ??
+              {}) as Prisma.InputJsonValue,
+            status: target,
+            updatedBy: context.accountId,
+            version: { increment: 1 },
+          },
+          where: { id: delivery.id },
+        });
+        await this.audit(
+          transaction,
+          delivery.id,
+          `event.delivery.${target.toLowerCase()}.v2`,
+          context,
+          metadata,
+          { consumer: delivery.consumer, eventId: delivery.eventId },
+        );
+        return this.deliveryResult(updated);
+      },
+    );
+  }
+
+  failDelivery(
+    deliveryId: string,
+    input: DeliveryFailInput,
+    context: TenantContext,
+    metadata: CommandMetadata,
+  ) {
+    if (
+      !isUuid(deliveryId) ||
+      !input.leaseOwner?.trim() ||
+      !Number.isInteger(input.expectedVersion) ||
+      !input.error?.trim() ||
+      input.error.length > 1000
+    ) {
+      throw new AppError(
+        'EVENT_DELIVERY_FAILURE_INVALID',
+        'Delivery failure reason is required',
+        400,
+      );
+    }
+    return this.idempotency.execute(
+      {
+        actorId: context.accountId,
+        key: metadata.idempotencyKey,
+        payload: { deliveryId, ...input },
+        responseCode: 200,
+        scope: 'platform.event-delivery.fail.v2',
+        tenantId: context.tenantId,
+      },
+      async (transaction) => {
+        const delivery = await this.lockDelivery(
+          transaction,
+          deliveryId,
+          context.tenantId,
+        );
+        this.assertDeliveryLease(delivery, input);
+        const target =
+          delivery.attemptCount >= delivery.maxAttempts
+            ? 'DEAD_LETTER'
+            : 'FAILED';
+        assertDeliveryTransition(delivery.status, target);
+        const delaySeconds = Math.min(
+          3600,
+          2 ** Math.max(0, delivery.attemptCount - 1),
+        );
+        const updated = await transaction.eventDelivery.update({
+          data: {
+            availableAt: new Date(Date.now() + delaySeconds * 1000),
+            lastError: input.error.trim(),
+            leaseExpiresAt: null,
+            leaseOwner: null,
+            status: target,
+            updatedBy: context.accountId,
+            version: { increment: 1 },
+          },
+          where: { id: delivery.id },
+        });
+        if (target === 'DEAD_LETTER') {
+          await transaction.platformOutbox.create({
+            data: {
+              aggregateId: delivery.id,
+              aggregateType: 'EventDelivery',
+              aggregateVersion: updated.version,
+              correlationId: metadata.correlationId,
+              createdBy: context.accountId,
+              eventName: 'control.event-delivery-dead-lettered.v1',
+              partitionKey: `EventDelivery:${delivery.consumer}`,
+              payload: {
+                aggregateId: delivery.aggregateId,
+                consumer: delivery.consumer,
+                deliveryId: delivery.id,
+                error: input.error.trim(),
+                eventId: delivery.eventId,
+              },
+              tenantId: context.tenantId,
+              traceId: metadata.correlationId,
+              updatedBy: context.accountId,
+            },
+          });
+        }
+        await this.audit(
+          transaction,
+          delivery.id,
+          `event.delivery.${target.toLowerCase().replace('_', '-')}.v2`,
+          context,
+          metadata,
+          { consumer: delivery.consumer, eventId: delivery.eventId },
+        );
+        return this.deliveryResult(updated);
+      },
+    );
+  }
+
+  replayDelivery(
+    deliveryId: string,
+    expectedVersion: number,
+    context: TenantContext,
+    metadata: CommandMetadata,
+  ) {
+    return this.recoverDelivery(
+      deliveryId,
+      expectedVersion,
+      'PENDING',
+      undefined,
+      context,
+      metadata,
+    );
+  }
+
+  skipDelivery(
+    deliveryId: string,
+    input: { readonly expectedVersion: number; readonly reason: string },
+    context: TenantContext,
+    metadata: CommandMetadata,
+  ) {
+    if (!input.reason?.trim() || input.reason.length > 1000) {
+      throw new AppError(
+        'EVENT_DELIVERY_SKIP_INVALID',
+        'Delivery skip reason is required',
+        400,
+      );
+    }
+    return this.recoverDelivery(
+      deliveryId,
+      input.expectedVersion,
+      'IGNORED',
+      input.reason.trim(),
+      context,
+      metadata,
     );
   }
 
@@ -293,13 +921,22 @@ export class EventService {
     input: ConsumeEventInput,
     context: TenantContext,
     metadata: CommandMetadata,
-    handler: (event: BusinessEventInput, transaction: Prisma.TransactionClient) => Promise<JsonObject> = async () => ({ accepted: true }),
+    handler: (
+      event: BusinessEventInput,
+      transaction: Prisma.TransactionClient,
+    ) => Promise<JsonObject>,
   ) {
     validateBusinessEvent(input.event);
-    if (!NAME_PATTERN.test(input.consumer) || !metadata.idempotencyKey?.trim()) {
+    const subscription = subscriptionForConsumer(input.consumer);
+    if (
+      !NAME_PATTERN.test(input.consumer) ||
+      !subscription ||
+      subscription.mode !== input.mode ||
+      !metadata.idempotencyKey?.trim()
+    ) {
       throw new AppError(
         'EVENT_CONSUMER_INVALID',
-        'Consumer and Idempotency-Key are required',
+        'Registered consumer, matching mode and Idempotency-Key are required',
         400,
       );
     }
@@ -321,9 +958,14 @@ export class EventService {
             existing.eventType !== input.event.eventType ||
             existing.aggregateId !== input.event.aggregateId ||
             existing.aggregateVersion !== input.event.aggregateVersion ||
-            hashIdempotencyRequest(existing.payload) !== hashIdempotencyRequest(input.event.payload)
+            hashIdempotencyRequest(existing.payload) !==
+              hashIdempotencyRequest(input.event.payload)
           ) {
-            throw new AppError('EVENT_REPLAY_CONFLICT', 'Event ID was replayed with different content', 409);
+            throw new AppError(
+              'EVENT_REPLAY_CONFLICT',
+              'Event ID was replayed with different content',
+              409,
+            );
           }
           if (existing.status !== 'FAILED') {
             return {
@@ -353,9 +995,14 @@ export class EventService {
             },
           },
         });
-        const ignored = Boolean(checkpoint && checkpoint.lastVersion >= input.event.aggregateVersion);
-        const inbox = retryInbox ??
-          await transaction.eventInbox.create({
+        const ignored = Boolean(
+          input.mode === 'LATEST_STATE' &&
+          checkpoint &&
+          checkpoint.lastVersion >= input.event.aggregateVersion,
+        );
+        const inbox =
+          retryInbox ??
+          (await transaction.eventInbox.create({
             data: {
               aggregateId: input.event.aggregateId,
               aggregateType: input.event.aggregateType,
@@ -371,37 +1018,47 @@ export class EventService {
               traceId: input.event.traceId,
               updatedBy: context.accountId,
             },
-          });
+          }));
         if (ignored) {
-          return { duplicate: false, eventId: input.event.eventId, inboxId: inbox.id, status: 'IGNORED' as const };
+          return {
+            duplicate: false,
+            eventId: input.event.eventId,
+            inboxId: inbox.id,
+            status: 'IGNORED' as const,
+          };
         }
         const result = await handler(input.event, transaction);
-        await transaction.consumerCheckpoint.upsert({
-          create: {
-            aggregateId: input.event.aggregateId,
-            aggregateType: input.event.aggregateType,
-            consumer: input.consumer,
-            createdBy: context.accountId,
-            lastEventId: input.event.eventId,
-            lastVersion: input.event.aggregateVersion,
-            tenantId: context.tenantId,
-            updatedBy: context.accountId,
-          },
-          update: {
-            lastEventId: input.event.eventId,
-            lastVersion: input.event.aggregateVersion,
-            updatedBy: context.accountId,
-            version: { increment: 1 },
-          },
-          where: {
-            tenantId_consumer_aggregateType_aggregateId: {
+        if (
+          !checkpoint ||
+          checkpoint.lastVersion <= input.event.aggregateVersion
+        ) {
+          await transaction.consumerCheckpoint.upsert({
+            create: {
               aggregateId: input.event.aggregateId,
               aggregateType: input.event.aggregateType,
               consumer: input.consumer,
+              createdBy: context.accountId,
+              lastEventId: input.event.eventId,
+              lastVersion: input.event.aggregateVersion,
               tenantId: context.tenantId,
+              updatedBy: context.accountId,
             },
-          },
-        });
+            update: {
+              lastEventId: input.event.eventId,
+              lastVersion: input.event.aggregateVersion,
+              updatedBy: context.accountId,
+              version: { increment: 1 },
+            },
+            where: {
+              tenantId_consumer_aggregateType_aggregateId: {
+                aggregateId: input.event.aggregateId,
+                aggregateType: input.event.aggregateType,
+                consumer: input.consumer,
+                tenantId: context.tenantId,
+              },
+            },
+          });
+        }
         const processed = await transaction.eventInbox.update({
           data: {
             processedAt: new Date(),
@@ -412,7 +1069,12 @@ export class EventService {
           },
           where: { id: inbox.id },
         });
-        return { duplicate: false, eventId: input.event.eventId, inboxId: inbox.id, status: processed.status };
+        return {
+          duplicate: false,
+          eventId: input.event.eventId,
+          inboxId: inbox.id,
+          status: processed.status,
+        };
       });
     } catch (error) {
       if (error instanceof AppError) throw error;
@@ -447,8 +1109,160 @@ export class EventService {
           },
         },
       });
-      throw new AppError('EVENT_HANDLER_FAILED', 'Event consumer failed', 500, { retryable: true });
+      throw new AppError('EVENT_HANDLER_FAILED', 'Event consumer failed', 500, {
+        retryable: true,
+      });
     }
+  }
+
+  rejectDiagnosticConsume(input: ConsumeEventInput): never {
+    const subscription = subscriptionForConsumer(input.consumer);
+    if (!subscription || subscription.mode !== input.mode) {
+      throw new AppError(
+        'EVENT_CONSUMER_UNREGISTERED',
+        'Consumer is not registered with the requested mode',
+        400,
+      );
+    }
+    throw new AppError(
+      'EVENT_DIAGNOSTIC_HANDLER_REQUIRED',
+      `Consumer ${input.consumer} must be invoked through ${subscription.endpoint}`,
+      409,
+    );
+  }
+
+  private async lockDelivery(
+    transaction: Prisma.TransactionClient,
+    deliveryId: string,
+    tenantId: string,
+  ) {
+    await transaction.$queryRaw`
+      SELECT id
+      FROM "platform"."event_delivery"
+      WHERE id = ${deliveryId}::uuid AND tenant_id = ${tenantId}::uuid
+      FOR UPDATE
+    `;
+    const delivery = await transaction.eventDelivery.findFirst({
+      where: { id: deliveryId, tenantId },
+    });
+    if (!delivery) {
+      throw new AppError(
+        'EVENT_DELIVERY_NOT_FOUND',
+        'Event delivery was not found',
+        404,
+      );
+    }
+    return delivery;
+  }
+
+  private assertDeliveryLease(
+    delivery: EventDelivery,
+    input: { readonly expectedVersion: number; readonly leaseOwner: string },
+  ) {
+    if (
+      delivery.status !== 'PROCESSING' ||
+      delivery.version !== input.expectedVersion ||
+      delivery.leaseOwner !== input.leaseOwner.trim() ||
+      !delivery.leaseExpiresAt ||
+      delivery.leaseExpiresAt <= new Date()
+    ) {
+      throw new AppError(
+        'EVENT_DELIVERY_LEASE_LOST',
+        'Delivery lease or version is no longer valid',
+        409,
+        { retryable: true },
+      );
+    }
+  }
+
+  private recoverDelivery(
+    deliveryId: string,
+    expectedVersion: number,
+    target: 'IGNORED' | 'PENDING',
+    reason: string | undefined,
+    context: TenantContext,
+    metadata: CommandMetadata,
+  ) {
+    if (!isUuid(deliveryId) || !Number.isInteger(expectedVersion)) {
+      throw new AppError(
+        'EVENT_DELIVERY_REPLAY_INVALID',
+        'Dead-letter delivery recovery input is invalid',
+        400,
+      );
+    }
+    return this.idempotency.execute(
+      {
+        actorId: context.accountId,
+        key: metadata.idempotencyKey,
+        payload: { deliveryId, expectedVersion, reason, target },
+        responseCode: 200,
+        scope: `platform.event-delivery.${target === 'PENDING' ? 'replay' : 'skip'}.v2`,
+        tenantId: context.tenantId,
+      },
+      async (transaction) => {
+        const delivery = await this.lockDelivery(
+          transaction,
+          deliveryId,
+          context.tenantId,
+        );
+        if (
+          delivery.status !== 'DEAD_LETTER' ||
+          delivery.version !== expectedVersion
+        ) {
+          throw new AppError(
+            'EVENT_DELIVERY_VERSION_CONFLICT',
+            'Dead-letter delivery version is no longer valid',
+            409,
+          );
+        }
+        assertDeliveryTransition(delivery.status, target);
+        const updated = await transaction.eventDelivery.update({
+          data: {
+            attemptCount: target === 'PENDING' ? 0 : delivery.attemptCount,
+            availableAt: new Date(),
+            lastError: reason ?? null,
+            leaseExpiresAt: null,
+            leaseOwner: null,
+            processedAt: target === 'IGNORED' ? new Date() : null,
+            responseSnapshot:
+              target === 'IGNORED'
+                ? ({ skipped: true, reason } as Prisma.InputJsonObject)
+                : Prisma.DbNull,
+            status: target,
+            updatedBy: context.accountId,
+            version: { increment: 1 },
+          },
+          where: { id: delivery.id },
+        });
+        await this.audit(
+          transaction,
+          delivery.id,
+          `event.delivery.${target === 'PENDING' ? 'replayed' : 'skipped'}.v2`,
+          context,
+          metadata,
+          {
+            consumer: delivery.consumer,
+            eventId: delivery.eventId,
+            ...(reason ? { reason } : {}),
+          },
+        );
+        return this.deliveryResult(updated);
+      },
+    );
+  }
+
+  private deliveryResult(delivery: EventDelivery) {
+    return {
+      availableAt: delivery.availableAt.toISOString(),
+      deliveryId: delivery.id,
+      eventId: delivery.eventId,
+      retryAt:
+        delivery.status === 'FAILED'
+          ? delivery.availableAt.toISOString()
+          : null,
+      status: delivery.status,
+      version: delivery.version,
+    };
   }
 
   private finishLease(
@@ -459,7 +1273,11 @@ export class EventService {
     metadata: CommandMetadata,
   ) {
     if (!isUuid(eventId) || !input.leaseOwner?.trim()) {
-      throw new AppError('EVENT_LEASE_INVALID', 'Event lease input is invalid', 400);
+      throw new AppError(
+        'EVENT_LEASE_INVALID',
+        'Event lease input is invalid',
+        400,
+      );
     }
     return this.idempotency.execute(
       {
@@ -485,11 +1303,15 @@ export class EventService {
           throw this.versionConflict();
         }
         const target =
-          requestedTarget === 'FAILED' && event.attemptCount >= event.maxAttempts
+          requestedTarget === 'FAILED' &&
+          event.attemptCount >= event.maxAttempts
             ? 'DEAD_LETTER'
             : requestedTarget;
         assertOutboxTransition(event.status, target);
-        const delaySeconds = Math.min(3600, 2 ** Math.max(0, event.attemptCount - 1));
+        const delaySeconds = Math.min(
+          3600,
+          2 ** Math.max(0, event.attemptCount - 1),
+        );
         const updated = await transaction.platformOutbox.update({
           data: {
             availableAt:
@@ -497,7 +1319,8 @@ export class EventService {
                 ? new Date(Date.now() + delaySeconds * 1000)
                 : event.availableAt,
             deadLetteredAt: target === 'DEAD_LETTER' ? new Date() : null,
-            lastError: requestedTarget === 'FAILED' ? input.error!.trim() : null,
+            lastError:
+              requestedTarget === 'FAILED' ? input.error!.trim() : null,
             leaseExpiresAt: null,
             leaseOwner: null,
             publishedAt: target === 'PUBLISHED' ? new Date() : null,
@@ -509,7 +1332,8 @@ export class EventService {
         });
         return {
           eventId: event.id,
-          retryAt: target === 'FAILED' ? updated.availableAt.toISOString() : null,
+          retryAt:
+            target === 'FAILED' ? updated.availableAt.toISOString() : null,
           status: updated.status,
           version: updated.version,
         };
@@ -542,8 +1366,13 @@ export class EventService {
   }
 
   private versionConflict() {
-    return new AppError('EVENT_LEASE_LOST', 'Event lease or version is no longer valid', 409, {
-      retryable: true,
-    });
+    return new AppError(
+      'EVENT_LEASE_LOST',
+      'Event lease or version is no longer valid',
+      409,
+      {
+        retryable: true,
+      },
+    );
   }
 }

@@ -11,13 +11,17 @@ export class PrintQueueService implements OnModuleDestroy {
   });
 
   async enqueue(printJobId: string, tenantId: string): Promise<void> {
-    await this.queue.add('PRINT_JOB', { printJobId, tenantId }, {
-      attempts: 3,
-      backoff: { delay: 1000, type: 'exponential' },
-      jobId: printJobId,
-      removeOnComplete: 1000,
-      removeOnFail: 5000,
-    });
+    await this.queue.add(
+      'PRINT_JOB',
+      { printJobId, tenantId },
+      {
+        attempts: 3,
+        backoff: { delay: 1000, type: 'exponential' },
+        jobId: printJobId,
+        removeOnComplete: 1000,
+        removeOnFail: 5000,
+      },
+    );
   }
 
   async onModuleDestroy(): Promise<void> {

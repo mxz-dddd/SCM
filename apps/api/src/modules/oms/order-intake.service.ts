@@ -13,6 +13,7 @@ import { isUuid } from '../../common/validation';
 import { PrismaService } from '../../database/prisma.service';
 import { MdmReferenceService } from '../mdm/public/mdm-reference.service';
 import { hashIdempotencyRequest } from '../platform/idempotency.service';
+import { businessNumber } from '../platform/public/numbering.facade';
 import type { CommandMetadata } from '../platform/tenant.service';
 
 export interface SaveOrderLineInput {
@@ -549,7 +550,13 @@ export class OrderIntakeService {
           externalVersion,
           id: randomUUID(),
           mappingVersion: text(input.mappingVersion, 'mappingVersion', 100),
-          orderNo: `ORD-${randomUUID().replaceAll('-', '').slice(0, 20).toUpperCase()}`,
+          orderNo: await businessNumber(
+            this.prisma,
+            'OMS_BUSINESS_ORDER',
+            context,
+            metadata,
+            `business-order:${input.channel}:${externalOrderNo}:${externalVersion}`,
+          ),
           rawMessageRefId: raw.id,
           requestedFrom: optionalDate(input.requestedFrom),
           requestedUntil: optionalDate(input.requestedUntil),

@@ -1,15 +1,12 @@
 import { randomUUID } from 'node:crypto';
 import { Inject, Injectable } from '@nestjs/common';
-import {
-  PickMode,
-  Prisma,
-  type ShortageResolutionType,
-} from '@prisma/client';
+import { PickMode, Prisma, type ShortageResolutionType } from '@prisma/client';
 import type { TenantContext } from '@scm/shared';
 import { AppError } from '../../common/app-error';
 import { isUuid } from '../../common/validation';
 import { PrismaService } from '../../database/prisma.service';
 import { MdmReferenceService } from '../mdm/public/mdm-reference.service';
+import { businessNumber } from '../platform/public/numbering.facade';
 import type { CommandMetadata } from '../platform/tenant.service';
 import { InventoryService } from './inventory.service';
 
@@ -46,6 +43,7 @@ export interface CreateOutboundInput {
   readonly routeCode?: string;
   readonly serviceLevel: string;
   readonly sourceRef: string;
+  readonly sourceVersion?: number;
   readonly sourceSnapshot?: Readonly<Record<string, unknown>>;
   readonly temperatureZone?: string;
   readonly type: 'SALES' | 'TRANSFER' | 'RETURN_VENDOR';
@@ -60,6 +58,22 @@ export class OutboundService {
     @Inject(MdmReferenceService) private readonly mdm: MdmReferenceService,
     @Inject(InventoryService) private readonly inventory: InventoryService,
   ) {}
+
+  findBySource(
+    sourceRef: string,
+    sourceVersion: number,
+    context: TenantContext,
+  ) {
+    return this.prisma.outboundOrder.findUnique({
+      where: {
+        tenantId_sourceRef_sourceVersion: {
+          sourceRef,
+          sourceVersion,
+          tenantId: context.tenantId,
+        },
+      },
+    });
+  }
 
   async createOutbound(
     input: CreateOutboundInput,
@@ -128,11 +142,18 @@ export class OutboundService {
           cutoffAt,
           destinationSnapshot: json(input.destinationSnapshot),
           id,
-          outboundNo: `OUT-${Date.now()}-${id.slice(0, 6)}`,
+          outboundNo: await businessNumber(
+            this.prisma,
+            'WMS_OUTBOUND',
+            context,
+            metadata,
+            `outbound:${input.sourceRef}:${input.sourceVersion ?? 1}`,
+          ),
           ownerId: input.ownerId,
           routeCode: input.routeCode?.trim() ?? null,
           serviceLevel: input.serviceLevel.trim(),
           sourceRef: input.sourceRef.trim(),
+          sourceVersion: input.sourceVersion ?? 1,
           sourceSnapshot: json(input.sourceSnapshot),
           temperatureZone: input.temperatureZone?.trim() ?? null,
           tenantId: context.tenantId,
@@ -170,7 +191,12 @@ export class OutboundService {
         'outbound.created.v1',
         context,
         metadata,
-        { outboundId: id, sourceRef: order.sourceRef },
+        {
+          outboundId: id,
+          outboundNo: order.outboundNo,
+          sourceRef: order.sourceRef,
+          sourceVersion: order.sourceVersion,
+        },
       );
       return { outboundId: id, status: order.status, version: order.version };
     });
@@ -216,7 +242,12 @@ export class OutboundService {
         'outbound.released.v1',
         context,
         metadata,
-        { outboundId: id },
+        {
+          outboundId: id,
+          outboundNo: changed.outboundNo,
+          sourceRef: changed.sourceRef,
+          sourceVersion: changed.sourceVersion,
+        },
       );
       return { status: changed.status, version: changed.version };
     });
@@ -261,7 +292,13 @@ export class OutboundService {
           id,
           name: input.name.trim(),
           strategy: json(input.strategy),
-          templateNo: `WVT-${Date.now()}-${id.slice(0, 6)}`,
+          templateNo: await businessNumber(
+            this.prisma,
+            'WMS_WAVE_TEMPLATE',
+            context,
+            metadata,
+            `wave-template:${input.warehouseId}:${input.name}`,
+          ),
           tenantId: context.tenantId,
           updatedBy: context.accountId,
           warehouseId: input.warehouseId,
@@ -434,7 +471,13 @@ export class OutboundService {
           tenantId: context.tenantId,
           updatedBy: context.accountId,
           warehouseId: template.warehouseId,
-          waveNo: `WAV-${Date.now()}-${id.slice(0, 6)}`,
+          waveNo: await businessNumber(
+            this.prisma,
+            'WMS_WAVE',
+            context,
+            metadata,
+            `wave:${template.id}:${cutoffAt.toISOString()}`,
+          ),
           workloadSnapshot: json({
             lineCount: lines.length,
             orderCount: orders.length,
@@ -842,7 +885,13 @@ export class OutboundService {
           await tx.outboundShortageCase.create({
             data: {
               allocatedBase: allocated,
-              caseNo: `SHT-${Date.now()}-${caseId.slice(0, 6)}`,
+              caseNo: await businessNumber(
+                this.prisma,
+                'WMS_SHORTAGE',
+                context,
+                metadata,
+                `shortage:${line.id}`,
+              ),
               createdBy: context.accountId,
               id: caseId,
               optionsSnapshot: json({
@@ -876,7 +925,7 @@ export class OutboundService {
         where: { id: order.id },
       });
     }
-    await this.generatePickTasks(tx, wave, strategy, context);
+    await this.generatePickTasks(tx, wave, strategy, context, metadata);
   }
 
   private async generatePickTasks(
@@ -884,6 +933,7 @@ export class OutboundService {
     wave: { id: string; warehouseId: string },
     strategy: Record<string, unknown>,
     context: TenantContext,
+    metadata: CommandMetadata,
   ) {
     const requestedMode = text(strategy.pickMode)?.toUpperCase() ?? 'ORDER';
     if (!Object.values(PickMode).includes(requestedMode as PickMode))
@@ -967,7 +1017,13 @@ export class OutboundService {
               .size === 1
               ? firstOrder.id
               : null,
-          taskNo: `PCK-${Date.now()}-${sequence}-${taskId.slice(0, 6)}`,
+          taskNo: await businessNumber(
+            this.prisma,
+            'WMS_PICK_TASK',
+            context,
+            metadata,
+            `pick:${wave.id}:${sequence}`,
+          ),
           temperatureZone: firstOrder.temperatureZone,
           tenantId: context.tenantId,
           updatedBy: context.accountId,

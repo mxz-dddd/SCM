@@ -7,6 +7,7 @@ import {
 } from '../platform.constants';
 import { JwtTokenService } from './jwt-token.service';
 import { verifyPassword } from './password';
+import { RateLimitService } from './rate-limit.service';
 
 export interface LoginInput {
   readonly deviceId: string;
@@ -25,6 +26,7 @@ export class AuthService {
   constructor(
     @Inject(PrismaService) private readonly prisma: PrismaService,
     @Inject(JwtTokenService) private readonly tokens: JwtTokenService,
+    @Inject(RateLimitService) private readonly limits: RateLimitService,
   ) {}
 
   async login(input: LoginInput, metadata: LoginMetadata) {
@@ -40,6 +42,20 @@ export class AuthService {
 
     const tenant = await this.prisma.tenant.findUnique({
       where: { code: tenantCode },
+    });
+    const configuredLoginLimit = Number(
+      process.env.LOGIN_RATE_LIMIT_PER_MINUTE,
+    );
+    await this.limits.consume({
+      actorId: PLATFORM_OPERATOR_ACCOUNT_ID,
+      limit:
+        Number.isSafeInteger(configuredLoginLimit) && configuredLoginLimit > 0
+          ? configuredLoginLimit
+          : 10,
+      route: '/api/v1/auth/login',
+      scope: 'LOGIN',
+      subject: `${metadata.ipAddress ?? 'unknown'}:${tenantCode}:${username}`,
+      tenantId: tenant?.tenantId ?? PLATFORM_OPERATOR_TENANT_ID,
     });
     if (!tenant) {
       await this.recordLogin({

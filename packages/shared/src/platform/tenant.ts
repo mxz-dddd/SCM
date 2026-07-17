@@ -29,7 +29,7 @@ export interface SessionClaims {
 
 export interface TenantContext {
   readonly accountId: string;
-  readonly accountKind: AccountKind;
+  readonly accountKind: AccountKind | 'WORKER';
   readonly deviceId: string;
   readonly organizationIds: readonly string[];
   readonly permissionVersion: number;

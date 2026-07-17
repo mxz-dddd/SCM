@@ -10,6 +10,7 @@ import {
   FleetAssignmentFacade,
   type FleetAssignmentInspectionInput,
 } from '../mdm/public/fleet-assignment.facade';
+import { businessNumber } from '../platform/public/numbering.facade';
 import type { CommandMetadata } from '../platform/tenant.service';
 
 const json = (value: unknown) =>
@@ -205,7 +206,13 @@ export class DispatchService {
       const assignment = await tx.vehicleAssignment.create({
         data: {
           assignedBy: context.accountId,
-          assignmentNo: `VA-${Date.now()}-${id.slice(0, 6)}`,
+          assignmentNo: await businessNumber(
+            this.prisma,
+            'TMS_VEHICLE_ASSIGNMENT',
+            context,
+            metadata,
+            `vehicle-assignment:${shipmentId}`,
+          ),
           backupContactSnapshot: json(input.backupContactSnapshot),
           carrierTenderId: tender.id,
           createdBy: context.accountId,
@@ -231,6 +238,11 @@ export class DispatchService {
         },
         where: { id: shipment.id },
       });
+      const sourceRefs = await this.shipmentSources(
+        tx,
+        shipment.id,
+        context.tenantId,
+      );
       await this.emit(
         tx,
         shipment.id,
@@ -241,6 +253,7 @@ export class DispatchService {
         {
           driverRef: assignment.driverRef,
           shipmentId,
+          sourceRefs,
           vehicleAssignmentId: assignment.id,
           vehicleRef: assignment.vehicleRef,
         },
@@ -428,7 +441,13 @@ export class DispatchService {
         data: {
           assignmentVersion: changedAssignment.version,
           checkedBy: context.accountId,
-          checkNo: `CC-${Date.now()}-${id.slice(0, 6)}`,
+          checkNo: await businessNumber(
+            this.prisma,
+            'TMS_COMPLIANCE_CHECK',
+            context,
+            metadata,
+            `compliance-check:${current.id}:${current.version}`,
+          ),
           checklistSnapshot: json({
             driverAndVehicleInspection: inspection,
             requiredVehicleDocuments,
@@ -599,7 +618,13 @@ export class DispatchService {
           complianceCheckId: check.id,
           confirmedBy: context.accountId,
           createdBy: context.accountId,
-          dispatchNo: `DSP-${Date.now()}-${id.slice(0, 6)}`,
+          dispatchNo: await businessNumber(
+            this.prisma,
+            'TMS_SHIPMENT_DISPATCH',
+            context,
+            metadata,
+            `shipment-dispatch:${shipmentId}`,
+          ),
           documentSnapshot: json(input.documentSnapshot),
           id,
           loadSnapshot: json(input.loadSnapshot),
@@ -734,6 +759,29 @@ export class DispatchService {
       await tx.$executeRaw(
         Prisma.sql`SELECT pg_advisory_xact_lock(hashtextextended(${`${tenantId}:${resource}`},0))`,
       );
+  }
+  private async shipmentSources(
+    tx: Prisma.TransactionClient,
+    shipmentId: string,
+    tenantId: string,
+  ) {
+    const items = await tx.shipmentItem.findMany({
+      distinct: ['transportOrderId'],
+      select: { transportOrderId: true },
+      where: { shipmentId, tenantId },
+    });
+    if (!items.length) return [];
+    const orders = await tx.transportOrder.findMany({
+      select: { orderNo: true, sourceRef: true },
+      where: {
+        id: { in: items.map(({ transportOrderId }) => transportOrderId) },
+        tenantId,
+      },
+    });
+    return orders.map((order) => ({
+      sourceRef: order.sourceRef,
+      transportOrderNo: order.orderNo,
+    }));
   }
   private date(value: string) {
     const result = new Date(value);

@@ -92,12 +92,7 @@ export class ReconciliationController {
     @Body()
     input: {
       category:
-        | 'DUPLICATE'
-        | 'MISSING'
-        | 'QUANTITY'
-        | 'RATE'
-        | 'SERVICE'
-        | 'TAX';
+        'DUPLICATE' | 'MISSING' | 'QUANTITY' | 'RATE' | 'SERVICE' | 'TAX';
       description: string;
       disputedAmount: string;
       evidenceRefs?: readonly string[];

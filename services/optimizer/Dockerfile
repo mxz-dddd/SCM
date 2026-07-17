@@ -8,7 +8,10 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
 WORKDIR /opt/scm-optimizer
 
 COPY requirements.txt ./
-RUN pip install --no-cache-dir --requirement requirements.txt
+RUN apt-get update \
+    && apt-get upgrade --yes --no-install-recommends \
+    && rm -rf /var/lib/apt/lists/* \
+    && pip install --no-cache-dir --requirement requirements.txt
 
 COPY server.py ./
 

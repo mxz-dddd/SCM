@@ -12,6 +12,7 @@ import {
 import type { TenantRequest } from '../platform/auth/tenant-context.middleware';
 import { RequirePermission } from '../platform/auth/permission.decorator';
 import { PermissionGuard } from '../platform/auth/permission.guard';
+import { WorkerAccessible } from '../platform/auth/worker-access.decorator';
 import type { BusinessEventInput } from '../platform/event.service';
 import { Idempotent } from '../platform/idempotent.decorator';
 import {
@@ -34,6 +35,7 @@ export class ReconciliationController {
   ) {}
 
   @Post('events/consume')
+  @WorkerAccessible('CONTROL_RECONCILIATION_EVENT_CONSUME')
   @Idempotent('control.reconciliation.observation.consume.v1')
   @RequirePermission('control.reconciliation.consume')
   consumeObservation(
@@ -64,6 +66,7 @@ export class ReconciliationController {
   }
 
   @Post('runs')
+  @WorkerAccessible('RECONCILIATION_RUN')
   @Idempotent('control.reconciliation.run.v1')
   @RequirePermission('control.reconciliation.run')
   run(

@@ -289,6 +289,25 @@ export function sequencePeriodKey(
   return `${year}${month}${day}`;
 }
 
+export function numberRulePrefixSupportsReset(
+  resetPeriod: SequenceResetPeriod,
+  prefixTemplate: string,
+): boolean {
+  const includesYear =
+    prefixTemplate.includes('{YYYY}') || prefixTemplate.includes('{YY}');
+  return (
+    resetPeriod === 'NEVER' ||
+    (resetPeriod === 'YEARLY' && includesYear) ||
+    (resetPeriod === 'MONTHLY' &&
+      includesYear &&
+      prefixTemplate.includes('{MM}')) ||
+    (resetPeriod === 'DAILY' &&
+      includesYear &&
+      prefixTemplate.includes('{MM}') &&
+      prefixTemplate.includes('{DD}'))
+  );
+}
+
 export function formatReservedNumber(input: {
   readonly at: Date;
   readonly businessType: string;
@@ -1115,6 +1134,7 @@ export class ConfigurationService {
       blockSize < 1 ||
       blockSize > 10_000 ||
       !['NEVER', 'DAILY', 'MONTHLY', 'YEARLY'].includes(resetPeriod) ||
+      !numberRulePrefixSupportsReset(resetPeriod, prefixTemplate) ||
       (organizationRef !== '*' && !isUuid(organizationRef))
     ) {
       throw new AppError(
@@ -1228,6 +1248,14 @@ export class ConfigurationService {
         if (rule.organizationRef !== '*') {
           this.assertScope(context, 'ORGANIZATION', rule.organizationRef);
         }
+        if (
+          !numberRulePrefixSupportsReset(rule.resetPeriod, rule.prefixTemplate)
+        )
+          throw new AppError(
+            'NUMBER_RULE_PREFIX_NOT_UNIQUE',
+            'Number rule prefix must contain its reset-period date tokens',
+            409,
+          );
         const allocatedAt = new Date();
         const periodKey = sequencePeriodKey(rule.resetPeriod, allocatedAt);
         const allocated = await transaction.$queryRaw<

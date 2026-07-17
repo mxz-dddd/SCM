@@ -1,6 +1,53 @@
 import { describe, expect, it } from 'vitest';
-import { assertCalendarTransition, assertContractTransition, assertQualityTransition, assertRateTransition } from './contract-calendar-quality.service';
-describe('MDM governance transitions',()=>{
-  it('allows declared transitions',()=>{expect(()=>assertContractTransition('DRAFT','PENDING_APPROVAL')).not.toThrow();expect(()=>assertContractTransition('PENDING_APPROVAL','ACTIVE')).not.toThrow();expect(()=>assertContractTransition('PENDING_APPROVAL','REJECTED')).not.toThrow();expect(()=>assertContractTransition('ACTIVE','SUSPENDED')).not.toThrow();expect(()=>assertContractTransition('SUSPENDED','ACTIVE')).not.toThrow();expect(()=>assertContractTransition('ACTIVE','EXPIRED')).not.toThrow();expect(()=>assertRateTransition('DRAFT','PUBLISHED')).not.toThrow();expect(()=>assertRateTransition('PUBLISHED','RETIRED')).not.toThrow();expect(()=>assertCalendarTransition('DRAFT','ACTIVE')).not.toThrow();expect(()=>assertCalendarTransition('ACTIVE','INACTIVE')).not.toThrow();expect(()=>assertQualityTransition('DRAFT','PENDING_APPROVAL')).not.toThrow();expect(()=>assertQualityTransition('PENDING_APPROVAL','APPROVED')).not.toThrow();expect(()=>assertQualityTransition('PENDING_APPROVAL','REJECTED')).not.toThrow();});
-  it('rejects skipped and reverse transitions',()=>{expect(()=>assertContractTransition('DRAFT','ACTIVE')).toThrowError(/not allowed/);expect(()=>assertContractTransition('REJECTED','ACTIVE')).toThrowError(/not allowed/);expect(()=>assertRateTransition('DRAFT','RETIRED')).toThrowError(/not allowed/);expect(()=>assertCalendarTransition('INACTIVE','ACTIVE')).toThrowError(/not allowed/);expect(()=>assertQualityTransition('DRAFT','APPROVED')).toThrowError(/not allowed/);});
+import {
+  assertCalendarTransition,
+  assertContractTransition,
+  assertQualityTransition,
+  assertRateTransition,
+} from './contract-calendar-quality.service';
+describe('MDM governance transitions', () => {
+  it('allows declared transitions', () => {
+    expect(() =>
+      assertContractTransition('DRAFT', 'PENDING_APPROVAL'),
+    ).not.toThrow();
+    expect(() =>
+      assertContractTransition('PENDING_APPROVAL', 'ACTIVE'),
+    ).not.toThrow();
+    expect(() =>
+      assertContractTransition('PENDING_APPROVAL', 'REJECTED'),
+    ).not.toThrow();
+    expect(() => assertContractTransition('ACTIVE', 'SUSPENDED')).not.toThrow();
+    expect(() => assertContractTransition('SUSPENDED', 'ACTIVE')).not.toThrow();
+    expect(() => assertContractTransition('ACTIVE', 'EXPIRED')).not.toThrow();
+    expect(() => assertRateTransition('DRAFT', 'PUBLISHED')).not.toThrow();
+    expect(() => assertRateTransition('PUBLISHED', 'RETIRED')).not.toThrow();
+    expect(() => assertCalendarTransition('DRAFT', 'ACTIVE')).not.toThrow();
+    expect(() => assertCalendarTransition('ACTIVE', 'INACTIVE')).not.toThrow();
+    expect(() =>
+      assertQualityTransition('DRAFT', 'PENDING_APPROVAL'),
+    ).not.toThrow();
+    expect(() =>
+      assertQualityTransition('PENDING_APPROVAL', 'APPROVED'),
+    ).not.toThrow();
+    expect(() =>
+      assertQualityTransition('PENDING_APPROVAL', 'REJECTED'),
+    ).not.toThrow();
+  });
+  it('rejects skipped and reverse transitions', () => {
+    expect(() => assertContractTransition('DRAFT', 'ACTIVE')).toThrowError(
+      /not allowed/,
+    );
+    expect(() => assertContractTransition('REJECTED', 'ACTIVE')).toThrowError(
+      /not allowed/,
+    );
+    expect(() => assertRateTransition('DRAFT', 'RETIRED')).toThrowError(
+      /not allowed/,
+    );
+    expect(() => assertCalendarTransition('INACTIVE', 'ACTIVE')).toThrowError(
+      /not allowed/,
+    );
+    expect(() => assertQualityTransition('DRAFT', 'APPROVED')).toThrowError(
+      /not allowed/,
+    );
+  });
 });

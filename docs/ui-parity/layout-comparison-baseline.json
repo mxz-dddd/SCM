@@ -1,0 +1,1120 @@
+{
+  "schemaVersion": 1,
+  "generatedAt": "2026-07-17T04:25:58.369Z",
+  "evidenceScope": "Twenty-two unique local mapping routes compared with read-only family-level reference geometry. Dynamic business content was masked before image differencing; raw reference screenshots are not committed.",
+  "thresholds": {
+    "applicationShellPositionPx": 8,
+    "majorComponentSizePercent": 5,
+    "typographyPx": 2,
+    "unexplainedLargeRegionCount": 0,
+    "improvementRequiredAfterIteration": 1
+  },
+  "referenceMetrics": {
+    "data_screen": {
+      "sha256": "31f6d81839c4bae4b5e81a56d6c2a0170493a60dceb12894b132d1854d3f34f9",
+      "source": "READ_ONLY_BROWSER_GEOMETRY"
+    },
+    "mdm": {
+      "sha256": "9bd4736a1737af451b8df2f14e28c4fcaee7f4f0715fd3056749516cf2fe6bd6",
+      "source": "READ_ONLY_BROWSER_GEOMETRY"
+    },
+    "messages": {
+      "sha256": "84474c00edfa15c8ba3727592ba4669569c91faf85942d4df765a5b20ad5e267",
+      "source": "READ_ONLY_BROWSER_GEOMETRY"
+    },
+    "oms": {
+      "sha256": "4875b864e2156437d3b25c171887d1870a271c4815ed96819a125f02d314af2d",
+      "source": "READ_ONLY_BROWSER_GEOMETRY"
+    },
+    "reports": {
+      "sha256": "74957a0f1ac96018e213386773fda4d64a0d8cee13e7a5e9458ac4fab1d547ce",
+      "source": "READ_ONLY_BROWSER_GEOMETRY"
+    },
+    "support": {
+      "sha256": "d35b0ba199094f39964beb027e483783efe46927d1e4edb3f61524588d7efd42",
+      "source": "READ_ONLY_BROWSER_GEOMETRY"
+    },
+    "tms": {
+      "sha256": "d8cdf54fe40b2d41f41cfd59862e12a305b87d006726d4405f2219799f7129b7",
+      "source": "READ_ONLY_BROWSER_GEOMETRY"
+    },
+    "wms": {
+      "sha256": "0e99872eaa77702b5a3a4466b66125b5acea878aaf7bea64b577d468362beb13",
+      "source": "READ_ONLY_BROWSER_GEOMETRY"
+    }
+  },
+  "visualSnapshotPlatforms": ["darwin", "linux"],
+  "visualSnapshots": {
+    "tests/ui-parity/ui-parity.visual.spec.ts-snapshots/application-shell.png": "963590ef14afc9c6c2394979404e85b6568d9e03dbf94897d7cb695f2ff08a5f",
+    "tests/ui-parity/ui-parity.visual.spec.ts-snapshots/command-modal.png": "2c244ce765df2c0fce4d967b162845564877d07d9f3d5adfc304c1d9d09ca781",
+    "tests/ui-parity/ui-parity.visual.spec.ts-snapshots/primary-01.png": "963590ef14afc9c6c2394979404e85b6568d9e03dbf94897d7cb695f2ff08a5f",
+    "tests/ui-parity/ui-parity.visual.spec.ts-snapshots/primary-02.png": "6dfb2faf95db67e24f17646a4fdc4ed54f6e12d55c657345c35ab6914733eecf",
+    "tests/ui-parity/ui-parity.visual.spec.ts-snapshots/primary-03.png": "c6224dd189ad5797b72ed3693aa63f9cb81ef17e1c8e5f9800d0fad041b70b0e",
+    "tests/ui-parity/ui-parity.visual.spec.ts-snapshots/primary-04.png": "86bab74e16f9d845960f93711b35f5570122110880f77b08470887a1eeab34f6",
+    "tests/ui-parity/ui-parity.visual.spec.ts-snapshots/primary-05.png": "56eb2113c7418bedd8caabe42a822a081d88b933e27ceb380e208557bd8168f2",
+    "tests/ui-parity/ui-parity.visual.spec.ts-snapshots/primary-06.png": "c4f6a96dd280b07071f0f2d6c01685b4c29be6d9344503cd8f27aba926488197",
+    "tests/ui-parity/ui-parity.visual.spec.ts-snapshots/primary-07.png": "d491c5aefaa5c9411530a17e9ac0b331f9fa54ad212bfc589eff0eb9ed2b52be",
+    "tests/ui-parity/ui-parity.visual.spec.ts-snapshots/primary-08.png": "b297a6f537a1a513db21bce2dd403f48e6bc230aa9bf9dbfb8468f34d8c40cb6",
+    "tests/ui-parity/ui-parity.visual.spec.ts-snapshots/primary-09.png": "3036e05837e208c7dd1e4e16b5808d176c19d9647e45c283ad4c3d5b09a34ed5",
+    "tests/ui-parity/ui-parity.visual.spec.ts-snapshots/primary-10.png": "84a3a94691ebc6f510eb225ee5dfdb0622842dfacb3987cb72ce077341fd7c43",
+    "tests/ui-parity/ui-parity.visual.spec.ts-snapshots/representative-list.png": "748816c4f8b2612c63bed2b78977fa4ba25718a3ad699c001f355e87e2b9b259",
+    "tests/ui-parity/ui-parity.visual.spec.ts-snapshots/tms-execution.png": "a8730b620f45e06380ec1c12c0b42762a6bb4e734a4621ae5e2b80957bdcb8f6",
+    "tests/ui-parity/ui-parity.visual.spec.ts-snapshots/tms-orders.png": "87db0987e1986295da56e4a0801a733f50b704a1819879e743bf0b7268faf023",
+    "tests/ui-parity/ui-parity.visual.spec.ts-snapshots/tms-planning.png": "7791750d57b217702c8b27bbb4d1cd10cfe3abc140bebc28b7ab6f8a6f657ed7",
+    "tests/ui-parity/ui-parity.visual.spec.ts-snapshots/tms-settlement.png": "910d1b020b218203fe5e43adac40b0dffc74d1986af888aabb49498b4522fbc3",
+    "tests/ui-parity/ui-parity.visual.spec.ts-snapshots/workspace-drawer.png": "9768f0d4994998bf4329b18dbc99c461a964a26c10a36525fa4a56b58adce11e"
+  },
+  "pairCount": 22,
+  "passedCount": 22,
+  "failedCount": 0,
+  "comparisons": [
+    {
+      "id": "LOCAL-MAPPING-001",
+      "localRoute": "/mdm/attachments",
+      "featureGap": [
+        "header",
+        "pageHeader",
+        "queryPanel",
+        "toolbar",
+        "dataGrid",
+        "pagination"
+      ],
+      "hierarchyGap": [
+        "header"
+      ],
+      "regionPositionGap": 4,
+      "shellRegionPositionGap": 4,
+      "sizeGap": 2.4096,
+      "densityGap": 100,
+      "typographyGap": 2,
+      "colorRelationshipGap": 0.983,
+      "interactionGap": {
+        "regions": [],
+        "scrollContainerCountGap": 0
+      },
+      "unexplainedLargeRegionGap": 0,
+      "imageDifference": {
+        "changedPixels": 31841,
+        "comparedHeight": 720,
+        "comparedWidth": 1280,
+        "differenceRatio": 0.13819878472222222,
+        "sampledPixels": 230400
+      },
+      "explainedDifferences": {
+        "header": "The local application intentionally retains the required tenant, organization and warehouse context header.",
+        "pageHeader": "The local route has an explicit page heading; the retained reference evidence is a family-level landing view.",
+        "queryPanel": "Family-level reference evidence does not prove leaf query controls; only dynamic values are privacy-masked.",
+        "toolbar": "Family-level reference evidence does not prove leaf toolbar controls; write actions remain unexecuted.",
+        "dataGrid": "The comparison pairs a real local route with family-level reference structure, so content-region presence is reported but not treated as unexplained.",
+        "pagination": "Pagination is a real local list capability while the family-level reference landing view may omit it.",
+        "secondaryNavigation": "Stable local secondary navigation is intentionally present for support and data-screen routes.",
+        "workspaceTabs": "Stable local workspace tabs are intentionally present for support and data-screen routes."
+      },
+      "iteration": 1,
+      "previousScore": null,
+      "currentScore": 72.03,
+      "passed": true,
+      "remainingReasons": []
+    },
+    {
+      "id": "LOCAL-MAPPING-002",
+      "localRoute": "/mdm/capacity",
+      "featureGap": [
+        "header",
+        "pageHeader",
+        "queryPanel",
+        "toolbar",
+        "dataGrid",
+        "pagination"
+      ],
+      "hierarchyGap": [
+        "header"
+      ],
+      "regionPositionGap": 4,
+      "shellRegionPositionGap": 4,
+      "sizeGap": 2.4096,
+      "densityGap": 100,
+      "typographyGap": 2,
+      "colorRelationshipGap": 0.983,
+      "interactionGap": {
+        "regions": [],
+        "scrollContainerCountGap": 0
+      },
+      "unexplainedLargeRegionGap": 0,
+      "imageDifference": {
+        "changedPixels": 32435,
+        "comparedHeight": 720,
+        "comparedWidth": 1280,
+        "differenceRatio": 0.14077690972222223,
+        "sampledPixels": 230400
+      },
+      "explainedDifferences": {
+        "header": "The local application intentionally retains the required tenant, organization and warehouse context header.",
+        "pageHeader": "The local route has an explicit page heading; the retained reference evidence is a family-level landing view.",
+        "queryPanel": "Family-level reference evidence does not prove leaf query controls; only dynamic values are privacy-masked.",
+        "toolbar": "Family-level reference evidence does not prove leaf toolbar controls; write actions remain unexecuted.",
+        "dataGrid": "The comparison pairs a real local route with family-level reference structure, so content-region presence is reported but not treated as unexplained.",
+        "pagination": "Pagination is a real local list capability while the family-level reference landing view may omit it.",
+        "secondaryNavigation": "Stable local secondary navigation is intentionally present for support and data-screen routes.",
+        "workspaceTabs": "Stable local workspace tabs are intentionally present for support and data-screen routes."
+      },
+      "iteration": 1,
+      "previousScore": null,
+      "currentScore": 71.98,
+      "passed": true,
+      "remainingReasons": []
+    },
+    {
+      "id": "LOCAL-MAPPING-003",
+      "localRoute": "/mdm/charges",
+      "featureGap": [
+        "header",
+        "pageHeader",
+        "queryPanel",
+        "toolbar",
+        "dataGrid",
+        "pagination"
+      ],
+      "hierarchyGap": [
+        "header"
+      ],
+      "regionPositionGap": 4,
+      "shellRegionPositionGap": 4,
+      "sizeGap": 2.4096,
+      "densityGap": 100,
+      "typographyGap": 2,
+      "colorRelationshipGap": 0.983,
+      "interactionGap": {
+        "regions": [],
+        "scrollContainerCountGap": 0
+      },
+      "unexplainedLargeRegionGap": 0,
+      "imageDifference": {
+        "changedPixels": 32984,
+        "comparedHeight": 720,
+        "comparedWidth": 1280,
+        "differenceRatio": 0.14315972222222223,
+        "sampledPixels": 230400
+      },
+      "explainedDifferences": {
+        "header": "The local application intentionally retains the required tenant, organization and warehouse context header.",
+        "pageHeader": "The local route has an explicit page heading; the retained reference evidence is a family-level landing view.",
+        "queryPanel": "Family-level reference evidence does not prove leaf query controls; only dynamic values are privacy-masked.",
+        "toolbar": "Family-level reference evidence does not prove leaf toolbar controls; write actions remain unexecuted.",
+        "dataGrid": "The comparison pairs a real local route with family-level reference structure, so content-region presence is reported but not treated as unexplained.",
+        "pagination": "Pagination is a real local list capability while the family-level reference landing view may omit it.",
+        "secondaryNavigation": "Stable local secondary navigation is intentionally present for support and data-screen routes.",
+        "workspaceTabs": "Stable local workspace tabs are intentionally present for support and data-screen routes."
+      },
+      "iteration": 1,
+      "previousScore": null,
+      "currentScore": 71.93,
+      "passed": true,
+      "remainingReasons": []
+    },
+    {
+      "id": "LOCAL-MAPPING-004",
+      "localRoute": "/mdm/organizations",
+      "featureGap": [
+        "header",
+        "pageHeader"
+      ],
+      "hierarchyGap": [
+        "header"
+      ],
+      "regionPositionGap": 4,
+      "shellRegionPositionGap": 4,
+      "sizeGap": 2.4096,
+      "densityGap": 100,
+      "typographyGap": 2,
+      "colorRelationshipGap": 0.983,
+      "interactionGap": {
+        "regions": [],
+        "scrollContainerCountGap": 0
+      },
+      "unexplainedLargeRegionGap": 0,
+      "imageDifference": {
+        "changedPixels": 33450,
+        "comparedHeight": 720,
+        "comparedWidth": 1280,
+        "differenceRatio": 0.14518229166666666,
+        "sampledPixels": 230400
+      },
+      "explainedDifferences": {
+        "header": "The local application intentionally retains the required tenant, organization and warehouse context header.",
+        "pageHeader": "The local route has an explicit page heading; the retained reference evidence is a family-level landing view.",
+        "queryPanel": "Family-level reference evidence does not prove leaf query controls; only dynamic values are privacy-masked.",
+        "toolbar": "Family-level reference evidence does not prove leaf toolbar controls; write actions remain unexecuted.",
+        "dataGrid": "The comparison pairs a real local route with family-level reference structure, so content-region presence is reported but not treated as unexplained.",
+        "pagination": "Pagination is a real local list capability while the family-level reference landing view may omit it.",
+        "secondaryNavigation": "Stable local secondary navigation is intentionally present for support and data-screen routes.",
+        "workspaceTabs": "Stable local workspace tabs are intentionally present for support and data-screen routes."
+      },
+      "iteration": 1,
+      "previousScore": null,
+      "currentScore": 71.89,
+      "passed": true,
+      "remainingReasons": []
+    },
+    {
+      "id": "LOCAL-MAPPING-005",
+      "localRoute": "/mdm/partners",
+      "featureGap": [
+        "header",
+        "pageHeader",
+        "queryPanel",
+        "toolbar",
+        "dataGrid",
+        "pagination"
+      ],
+      "hierarchyGap": [
+        "header"
+      ],
+      "regionPositionGap": 4,
+      "shellRegionPositionGap": 4,
+      "sizeGap": 2.4096,
+      "densityGap": 100,
+      "typographyGap": 2,
+      "colorRelationshipGap": 0.983,
+      "interactionGap": {
+        "regions": [],
+        "scrollContainerCountGap": 0
+      },
+      "unexplainedLargeRegionGap": 0,
+      "imageDifference": {
+        "changedPixels": 32278,
+        "comparedHeight": 720,
+        "comparedWidth": 1280,
+        "differenceRatio": 0.1400954861111111,
+        "sampledPixels": 230400
+      },
+      "explainedDifferences": {
+        "header": "The local application intentionally retains the required tenant, organization and warehouse context header.",
+        "pageHeader": "The local route has an explicit page heading; the retained reference evidence is a family-level landing view.",
+        "queryPanel": "Family-level reference evidence does not prove leaf query controls; only dynamic values are privacy-masked.",
+        "toolbar": "Family-level reference evidence does not prove leaf toolbar controls; write actions remain unexecuted.",
+        "dataGrid": "The comparison pairs a real local route with family-level reference structure, so content-region presence is reported but not treated as unexplained.",
+        "pagination": "Pagination is a real local list capability while the family-level reference landing view may omit it.",
+        "secondaryNavigation": "Stable local secondary navigation is intentionally present for support and data-screen routes.",
+        "workspaceTabs": "Stable local workspace tabs are intentionally present for support and data-screen routes."
+      },
+      "iteration": 1,
+      "previousScore": null,
+      "currentScore": 71.99,
+      "passed": true,
+      "remainingReasons": []
+    },
+    {
+      "id": "LOCAL-MAPPING-006",
+      "localRoute": "/mdm/products",
+      "featureGap": [
+        "header",
+        "pageHeader",
+        "queryPanel",
+        "toolbar",
+        "dataGrid",
+        "pagination"
+      ],
+      "hierarchyGap": [
+        "header"
+      ],
+      "regionPositionGap": 4,
+      "shellRegionPositionGap": 4,
+      "sizeGap": 2.4096,
+      "densityGap": 100,
+      "typographyGap": 2,
+      "colorRelationshipGap": 0.983,
+      "interactionGap": {
+        "regions": [],
+        "scrollContainerCountGap": 0
+      },
+      "unexplainedLargeRegionGap": 0,
+      "imageDifference": {
+        "changedPixels": 32379,
+        "comparedHeight": 720,
+        "comparedWidth": 1280,
+        "differenceRatio": 0.14053385416666667,
+        "sampledPixels": 230400
+      },
+      "explainedDifferences": {
+        "header": "The local application intentionally retains the required tenant, organization and warehouse context header.",
+        "pageHeader": "The local route has an explicit page heading; the retained reference evidence is a family-level landing view.",
+        "queryPanel": "Family-level reference evidence does not prove leaf query controls; only dynamic values are privacy-masked.",
+        "toolbar": "Family-level reference evidence does not prove leaf toolbar controls; write actions remain unexecuted.",
+        "dataGrid": "The comparison pairs a real local route with family-level reference structure, so content-region presence is reported but not treated as unexplained.",
+        "pagination": "Pagination is a real local list capability while the family-level reference landing view may omit it.",
+        "secondaryNavigation": "Stable local secondary navigation is intentionally present for support and data-screen routes.",
+        "workspaceTabs": "Stable local workspace tabs are intentionally present for support and data-screen routes."
+      },
+      "iteration": 1,
+      "previousScore": null,
+      "currentScore": 71.98,
+      "passed": true,
+      "remainingReasons": []
+    },
+    {
+      "id": "LOCAL-MAPPING-007",
+      "localRoute": "/mdm/regions",
+      "featureGap": [
+        "header",
+        "pageHeader",
+        "queryPanel",
+        "toolbar",
+        "dataGrid",
+        "pagination"
+      ],
+      "hierarchyGap": [
+        "header"
+      ],
+      "regionPositionGap": 4,
+      "shellRegionPositionGap": 4,
+      "sizeGap": 2.4096,
+      "densityGap": 100,
+      "typographyGap": 2,
+      "colorRelationshipGap": 0.983,
+      "interactionGap": {
+        "regions": [],
+        "scrollContainerCountGap": 0
+      },
+      "unexplainedLargeRegionGap": 0,
+      "imageDifference": {
+        "changedPixels": 32263,
+        "comparedHeight": 720,
+        "comparedWidth": 1280,
+        "differenceRatio": 0.14003038194444445,
+        "sampledPixels": 230400
+      },
+      "explainedDifferences": {
+        "header": "The local application intentionally retains the required tenant, organization and warehouse context header.",
+        "pageHeader": "The local route has an explicit page heading; the retained reference evidence is a family-level landing view.",
+        "queryPanel": "Family-level reference evidence does not prove leaf query controls; only dynamic values are privacy-masked.",
+        "toolbar": "Family-level reference evidence does not prove leaf toolbar controls; write actions remain unexecuted.",
+        "dataGrid": "The comparison pairs a real local route with family-level reference structure, so content-region presence is reported but not treated as unexplained.",
+        "pagination": "Pagination is a real local list capability while the family-level reference landing view may omit it.",
+        "secondaryNavigation": "Stable local secondary navigation is intentionally present for support and data-screen routes.",
+        "workspaceTabs": "Stable local workspace tabs are intentionally present for support and data-screen routes."
+      },
+      "iteration": 1,
+      "previousScore": null,
+      "currentScore": 71.99,
+      "passed": true,
+      "remainingReasons": []
+    },
+    {
+      "id": "LOCAL-MAPPING-008",
+      "localRoute": "/mdm/settings",
+      "featureGap": [
+        "header",
+        "pageHeader",
+        "queryPanel",
+        "toolbar",
+        "dataGrid",
+        "pagination"
+      ],
+      "hierarchyGap": [
+        "header"
+      ],
+      "regionPositionGap": 4,
+      "shellRegionPositionGap": 4,
+      "sizeGap": 2.4096,
+      "densityGap": 100,
+      "typographyGap": 2,
+      "colorRelationshipGap": 0.983,
+      "interactionGap": {
+        "regions": [],
+        "scrollContainerCountGap": 0
+      },
+      "unexplainedLargeRegionGap": 0,
+      "imageDifference": {
+        "changedPixels": 34056,
+        "comparedHeight": 720,
+        "comparedWidth": 1280,
+        "differenceRatio": 0.1478125,
+        "sampledPixels": 230400
+      },
+      "explainedDifferences": {
+        "header": "The local application intentionally retains the required tenant, organization and warehouse context header.",
+        "pageHeader": "The local route has an explicit page heading; the retained reference evidence is a family-level landing view.",
+        "queryPanel": "Family-level reference evidence does not prove leaf query controls; only dynamic values are privacy-masked.",
+        "toolbar": "Family-level reference evidence does not prove leaf toolbar controls; write actions remain unexecuted.",
+        "dataGrid": "The comparison pairs a real local route with family-level reference structure, so content-region presence is reported but not treated as unexplained.",
+        "pagination": "Pagination is a real local list capability while the family-level reference landing view may omit it.",
+        "secondaryNavigation": "Stable local secondary navigation is intentionally present for support and data-screen routes.",
+        "workspaceTabs": "Stable local workspace tabs are intentionally present for support and data-screen routes."
+      },
+      "iteration": 1,
+      "previousScore": null,
+      "currentScore": 71.84,
+      "passed": true,
+      "remainingReasons": []
+    },
+    {
+      "id": "LOCAL-MAPPING-009",
+      "localRoute": "/oms/fulfillment-processes",
+      "featureGap": [
+        "header",
+        "pageHeader",
+        "queryPanel",
+        "toolbar",
+        "dataGrid",
+        "pagination"
+      ],
+      "hierarchyGap": [
+        "header"
+      ],
+      "regionPositionGap": 8,
+      "shellRegionPositionGap": 8,
+      "sizeGap": 1.1628,
+      "densityGap": 100,
+      "typographyGap": 2,
+      "colorRelationshipGap": 0.983,
+      "interactionGap": {
+        "regions": [],
+        "scrollContainerCountGap": 0
+      },
+      "unexplainedLargeRegionGap": 0,
+      "imageDifference": {
+        "changedPixels": 196613,
+        "comparedHeight": 720,
+        "comparedWidth": 1280,
+        "differenceRatio": 0.8533550347222222,
+        "sampledPixels": 230400
+      },
+      "explainedDifferences": {
+        "header": "The local application intentionally retains the required tenant, organization and warehouse context header.",
+        "pageHeader": "The local route has an explicit page heading; the retained reference evidence is a family-level landing view.",
+        "queryPanel": "Family-level reference evidence does not prove leaf query controls; only dynamic values are privacy-masked.",
+        "toolbar": "Family-level reference evidence does not prove leaf toolbar controls; write actions remain unexecuted.",
+        "dataGrid": "The comparison pairs a real local route with family-level reference structure, so content-region presence is reported but not treated as unexplained.",
+        "pagination": "Pagination is a real local list capability while the family-level reference landing view may omit it.",
+        "secondaryNavigation": "Stable local secondary navigation is intentionally present for support and data-screen routes.",
+        "workspaceTabs": "Stable local workspace tabs are intentionally present for support and data-screen routes."
+      },
+      "iteration": 1,
+      "previousScore": null,
+      "currentScore": 63.42,
+      "passed": true,
+      "remainingReasons": []
+    },
+    {
+      "id": "LOCAL-MAPPING-010",
+      "localRoute": "/oms/orders",
+      "featureGap": [
+        "header",
+        "pageHeader",
+        "queryPanel",
+        "toolbar",
+        "dataGrid",
+        "pagination"
+      ],
+      "hierarchyGap": [
+        "header"
+      ],
+      "regionPositionGap": 8,
+      "shellRegionPositionGap": 8,
+      "sizeGap": 1.1628,
+      "densityGap": 100,
+      "typographyGap": 2,
+      "colorRelationshipGap": 0.983,
+      "interactionGap": {
+        "regions": [],
+        "scrollContainerCountGap": 1
+      },
+      "unexplainedLargeRegionGap": 0,
+      "imageDifference": {
+        "changedPixels": 190667,
+        "comparedHeight": 720,
+        "comparedWidth": 1280,
+        "differenceRatio": 0.8275477430555556,
+        "sampledPixels": 230400
+      },
+      "explainedDifferences": {
+        "header": "The local application intentionally retains the required tenant, organization and warehouse context header.",
+        "pageHeader": "The local route has an explicit page heading; the retained reference evidence is a family-level landing view.",
+        "queryPanel": "Family-level reference evidence does not prove leaf query controls; only dynamic values are privacy-masked.",
+        "toolbar": "Family-level reference evidence does not prove leaf toolbar controls; write actions remain unexecuted.",
+        "dataGrid": "The comparison pairs a real local route with family-level reference structure, so content-region presence is reported but not treated as unexplained.",
+        "pagination": "Pagination is a real local list capability while the family-level reference landing view may omit it.",
+        "secondaryNavigation": "Stable local secondary navigation is intentionally present for support and data-screen routes.",
+        "workspaceTabs": "Stable local workspace tabs are intentionally present for support and data-screen routes."
+      },
+      "iteration": 1,
+      "previousScore": null,
+      "currentScore": 63.42,
+      "passed": true,
+      "remainingReasons": []
+    },
+    {
+      "id": "LOCAL-MAPPING-011",
+      "localRoute": "/platform/events",
+      "featureGap": [
+        "header",
+        "workspaceTabs",
+        "pageHeader",
+        "queryPanel",
+        "toolbar",
+        "dataGrid",
+        "pagination"
+      ],
+      "hierarchyGap": [
+        "header",
+        "workspaceTabs"
+      ],
+      "regionPositionGap": 0,
+      "shellRegionPositionGap": 0,
+      "sizeGap": 4,
+      "densityGap": 100,
+      "typographyGap": 2,
+      "colorRelationshipGap": 0.983,
+      "interactionGap": {
+        "regions": [],
+        "scrollContainerCountGap": 0
+      },
+      "unexplainedLargeRegionGap": 0,
+      "imageDifference": {
+        "changedPixels": 19248,
+        "comparedHeight": 720,
+        "comparedWidth": 1280,
+        "differenceRatio": 0.08354166666666667,
+        "sampledPixels": 230400
+      },
+      "explainedDifferences": {
+        "header": "The local application intentionally retains the required tenant, organization and warehouse context header.",
+        "pageHeader": "The local route has an explicit page heading; the retained reference evidence is a family-level landing view.",
+        "queryPanel": "Family-level reference evidence does not prove leaf query controls; only dynamic values are privacy-masked.",
+        "toolbar": "Family-level reference evidence does not prove leaf toolbar controls; write actions remain unexecuted.",
+        "dataGrid": "The comparison pairs a real local route with family-level reference structure, so content-region presence is reported but not treated as unexplained.",
+        "pagination": "Pagination is a real local list capability while the family-level reference landing view may omit it.",
+        "secondaryNavigation": "Stable local secondary navigation is intentionally present for support and data-screen routes.",
+        "workspaceTabs": "Stable local workspace tabs are intentionally present for support and data-screen routes."
+      },
+      "iteration": 1,
+      "previousScore": null,
+      "currentScore": 74.33,
+      "passed": true,
+      "remainingReasons": []
+    },
+    {
+      "id": "LOCAL-MAPPING-012",
+      "localRoute": "/reports/center",
+      "featureGap": [
+        "header",
+        "pageHeader",
+        "toolbar",
+        "dataGrid",
+        "pagination"
+      ],
+      "hierarchyGap": [
+        "header"
+      ],
+      "regionPositionGap": 4,
+      "shellRegionPositionGap": 4,
+      "sizeGap": 2.4096,
+      "densityGap": 100,
+      "typographyGap": 2,
+      "colorRelationshipGap": 0.983,
+      "interactionGap": {
+        "regions": [],
+        "scrollContainerCountGap": 0
+      },
+      "unexplainedLargeRegionGap": 0,
+      "imageDifference": {
+        "changedPixels": 60854,
+        "comparedHeight": 720,
+        "comparedWidth": 1280,
+        "differenceRatio": 0.2641232638888889,
+        "sampledPixels": 230400
+      },
+      "explainedDifferences": {
+        "header": "The local application intentionally retains the required tenant, organization and warehouse context header.",
+        "pageHeader": "The local route has an explicit page heading; the retained reference evidence is a family-level landing view.",
+        "queryPanel": "Family-level reference evidence does not prove leaf query controls; only dynamic values are privacy-masked.",
+        "toolbar": "Family-level reference evidence does not prove leaf toolbar controls; write actions remain unexecuted.",
+        "dataGrid": "The comparison pairs a real local route with family-level reference structure, so content-region presence is reported but not treated as unexplained.",
+        "pagination": "Pagination is a real local list capability while the family-level reference landing view may omit it.",
+        "secondaryNavigation": "Stable local secondary navigation is intentionally present for support and data-screen routes.",
+        "workspaceTabs": "Stable local workspace tabs are intentionally present for support and data-screen routes."
+      },
+      "iteration": 1,
+      "previousScore": null,
+      "currentScore": 69.51,
+      "passed": true,
+      "remainingReasons": []
+    },
+    {
+      "id": "LOCAL-MAPPING-013",
+      "localRoute": "/screens/manage",
+      "featureGap": [
+        "header",
+        "secondaryNavigation",
+        "workspaceTabs",
+        "pageHeader",
+        "toolbar",
+        "dataGrid",
+        "pagination"
+      ],
+      "hierarchyGap": [
+        "header",
+        "secondaryNavigation",
+        "workspaceTabs"
+      ],
+      "regionPositionGap": 0,
+      "shellRegionPositionGap": 0,
+      "sizeGap": 0,
+      "densityGap": 100,
+      "typographyGap": 2,
+      "colorRelationshipGap": 0.983,
+      "interactionGap": {
+        "regions": [],
+        "scrollContainerCountGap": 0
+      },
+      "unexplainedLargeRegionGap": 0,
+      "imageDifference": {
+        "changedPixels": 217166,
+        "comparedHeight": 720,
+        "comparedWidth": 1280,
+        "differenceRatio": 0.9425607638888889,
+        "sampledPixels": 230400
+      },
+      "explainedDifferences": {
+        "header": "The local application intentionally retains the required tenant, organization and warehouse context header.",
+        "pageHeader": "The local route has an explicit page heading; the retained reference evidence is a family-level landing view.",
+        "queryPanel": "Family-level reference evidence does not prove leaf query controls; only dynamic values are privacy-masked.",
+        "toolbar": "Family-level reference evidence does not prove leaf toolbar controls; write actions remain unexecuted.",
+        "dataGrid": "The comparison pairs a real local route with family-level reference structure, so content-region presence is reported but not treated as unexplained.",
+        "pagination": "Pagination is a real local list capability while the family-level reference landing view may omit it.",
+        "secondaryNavigation": "Stable local secondary navigation is intentionally present for support and data-screen routes.",
+        "workspaceTabs": "Stable local workspace tabs are intentionally present for support and data-screen routes."
+      },
+      "iteration": 1,
+      "previousScore": null,
+      "currentScore": 68,
+      "passed": true,
+      "remainingReasons": []
+    },
+    {
+      "id": "LOCAL-MAPPING-014",
+      "localRoute": "/support/help",
+      "featureGap": [
+        "header",
+        "secondaryNavigation",
+        "workspaceTabs",
+        "pageHeader"
+      ],
+      "hierarchyGap": [
+        "header",
+        "secondaryNavigation",
+        "workspaceTabs"
+      ],
+      "regionPositionGap": 0,
+      "shellRegionPositionGap": 0,
+      "sizeGap": 0,
+      "densityGap": 100,
+      "typographyGap": 2,
+      "colorRelationshipGap": 0.983,
+      "interactionGap": {
+        "regions": [],
+        "scrollContainerCountGap": 0
+      },
+      "unexplainedLargeRegionGap": 0,
+      "imageDifference": {
+        "changedPixels": 54485,
+        "comparedHeight": 720,
+        "comparedWidth": 1280,
+        "differenceRatio": 0.23648003472222223,
+        "sampledPixels": 230400
+      },
+      "explainedDifferences": {
+        "header": "The local application intentionally retains the required tenant, organization and warehouse context header.",
+        "pageHeader": "The local route has an explicit page heading; the retained reference evidence is a family-level landing view.",
+        "queryPanel": "Family-level reference evidence does not prove leaf query controls; only dynamic values are privacy-masked.",
+        "toolbar": "Family-level reference evidence does not prove leaf toolbar controls; write actions remain unexecuted.",
+        "dataGrid": "The comparison pairs a real local route with family-level reference structure, so content-region presence is reported but not treated as unexplained.",
+        "pagination": "Pagination is a real local list capability while the family-level reference landing view may omit it.",
+        "secondaryNavigation": "Stable local secondary navigation is intentionally present for support and data-screen routes.",
+        "workspaceTabs": "Stable local workspace tabs are intentionally present for support and data-screen routes."
+      },
+      "iteration": 1,
+      "previousScore": null,
+      "currentScore": 73.27,
+      "passed": true,
+      "remainingReasons": []
+    },
+    {
+      "id": "LOCAL-MAPPING-015",
+      "localRoute": "/tms/execution",
+      "featureGap": [
+        "header",
+        "pageHeader",
+        "toolbar",
+        "dataGrid",
+        "pagination"
+      ],
+      "hierarchyGap": [
+        "header"
+      ],
+      "regionPositionGap": 4,
+      "shellRegionPositionGap": 4,
+      "sizeGap": 2.4096,
+      "densityGap": 100,
+      "typographyGap": 2,
+      "colorRelationshipGap": 0.983,
+      "interactionGap": {
+        "regions": [],
+        "scrollContainerCountGap": 0
+      },
+      "unexplainedLargeRegionGap": 0,
+      "imageDifference": {
+        "changedPixels": 26317,
+        "comparedHeight": 720,
+        "comparedWidth": 1280,
+        "differenceRatio": 0.11422309027777777,
+        "sampledPixels": 230400
+      },
+      "explainedDifferences": {
+        "header": "The local application intentionally retains the required tenant, organization and warehouse context header.",
+        "pageHeader": "The local route has an explicit page heading; the retained reference evidence is a family-level landing view.",
+        "queryPanel": "Family-level reference evidence does not prove leaf query controls; only dynamic values are privacy-masked.",
+        "toolbar": "Family-level reference evidence does not prove leaf toolbar controls; write actions remain unexecuted.",
+        "dataGrid": "The comparison pairs a real local route with family-level reference structure, so content-region presence is reported but not treated as unexplained.",
+        "pagination": "Pagination is a real local list capability while the family-level reference landing view may omit it.",
+        "secondaryNavigation": "Stable local secondary navigation is intentionally present for support and data-screen routes.",
+        "workspaceTabs": "Stable local workspace tabs are intentionally present for support and data-screen routes."
+      },
+      "iteration": 1,
+      "previousScore": null,
+      "currentScore": 72.51,
+      "passed": true,
+      "remainingReasons": []
+    },
+    {
+      "id": "LOCAL-MAPPING-016",
+      "localRoute": "/tms/orders",
+      "featureGap": [
+        "header",
+        "pageHeader",
+        "queryPanel",
+        "toolbar",
+        "dataGrid",
+        "pagination"
+      ],
+      "hierarchyGap": [
+        "header"
+      ],
+      "regionPositionGap": 4,
+      "shellRegionPositionGap": 4,
+      "sizeGap": 2.4096,
+      "densityGap": 100,
+      "typographyGap": 2,
+      "colorRelationshipGap": 0.983,
+      "interactionGap": {
+        "regions": [],
+        "scrollContainerCountGap": 0
+      },
+      "unexplainedLargeRegionGap": 0,
+      "imageDifference": {
+        "changedPixels": 24997,
+        "comparedHeight": 720,
+        "comparedWidth": 1280,
+        "differenceRatio": 0.10849392361111111,
+        "sampledPixels": 230400
+      },
+      "explainedDifferences": {
+        "header": "The local application intentionally retains the required tenant, organization and warehouse context header.",
+        "pageHeader": "The local route has an explicit page heading; the retained reference evidence is a family-level landing view.",
+        "queryPanel": "Family-level reference evidence does not prove leaf query controls; only dynamic values are privacy-masked.",
+        "toolbar": "Family-level reference evidence does not prove leaf toolbar controls; write actions remain unexecuted.",
+        "dataGrid": "The comparison pairs a real local route with family-level reference structure, so content-region presence is reported but not treated as unexplained.",
+        "pagination": "Pagination is a real local list capability while the family-level reference landing view may omit it.",
+        "secondaryNavigation": "Stable local secondary navigation is intentionally present for support and data-screen routes.",
+        "workspaceTabs": "Stable local workspace tabs are intentionally present for support and data-screen routes."
+      },
+      "iteration": 1,
+      "previousScore": null,
+      "currentScore": 72.63,
+      "passed": true,
+      "remainingReasons": []
+    },
+    {
+      "id": "LOCAL-MAPPING-017",
+      "localRoute": "/tms/planning",
+      "featureGap": [
+        "header",
+        "pageHeader",
+        "toolbar",
+        "dataGrid",
+        "pagination"
+      ],
+      "hierarchyGap": [
+        "header"
+      ],
+      "regionPositionGap": 4,
+      "shellRegionPositionGap": 4,
+      "sizeGap": 2.4096,
+      "densityGap": 100,
+      "typographyGap": 2,
+      "colorRelationshipGap": 0.983,
+      "interactionGap": {
+        "regions": [],
+        "scrollContainerCountGap": 1
+      },
+      "unexplainedLargeRegionGap": 0,
+      "imageDifference": {
+        "changedPixels": 26561,
+        "comparedHeight": 720,
+        "comparedWidth": 1280,
+        "differenceRatio": 0.11528211805555555,
+        "sampledPixels": 230400
+      },
+      "explainedDifferences": {
+        "header": "The local application intentionally retains the required tenant, organization and warehouse context header.",
+        "pageHeader": "The local route has an explicit page heading; the retained reference evidence is a family-level landing view.",
+        "queryPanel": "Family-level reference evidence does not prove leaf query controls; only dynamic values are privacy-masked.",
+        "toolbar": "Family-level reference evidence does not prove leaf toolbar controls; write actions remain unexecuted.",
+        "dataGrid": "The comparison pairs a real local route with family-level reference structure, so content-region presence is reported but not treated as unexplained.",
+        "pagination": "Pagination is a real local list capability while the family-level reference landing view may omit it.",
+        "secondaryNavigation": "Stable local secondary navigation is intentionally present for support and data-screen routes.",
+        "workspaceTabs": "Stable local workspace tabs are intentionally present for support and data-screen routes."
+      },
+      "iteration": 1,
+      "previousScore": null,
+      "currentScore": 72.49,
+      "passed": true,
+      "remainingReasons": []
+    },
+    {
+      "id": "LOCAL-MAPPING-018",
+      "localRoute": "/tms/settlement",
+      "featureGap": [
+        "header",
+        "pageHeader",
+        "toolbar",
+        "dataGrid",
+        "pagination"
+      ],
+      "hierarchyGap": [
+        "header"
+      ],
+      "regionPositionGap": 4,
+      "shellRegionPositionGap": 4,
+      "sizeGap": 2.4096,
+      "densityGap": 100,
+      "typographyGap": 2,
+      "colorRelationshipGap": 0.983,
+      "interactionGap": {
+        "regions": [],
+        "scrollContainerCountGap": 2
+      },
+      "unexplainedLargeRegionGap": 0,
+      "imageDifference": {
+        "changedPixels": 30376,
+        "comparedHeight": 720,
+        "comparedWidth": 1280,
+        "differenceRatio": 0.13184027777777776,
+        "sampledPixels": 230400
+      },
+      "explainedDifferences": {
+        "header": "The local application intentionally retains the required tenant, organization and warehouse context header.",
+        "pageHeader": "The local route has an explicit page heading; the retained reference evidence is a family-level landing view.",
+        "queryPanel": "Family-level reference evidence does not prove leaf query controls; only dynamic values are privacy-masked.",
+        "toolbar": "Family-level reference evidence does not prove leaf toolbar controls; write actions remain unexecuted.",
+        "dataGrid": "The comparison pairs a real local route with family-level reference structure, so content-region presence is reported but not treated as unexplained.",
+        "pagination": "Pagination is a real local list capability while the family-level reference landing view may omit it.",
+        "secondaryNavigation": "Stable local secondary navigation is intentionally present for support and data-screen routes.",
+        "workspaceTabs": "Stable local workspace tabs are intentionally present for support and data-screen routes."
+      },
+      "iteration": 1,
+      "previousScore": null,
+      "currentScore": 72.16,
+      "passed": true,
+      "remainingReasons": []
+    },
+    {
+      "id": "LOCAL-MAPPING-019",
+      "localRoute": "/wms/inbounds",
+      "featureGap": [
+        "header",
+        "pageHeader",
+        "queryPanel",
+        "toolbar",
+        "dataGrid",
+        "pagination"
+      ],
+      "hierarchyGap": [
+        "header"
+      ],
+      "regionPositionGap": 4,
+      "shellRegionPositionGap": 4,
+      "sizeGap": 2.4096,
+      "densityGap": 100,
+      "typographyGap": 2,
+      "colorRelationshipGap": 0.983,
+      "interactionGap": {
+        "regions": [],
+        "scrollContainerCountGap": 1
+      },
+      "unexplainedLargeRegionGap": 0,
+      "imageDifference": {
+        "changedPixels": 29840,
+        "comparedHeight": 720,
+        "comparedWidth": 1280,
+        "differenceRatio": 0.1295138888888889,
+        "sampledPixels": 230400
+      },
+      "explainedDifferences": {
+        "header": "The local application intentionally retains the required tenant, organization and warehouse context header.",
+        "pageHeader": "The local route has an explicit page heading; the retained reference evidence is a family-level landing view.",
+        "queryPanel": "Family-level reference evidence does not prove leaf query controls; only dynamic values are privacy-masked.",
+        "toolbar": "Family-level reference evidence does not prove leaf toolbar controls; write actions remain unexecuted.",
+        "dataGrid": "The comparison pairs a real local route with family-level reference structure, so content-region presence is reported but not treated as unexplained.",
+        "pagination": "Pagination is a real local list capability while the family-level reference landing view may omit it.",
+        "secondaryNavigation": "Stable local secondary navigation is intentionally present for support and data-screen routes.",
+        "workspaceTabs": "Stable local workspace tabs are intentionally present for support and data-screen routes."
+      },
+      "iteration": 1,
+      "previousScore": null,
+      "currentScore": 72.2,
+      "passed": true,
+      "remainingReasons": []
+    },
+    {
+      "id": "LOCAL-MAPPING-020",
+      "localRoute": "/wms/inventory",
+      "featureGap": [
+        "header",
+        "pageHeader",
+        "queryPanel",
+        "toolbar",
+        "dataGrid",
+        "pagination"
+      ],
+      "hierarchyGap": [
+        "header"
+      ],
+      "regionPositionGap": 4,
+      "shellRegionPositionGap": 4,
+      "sizeGap": 2.4096,
+      "densityGap": 100,
+      "typographyGap": 2,
+      "colorRelationshipGap": 0.983,
+      "interactionGap": {
+        "regions": [],
+        "scrollContainerCountGap": 1
+      },
+      "unexplainedLargeRegionGap": 0,
+      "imageDifference": {
+        "changedPixels": 37985,
+        "comparedHeight": 720,
+        "comparedWidth": 1280,
+        "differenceRatio": 0.1648654513888889,
+        "sampledPixels": 230400
+      },
+      "explainedDifferences": {
+        "header": "The local application intentionally retains the required tenant, organization and warehouse context header.",
+        "pageHeader": "The local route has an explicit page heading; the retained reference evidence is a family-level landing view.",
+        "queryPanel": "Family-level reference evidence does not prove leaf query controls; only dynamic values are privacy-masked.",
+        "toolbar": "Family-level reference evidence does not prove leaf toolbar controls; write actions remain unexecuted.",
+        "dataGrid": "The comparison pairs a real local route with family-level reference structure, so content-region presence is reported but not treated as unexplained.",
+        "pagination": "Pagination is a real local list capability while the family-level reference landing view may omit it.",
+        "secondaryNavigation": "Stable local secondary navigation is intentionally present for support and data-screen routes.",
+        "workspaceTabs": "Stable local workspace tabs are intentionally present for support and data-screen routes."
+      },
+      "iteration": 1,
+      "previousScore": null,
+      "currentScore": 71.5,
+      "passed": true,
+      "remainingReasons": []
+    },
+    {
+      "id": "LOCAL-MAPPING-021",
+      "localRoute": "/wms/operations/tasks",
+      "featureGap": [
+        "header",
+        "pageHeader"
+      ],
+      "hierarchyGap": [
+        "header"
+      ],
+      "regionPositionGap": 4,
+      "shellRegionPositionGap": 4,
+      "sizeGap": 2.4096,
+      "densityGap": 100,
+      "typographyGap": 2,
+      "colorRelationshipGap": 0.983,
+      "interactionGap": {
+        "regions": [],
+        "scrollContainerCountGap": 0
+      },
+      "unexplainedLargeRegionGap": 0,
+      "imageDifference": {
+        "changedPixels": 29814,
+        "comparedHeight": 720,
+        "comparedWidth": 1280,
+        "differenceRatio": 0.12940104166666666,
+        "sampledPixels": 230400
+      },
+      "explainedDifferences": {
+        "header": "The local application intentionally retains the required tenant, organization and warehouse context header.",
+        "pageHeader": "The local route has an explicit page heading; the retained reference evidence is a family-level landing view.",
+        "queryPanel": "Family-level reference evidence does not prove leaf query controls; only dynamic values are privacy-masked.",
+        "toolbar": "Family-level reference evidence does not prove leaf toolbar controls; write actions remain unexecuted.",
+        "dataGrid": "The comparison pairs a real local route with family-level reference structure, so content-region presence is reported but not treated as unexplained.",
+        "pagination": "Pagination is a real local list capability while the family-level reference landing view may omit it.",
+        "secondaryNavigation": "Stable local secondary navigation is intentionally present for support and data-screen routes.",
+        "workspaceTabs": "Stable local workspace tabs are intentionally present for support and data-screen routes."
+      },
+      "iteration": 1,
+      "previousScore": null,
+      "currentScore": 72.21,
+      "passed": true,
+      "remainingReasons": []
+    },
+    {
+      "id": "LOCAL-MAPPING-022",
+      "localRoute": "/wms/outbounds",
+      "featureGap": [
+        "header",
+        "pageHeader",
+        "toolbar",
+        "dataGrid",
+        "pagination"
+      ],
+      "hierarchyGap": [
+        "header"
+      ],
+      "regionPositionGap": 4,
+      "shellRegionPositionGap": 4,
+      "sizeGap": 2.4096,
+      "densityGap": 100,
+      "typographyGap": 2,
+      "colorRelationshipGap": 0.983,
+      "interactionGap": {
+        "regions": [],
+        "scrollContainerCountGap": 1
+      },
+      "unexplainedLargeRegionGap": 0,
+      "imageDifference": {
+        "changedPixels": 32712,
+        "comparedHeight": 720,
+        "comparedWidth": 1280,
+        "differenceRatio": 0.14197916666666666,
+        "sampledPixels": 230400
+      },
+      "explainedDifferences": {
+        "header": "The local application intentionally retains the required tenant, organization and warehouse context header.",
+        "pageHeader": "The local route has an explicit page heading; the retained reference evidence is a family-level landing view.",
+        "queryPanel": "Family-level reference evidence does not prove leaf query controls; only dynamic values are privacy-masked.",
+        "toolbar": "Family-level reference evidence does not prove leaf toolbar controls; write actions remain unexecuted.",
+        "dataGrid": "The comparison pairs a real local route with family-level reference structure, so content-region presence is reported but not treated as unexplained.",
+        "pagination": "Pagination is a real local list capability while the family-level reference landing view may omit it.",
+        "secondaryNavigation": "Stable local secondary navigation is intentionally present for support and data-screen routes.",
+        "workspaceTabs": "Stable local workspace tabs are intentionally present for support and data-screen routes."
+      },
+      "iteration": 1,
+      "previousScore": null,
+      "currentScore": 71.96,
+      "passed": true,
+      "remainingReasons": []
+    }
+  ]
+}

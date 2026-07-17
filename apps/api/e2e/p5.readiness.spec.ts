@@ -149,6 +149,61 @@ test.beforeAll(async () => {
 
 test.afterAll(async () => prisma.$disconnect());
 
+test('API entry security headers, body limits and real external guard are active', async ({
+  request,
+}) => {
+  const health = await request.get('/health', {
+    headers: { 'X-Correlation-Id': 'p5-entry-security' },
+  });
+  expect(health.ok()).toBe(true);
+  expect(health.headers()['x-content-type-options']).toBe('nosniff');
+  expect(health.headers()['x-correlation-id']).toBe('p5-entry-security');
+
+  const preflight = await request.fetch('/api/v1/auth/login', {
+    headers: {
+      'Access-Control-Request-Method': 'POST',
+      Origin: 'http://localhost:5173',
+    },
+    method: 'OPTIONS',
+  });
+  expect(preflight.headers()['access-control-allow-origin']).toBe(
+    'http://localhost:5173',
+  );
+
+  const oversized = await request.post('/api/v1/auth/login', {
+    data: {
+      deviceId: 'x'.repeat(1_100_000),
+      password: 'not-used',
+      tenantCode: 'PLATFORM',
+      username: 'platform-admin',
+    },
+    headers: { 'X-Correlation-Id': 'p5-body-limit' },
+  });
+  expect(oversized.status()).toBe(413);
+  const oversizedText = await oversized.text();
+  expect(JSON.parse(oversizedText)).toEqual(
+    expect.objectContaining({
+      code: 'HTTP_413',
+      correlationId: 'p5-body-limit',
+    }),
+  );
+  expect(oversizedText).not.toContain('stack');
+
+  const external = await request.post('/api/v1/external/iot/heartbeat', {
+    data: { forgedMethod: 'GET', forgedRoute: '/health' },
+    headers: {
+      'X-Correlation-Id': 'p5-external-guard',
+      'X-SCM-Method': 'GET',
+      'X-SCM-Route': '/health',
+    },
+  });
+  expect(external.status()).toBe(401);
+  expect(await responseBody(external)).toMatchObject({
+    code: 'GATEWAY_CREDENTIAL_REQUIRED',
+    correlationId: 'p5-external-guard',
+  });
+});
+
 test('production latency budgets hold for list, command and RF confirmation', async ({
   request,
 }) => {
@@ -236,6 +291,47 @@ test('cross-tenant header and resource references are denied', async ({
     where: { id: foreignBackupId },
   });
   expect(foreignBackup).toMatchObject({ status: 'PLANNED', version: 1 });
+});
+
+test('worker control identity is tenant-discovering but route-restricted', async ({
+  request,
+}) => {
+  const userToken = await login(request);
+  const deniedDiscovery = await request.get('/api/v1/internal/worker/tenants', {
+    headers: { Authorization: `Bearer ${userToken}` },
+  });
+  expect(deniedDiscovery.status()).toBe(401);
+
+  const workerToken = process.env.WORKER_CONTROL_TOKEN!;
+  const discovery = await request.get('/api/v1/internal/worker/tenants', {
+    headers: { Authorization: `Bearer ${workerToken}` },
+  });
+  expect(discovery.ok()).toBe(true);
+  expect(
+    ((await responseBody(discovery)).items as JsonObject[]).map(
+      (item) => item.tenantId,
+    ),
+  ).toContain(tenantId);
+
+  const forbidden = await request.get('/api/v1/oms/orders', {
+    headers: headers(workerToken),
+  });
+  expect(forbidden.status()).toBe(403);
+  expect(await responseBody(forbidden)).toMatchObject({
+    code: 'WORKER_OPERATION_FORBIDDEN',
+  });
+
+  const backlog = await request.get('/api/v1/internal/worker/backlog', {
+    headers: headers(workerToken),
+  });
+  expect(backlog.ok()).toBe(true);
+  expect(await responseBody(backlog)).toMatchObject({
+    eventDeliveries: expect.any(Number),
+    jobs: expect.any(Number),
+    outbox: expect.any(Number),
+    printJobs: expect.any(Number),
+    webhooks: expect.any(Number),
+  });
 });
 
 test('dead-letter replay is state-safe and idempotent', async ({ request }) => {

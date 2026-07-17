@@ -9,42 +9,275 @@ const prisma = new PrismaClient();
 databaseDescribe('fulfillment, shipment and cutoff release persistence', () => {
   afterAll(() => prisma.$disconnect());
   it('releases allocated orders, persists route requests and aggregates progress safely', async () => {
-    const tenantId = randomUUID(); const actorId = randomUUID(); const warehouseId = randomUUID(); const ownerId = randomUUID(); const productId = randomUUID(); const addressId = randomUUID();
-    const context: TenantContext = { accountId: actorId, accountKind: 'TENANT_ADMIN', deviceId: 'release-db', organizationIds: [], permissionVersion: 1, tenantId, tokenId: randomUUID() };
-    const command = () => ({ correlationId: randomUUID(), idempotencyKey: randomUUID(), ipAddress: '127.0.0.1' });
-    const calendar = await prisma.businessCalendar.create({ data: { code: 'RELEASE_TEST', createdBy: actorId, effectiveFrom: new Date('2020-01-01'), effectiveUntil: new Date('2030-12-31'), id: randomUUID(), name: 'Release test', publishedAt: new Date(), status: 'ACTIVE', tenantId, timeZone: 'Asia/Shanghai', updatedBy: actorId, versionNumber: 1, workingDays: [0,1,2,3,4,5,6] } });
-    await prisma.workingWindow.create({ data: { calendarId: calendar.id, createdBy: actorId, cutoffTime: '23:59', id: randomUUID(), resourceId: warehouseId, resourceType: 'WAREHOUSE', tenantId, updatedBy: actorId } });
-    await prisma.workingWindow.create({ data: { calendarId: calendar.id, createdBy: actorId, cutoffTime: '00:00', id: randomUUID(), resourceId: warehouseId, resourceType: 'WAREHOUSE', serviceType: 'CLOSED', tenantId, updatedBy: actorId } });
+    const tenantId = randomUUID();
+    const actorId = randomUUID();
+    const warehouseId = randomUUID();
+    const ownerId = randomUUID();
+    const productId = randomUUID();
+    const addressId = randomUUID();
+    const context: TenantContext = {
+      accountId: actorId,
+      accountKind: 'TENANT_ADMIN',
+      deviceId: 'release-db',
+      organizationIds: [],
+      permissionVersion: 1,
+      tenantId,
+      tokenId: randomUUID(),
+    };
+    const command = () => ({
+      correlationId: randomUUID(),
+      idempotencyKey: randomUUID(),
+      ipAddress: '127.0.0.1',
+    });
+    const calendar = await prisma.businessCalendar.create({
+      data: {
+        code: 'RELEASE_TEST',
+        createdBy: actorId,
+        effectiveFrom: new Date('2020-01-01'),
+        effectiveUntil: new Date('2030-12-31'),
+        id: randomUUID(),
+        name: 'Release test',
+        publishedAt: new Date(),
+        status: 'ACTIVE',
+        tenantId,
+        timeZone: 'Asia/Shanghai',
+        updatedBy: actorId,
+        versionNumber: 1,
+        workingDays: [0, 1, 2, 3, 4, 5, 6],
+      },
+    });
+    await prisma.workingWindow.create({
+      data: {
+        calendarId: calendar.id,
+        createdBy: actorId,
+        cutoffTime: '23:59',
+        id: randomUUID(),
+        resourceId: warehouseId,
+        resourceType: 'WAREHOUSE',
+        tenantId,
+        updatedBy: actorId,
+      },
+    });
+    await prisma.workingWindow.create({
+      data: {
+        calendarId: calendar.id,
+        createdBy: actorId,
+        cutoffTime: '00:00',
+        id: randomUUID(),
+        resourceId: warehouseId,
+        resourceType: 'WAREHOUSE',
+        serviceType: 'CLOSED',
+        tenantId,
+        updatedBy: actorId,
+      },
+    });
     async function order(status: 'ALLOCATED' | 'OPEN') {
-      const suffix = randomUUID().slice(0,8); const rawId = randomUUID();
-      await prisma.rawMessageRef.create({ data: { channel: 'API', contentHash: suffix.padEnd(64,'a'), createdBy: actorId, externalOrderNo: `SO-${suffix}`, externalVersion: '1', id: rawId, mappingVersion: 'test', rawPayload: {}, tenantId, updatedBy: actorId } });
-      const row = await prisma.businessOrder.create({ data: { channel: 'API', createdBy: actorId, customerId: ownerId, deliveryAddressId: addressId, deliveryAddressSnapshot: { city: 'Shanghai' }, externalOrderNo: `SO-${suffix}`, externalVersion: '1', id: randomUUID(), mappingVersion: 'test', orderNo: `ORD-${suffix}`, rawMessageRefId: rawId, requestedFrom: new Date('2026-07-15T01:00:00Z'), requestedUntil: new Date('2026-07-15T09:00:00Z'), sourcePayloadHash: suffix.padEnd(64,'b'), status, tenantId, type: 'SALES', updatedBy: actorId } });
-      const line = await prisma.businessOrderLine.create({ data: { baseUom: 'EA', createdBy: actorId, id: randomUUID(), lineNo: 1, lineVersion: 1, orderId: row.id, originalUom: 'BOX', productId, productSnapshot: { sku: 'TEST' }, quantityBase: '6', quantityOriginal: '1', tenantId, updatedBy: actorId } });
-      if (status === 'ALLOCATED') await prisma.orderAllocation.create({ data: { baseUom: 'EA', businessOrderId: row.id, createdBy: actorId, decisionId: randomUUID(), id: randomUUID(), orderLineId: line.id, originalUom: 'BOX', ownerId, productId, projectionId: randomUUID(), quantityBase: '6', quantityOriginal: '1', reservationKey: `${row.id}:1`, reservedAt: new Date(), status: 'RESERVED', tenantId, updatedBy: actorId, warehouseId } });
+      const suffix = randomUUID().slice(0, 8);
+      const rawId = randomUUID();
+      await prisma.rawMessageRef.create({
+        data: {
+          channel: 'API',
+          contentHash: suffix.padEnd(64, 'a'),
+          createdBy: actorId,
+          externalOrderNo: `SO-${suffix}`,
+          externalVersion: '1',
+          id: rawId,
+          mappingVersion: 'test',
+          rawPayload: {},
+          tenantId,
+          updatedBy: actorId,
+        },
+      });
+      const row = await prisma.businessOrder.create({
+        data: {
+          channel: 'API',
+          createdBy: actorId,
+          customerId: ownerId,
+          deliveryAddressId: addressId,
+          deliveryAddressSnapshot: { city: 'Shanghai' },
+          externalOrderNo: `SO-${suffix}`,
+          externalVersion: '1',
+          id: randomUUID(),
+          mappingVersion: 'test',
+          orderNo: `ORD-${suffix}`,
+          rawMessageRefId: rawId,
+          requestedFrom: new Date('2026-07-15T01:00:00Z'),
+          requestedUntil: new Date('2026-07-15T09:00:00Z'),
+          sourcePayloadHash: suffix.padEnd(64, 'b'),
+          status,
+          tenantId,
+          type: 'SALES',
+          updatedBy: actorId,
+        },
+      });
+      const line = await prisma.businessOrderLine.create({
+        data: {
+          baseUom: 'EA',
+          createdBy: actorId,
+          id: randomUUID(),
+          lineNo: 1,
+          lineVersion: 1,
+          orderId: row.id,
+          originalUom: 'BOX',
+          productId,
+          productSnapshot: { sku: 'TEST' },
+          quantityBase: '6',
+          quantityOriginal: '1',
+          tenantId,
+          updatedBy: actorId,
+        },
+      });
+      if (status === 'ALLOCATED')
+        await prisma.orderAllocation.create({
+          data: {
+            baseUom: 'EA',
+            businessOrderId: row.id,
+            createdBy: actorId,
+            decisionId: randomUUID(),
+            id: randomUUID(),
+            orderLineId: line.id,
+            originalUom: 'BOX',
+            ownerId,
+            productId,
+            projectionId: randomUUID(),
+            quantityBase: '6',
+            quantityOriginal: '1',
+            reservationKey: `${row.id}:1`,
+            reservedAt: new Date(),
+            status: 'RESERVED',
+            tenantId,
+            updatedBy: actorId,
+            warehouseId,
+          },
+        });
       return row;
     }
-    const service = new FulfillmentReleaseService(prisma as never, new CalendarReleaseFacade(prisma as never));
+    const service = new FulfillmentReleaseService(
+      prisma as never,
+      new CalendarReleaseFacade(prisma as never),
+    );
     const first = await order('ALLOCATED');
-    const released = await service.release(first.id, { calendarCode: 'RELEASE_TEST', expectedVersion: 1, legs: [{ fromAddressSnapshot: { warehouseId }, toAddressSnapshot: { hub: 'A' } }, { fromAddressSnapshot: { hub: 'A' }, toAddressId: addressId, toAddressSnapshot: { city: 'Shanghai' } }], mode: 'MULTI_LEG', serviceLevel: 'EXPRESS', weight: '12.5', weightUom: 'KG' }, context, command());
+    const released = await service.release(
+      first.id,
+      {
+        calendarCode: 'RELEASE_TEST',
+        expectedVersion: 1,
+        legs: [
+          {
+            fromAddressSnapshot: { warehouseId },
+            toAddressSnapshot: { hub: 'A' },
+          },
+          {
+            fromAddressSnapshot: { hub: 'A' },
+            toAddressId: addressId,
+            toAddressSnapshot: { city: 'Shanghai' },
+          },
+        ],
+        mode: 'MULTI_LEG',
+        serviceLevel: 'EXPRESS',
+        weight: '12.5',
+        weightUom: 'KG',
+      },
+      context,
+      command(),
+    );
     expect(released).toMatchObject({ status: 'RELEASED', version: 2 });
-    const fulfillment = await prisma.fulfillmentOrder.findFirstOrThrow({ where: { businessOrderId: first.id } });
-    expect(fulfillment).toMatchObject({ status: 'RELEASED', type: 'OUTBOUND', version: 2 });
-    expect(await prisma.fulfillmentLine.count({ where: { fulfillmentOrderId: fulfillment.id } })).toBe(1);
-    const shipment = await prisma.shipmentRequest.findFirstOrThrow({ where: { businessOrderId: first.id } });
-    expect(shipment).toMatchObject({ mode: 'MULTI_LEG', serviceLevel: 'EXPRESS', status: 'SUBMITTED', version: 2 });
-    expect(await prisma.shipmentLeg.count({ where: { shipmentRequestId: shipment.id } })).toBe(2);
-    expect(await prisma.platformOutbox.count({ where: { aggregateId: first.id, eventName: 'order.released.v1' } })).toBe(1);
-    const accepted = await service.projectProgress(fulfillment.id, { sourceVersion: 1, targetStatus: 'ACCEPTED' }, context, command());
+    const fulfillment = await prisma.fulfillmentOrder.findFirstOrThrow({
+      where: { businessOrderId: first.id },
+    });
+    expect(fulfillment).toMatchObject({
+      status: 'RELEASED',
+      type: 'OUTBOUND',
+      version: 2,
+    });
+    expect(
+      await prisma.fulfillmentLine.count({
+        where: { fulfillmentOrderId: fulfillment.id },
+      }),
+    ).toBe(1);
+    const shipment = await prisma.shipmentRequest.findFirstOrThrow({
+      where: { businessOrderId: first.id },
+    });
+    expect(shipment).toMatchObject({
+      mode: 'MULTI_LEG',
+      serviceLevel: 'EXPRESS',
+      status: 'SUBMITTED',
+      version: 2,
+    });
+    expect(
+      await prisma.shipmentLeg.count({
+        where: { shipmentRequestId: shipment.id },
+      }),
+    ).toBe(2);
+    expect(
+      await prisma.platformOutbox.count({
+        where: { aggregateId: first.id, eventName: 'order.released.v1' },
+      }),
+    ).toBe(1);
+    const accepted = await service.projectProgress(
+      fulfillment.id,
+      { sourceVersion: 1, targetStatus: 'ACCEPTED' },
+      context,
+      command(),
+    );
     expect(accepted.status).toBe('ACCEPTED');
-    const replay = await service.projectProgress(fulfillment.id, { sourceVersion: 1, targetStatus: 'FAILED' }, context, command());
+    const replay = await service.projectProgress(
+      fulfillment.id,
+      { sourceVersion: 1, targetStatus: 'FAILED' },
+      context,
+      command(),
+    );
     expect(replay).toMatchObject({ applied: false, status: 'ACCEPTED' });
-    await service.projectProgress(fulfillment.id, { sourceVersion: 2, targetStatus: 'EXECUTING' }, context, command());
-    await service.projectProgress(fulfillment.id, { sourceVersion: 3, targetStatus: 'COMPLETED' }, context, command());
-    await expect(service.projectProgress(fulfillment.id, { sourceVersion: 4, targetStatus: 'EXECUTING' }, context, command())).rejects.toMatchObject({ code: 'FULFILLMENT_TRANSITION_INVALID' });
+    await service.projectProgress(
+      fulfillment.id,
+      { sourceVersion: 2, targetStatus: 'EXECUTING' },
+      context,
+      command(),
+    );
+    await service.projectProgress(
+      fulfillment.id,
+      { sourceVersion: 3, targetStatus: 'COMPLETED' },
+      context,
+      command(),
+    );
+    await expect(
+      service.projectProgress(
+        fulfillment.id,
+        { sourceVersion: 4, targetStatus: 'EXECUTING' },
+        context,
+        command(),
+      ),
+    ).rejects.toMatchObject({ code: 'FULFILLMENT_TRANSITION_INVALID' });
     const cutoff = await order('ALLOCATED');
-    await expect(service.release(cutoff.id, { calendarCode: 'RELEASE_TEST', expectedVersion: 1, serviceType: 'CLOSED' }, context, command())).rejects.toMatchObject({ code: 'ORDER_RELEASE_CUTOFF_PASSED' });
-    const valid = await order('ALLOCATED'); const invalid = await order('OPEN');
-    const batch = await service.batch({ calendarCode: 'RELEASE_TEST', members: [{ expectedVersion: 1, orderId: valid.id }, { expectedVersion: 1, orderId: invalid.id }] }, context, command());
-    expect(batch).toMatchObject({ failedCount: 1, processedCount: 1, status: 'PARTIAL' });
+    await expect(
+      service.release(
+        cutoff.id,
+        {
+          calendarCode: 'RELEASE_TEST',
+          expectedVersion: 1,
+          serviceType: 'CLOSED',
+        },
+        context,
+        command(),
+      ),
+    ).rejects.toMatchObject({ code: 'ORDER_RELEASE_CUTOFF_PASSED' });
+    const valid = await order('ALLOCATED');
+    const invalid = await order('OPEN');
+    const batch = await service.batch(
+      {
+        calendarCode: 'RELEASE_TEST',
+        members: [
+          { expectedVersion: 1, orderId: valid.id },
+          { expectedVersion: 1, orderId: invalid.id },
+        ],
+      },
+      context,
+      command(),
+    );
+    expect(batch).toMatchObject({
+      failedCount: 1,
+      processedCount: 1,
+      status: 'PARTIAL',
+    });
   });
 });

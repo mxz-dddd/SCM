@@ -299,7 +299,7 @@ databaseDescribe('Control SLA and alert governance', () => {
       context,
       command(),
     );
-    expect(old.status).toBe('IGNORED');
+    expect(old.status).toBe('PROCESSED');
     const second = await service.consumeAlertEvent(
       alertEvent(3, '2030-07-07T10:01:01.000Z'),
       context,
@@ -335,7 +335,8 @@ databaseDescribe('Control SLA and alert governance', () => {
       severity: 'CRITICAL',
       status: 'OPEN',
       supervisorRef,
-      triggerCount: 4,
+      lastTriggeredAt: new Date('2030-07-07T10:03:00.000Z'),
+      triggerCount: 5,
     });
     const overrideCase = cases.find(({ severity }) => severity === 'CRITICAL');
     expect(overrideCase).toBeDefined();

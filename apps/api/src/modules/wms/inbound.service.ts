@@ -11,6 +11,7 @@ import { AppError } from '../../common/app-error';
 import { isUuid } from '../../common/validation';
 import { PrismaService } from '../../database/prisma.service';
 import { MdmReferenceService } from '../mdm/public/mdm-reference.service';
+import { businessNumber } from '../platform/public/numbering.facade';
 import type { CommandMetadata } from '../platform/tenant.service';
 
 export interface CreateInboundInput {
@@ -320,7 +321,13 @@ export class InboundService {
           createdBy: context.accountId,
           expectedArrival,
           id,
-          inboundNo: `INB-${new Date().toISOString().slice(0, 10).replaceAll('-', '')}-${id.slice(0, 8)}`,
+          inboundNo: await businessNumber(
+            this.prisma,
+            'WMS_INBOUND_ORDER',
+            context,
+            metadata,
+            `inbound:${input.sourceType}:${input.sourceRef}`,
+          ),
           ownerId: input.ownerId,
           sourceRef: input.sourceRef.trim(),
           sourceType: input.sourceType,
@@ -844,7 +851,13 @@ export class InboundService {
             inboundOrderId: id,
             priority: item.priority ?? 50,
             status: item.assignedTo ? 'ASSIGNED' : 'OPEN',
-            taskNo: `RCT-${order.inboundNo}-${index + 1}-${taskId.slice(0, 4)}`,
+            taskNo: await businessNumber(
+              this.prisma,
+              'WMS_RECEIPT_TASK',
+              context,
+              metadata,
+              `receipt-task:${order.id}:${index + 1}`,
+            ),
             teamId: item.teamId ?? null,
             tenantId: context.tenantId,
             updatedBy: context.accountId,

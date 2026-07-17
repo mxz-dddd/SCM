@@ -26,6 +26,8 @@ export class PermissionGuard implements CanActivate {
     if (!permissionCode) return true;
 
     const request = executionContext.switchToHttp().getRequest<TenantRequest>();
+    if (request.tenantContext.accountKind === 'WORKER')
+      return Boolean(request.workerOperation);
     const organizationId = request.header('X-Organization-Id') ?? undefined;
     const resolution = await this.permissions.decide({
       context: request.tenantContext,

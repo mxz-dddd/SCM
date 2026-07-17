@@ -13,6 +13,7 @@ import {
 import type { TenantRequest } from '../platform/auth/tenant-context.middleware';
 import { RequirePermission } from '../platform/auth/permission.decorator';
 import { PermissionGuard } from '../platform/auth/permission.guard';
+import { WorkerAccessible } from '../platform/auth/worker-access.decorator';
 import type { BusinessEventInput } from '../platform/event.service';
 import { Idempotent } from '../platform/idempotent.decorator';
 import {
@@ -130,6 +131,7 @@ export class AlertGovernanceController {
   }
 
   @Post('alert-events/consume')
+  @WorkerAccessible('CONTROL_ALERT_EVENT_CONSUME')
   @Idempotent('control.alert-event.consume.v1')
   @RequirePermission('control.alert.consume')
   consumeAlertEvent(

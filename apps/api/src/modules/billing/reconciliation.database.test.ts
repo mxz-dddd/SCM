@@ -210,9 +210,13 @@ databaseDescribe('Billing reconciliation, disputes and adjustments', () => {
     ).rejects.toMatchObject({
       code: 'BILLING_RECONCILIATION_TRANSITION_INVALID',
     });
-    const statementLine = await prisma.reconciliationStatementLine.findFirstOrThrow({
-      where: { statementId: statement.statementId, voucherLineId: baseLine.id },
-    });
+    const statementLine =
+      await prisma.reconciliationStatementLine.findFirstOrThrow({
+        where: {
+          statementId: statement.statementId,
+          voucherLineId: baseLine.id,
+        },
+      });
     const disputed = await service.raiseDispute(
       statement.statementId,
       {
@@ -410,7 +414,9 @@ databaseDescribe('Billing reconciliation, disputes and adjustments', () => {
     );
     expect(reconciled).toMatchObject({ status: 'RECONCILED', version: 5 });
     expect(
-      await prisma.settlementVoucher.findUniqueOrThrow({ where: { id: voucher.id } }),
+      await prisma.settlementVoucher.findUniqueOrThrow({
+        where: { id: voucher.id },
+      }),
     ).toMatchObject({ status: 'RECONCILED', version: 5 });
     expect(
       await prisma.reconciliationStatementVersion.findMany({

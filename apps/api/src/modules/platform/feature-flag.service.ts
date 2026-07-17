@@ -37,13 +37,20 @@ export interface EvaluateFlagInput {
 
 const CODE_PATTERN = /^[A-Z][A-Z0-9_.-]{2,99}$/;
 
-export function assertFeatureFlagTransition(current: FeatureFlagStatus, target: FeatureFlagStatus): void {
+export function assertFeatureFlagTransition(
+  current: FeatureFlagStatus,
+  target: FeatureFlagStatus,
+): void {
   const allowed =
     (current === 'DRAFT' && target === 'PUBLISHED') ||
     (current === 'PUBLISHED' && ['PAUSED', 'RETIRED'].includes(target)) ||
     (current === 'PAUSED' && ['PUBLISHED', 'RETIRED'].includes(target));
   if (!allowed) {
-    throw new AppError('FEATURE_FLAG_TRANSITION_INVALID', `Feature flag transition ${current} -> ${target} is not allowed`, 409);
+    throw new AppError(
+      'FEATURE_FLAG_TRANSITION_INVALID',
+      `Feature flag transition ${current} -> ${target} is not allowed`,
+      409,
+    );
   }
 }
 
@@ -56,11 +63,17 @@ function validateRules(rules: readonly FeatureRule[]): void {
       !Number.isInteger(rule.priority) ||
       rule.priority < 0 ||
       (rule.percentage !== undefined &&
-        (!Number.isInteger(rule.percentage) || rule.percentage < 0 || rule.percentage > 100)) ||
+        (!Number.isInteger(rule.percentage) ||
+          rule.percentage < 0 ||
+          rule.percentage > 100)) ||
       (rule.organizationIds ?? []).some((id) => !isUuid(id)) ||
       (rule.roleCodes ?? []).some((code) => !CODE_PATTERN.test(code))
     ) {
-      throw new AppError('FEATURE_FLAG_RULE_INVALID', 'Feature flag rule is invalid', 400);
+      throw new AppError(
+        'FEATURE_FLAG_RULE_INVALID',
+        'Feature flag rule is invalid',
+        400,
+      );
     }
     ids.add(rule.id);
   }
@@ -69,7 +82,8 @@ function validateRules(rules: readonly FeatureRule[]): void {
 @Injectable()
 export class FeatureFlagService {
   constructor(
-    @Inject(IdempotencyService) private readonly idempotency: IdempotencyService,
+    @Inject(IdempotencyService)
+    private readonly idempotency: IdempotencyService,
     @Inject(PrismaService) private readonly prisma: PrismaService,
   ) {}
 
@@ -81,11 +95,19 @@ export class FeatureFlagService {
     });
   }
 
-  save(input: SaveFeatureFlagInput, context: TenantContext, metadata: CommandMetadata) {
+  save(
+    input: SaveFeatureFlagInput,
+    context: TenantContext,
+    metadata: CommandMetadata,
+  ) {
     const code = input.code?.trim().toUpperCase();
     validateRules(input.rules ?? []);
     if (!CODE_PATTERN.test(code) || !input.name?.trim()) {
-      throw new AppError('FEATURE_FLAG_INVALID', 'Feature flag input is invalid', 400);
+      throw new AppError(
+        'FEATURE_FLAG_INVALID',
+        'Feature flag input is invalid',
+        400,
+      );
     }
     return this.idempotency.execute(
       {
@@ -131,7 +153,12 @@ export class FeatureFlagService {
     context: TenantContext,
     metadata: CommandMetadata,
   ) {
-    if (!isUuid(flagId)) throw new AppError('FEATURE_FLAG_NOT_FOUND', 'Feature flag was not found', 404);
+    if (!isUuid(flagId))
+      throw new AppError(
+        'FEATURE_FLAG_NOT_FOUND',
+        'Feature flag was not found',
+        404,
+      );
     return this.idempotency.execute(
       {
         actorId: context.accountId,
@@ -142,14 +169,31 @@ export class FeatureFlagService {
         tenantId: context.tenantId,
       },
       async (transaction) => {
-        const flag = await transaction.featureFlag.findFirst({ where: { id: flagId, tenantId: context.tenantId } });
-        if (!flag) throw new AppError('FEATURE_FLAG_NOT_FOUND', 'Feature flag was not found', 404);
-        if (flag.version !== input.expectedVersion) throw this.versionConflict();
+        const flag = await transaction.featureFlag.findFirst({
+          where: { id: flagId, tenantId: context.tenantId },
+        });
+        if (!flag)
+          throw new AppError(
+            'FEATURE_FLAG_NOT_FOUND',
+            'Feature flag was not found',
+            404,
+          );
+        if (flag.version !== input.expectedVersion)
+          throw this.versionConflict();
         assertFeatureFlagTransition(flag.status, target);
         if (target === 'PUBLISHED') {
           await transaction.featureFlag.updateMany({
-            data: { status: 'RETIRED', updatedBy: context.accountId, version: { increment: 1 } },
-            where: { code: flag.code, id: { not: flag.id }, status: 'PUBLISHED', tenantId: context.tenantId },
+            data: {
+              status: 'RETIRED',
+              updatedBy: context.accountId,
+              version: { increment: 1 },
+            },
+            where: {
+              code: flag.code,
+              id: { not: flag.id },
+              status: 'PUBLISHED',
+              tenantId: context.tenantId,
+            },
           });
         }
         const changed = await transaction.featureFlag.update({
@@ -161,12 +205,20 @@ export class FeatureFlagService {
           },
           where: { id: flag.id },
         });
-        return { featureFlagId: changed.id, status: changed.status, version: changed.version };
+        return {
+          featureFlagId: changed.id,
+          status: changed.status,
+          version: changed.version,
+        };
       },
     );
   }
 
-  evaluate(input: EvaluateFlagInput, context: TenantContext, metadata: CommandMetadata) {
+  evaluate(
+    input: EvaluateFlagInput,
+    context: TenantContext,
+    metadata: CommandMetadata,
+  ) {
     const code = input.code?.trim().toUpperCase();
     if (
       !CODE_PATTERN.test(code) ||
@@ -175,7 +227,11 @@ export class FeatureFlagService {
       (input.organizationId !== undefined && !isUuid(input.organizationId)) ||
       (input.roleCodes ?? []).some((role) => !CODE_PATTERN.test(role))
     ) {
-      throw new AppError('FEATURE_FLAG_EVALUATION_INVALID', 'Feature flag evaluation input is invalid', 400);
+      throw new AppError(
+        'FEATURE_FLAG_EVALUATION_INVALID',
+        'Feature flag evaluation input is invalid',
+        400,
+      );
     }
     return this.idempotency.execute(
       {
@@ -191,16 +247,36 @@ export class FeatureFlagService {
           orderBy: { versionNumber: 'desc' },
           where: { code, status: 'PUBLISHED', tenantId: context.tenantId },
         });
-        if (!flag) throw new AppError('FEATURE_FLAG_NOT_PUBLISHED', 'No published feature flag was found', 404);
+        if (!flag)
+          throw new AppError(
+            'FEATURE_FLAG_NOT_PUBLISHED',
+            'No published feature flag was found',
+            404,
+          );
         const bucket = Number(
-          BigInt(`0x${createHash('sha256').update(`${code}:${input.subjectKey}`).digest('hex').slice(0, 12)}`) % 100n,
+          BigInt(
+            `0x${createHash('sha256').update(`${code}:${input.subjectKey}`).digest('hex').slice(0, 12)}`,
+          ) % 100n,
         );
         const roles = new Set(input.roleCodes ?? []);
-        const rules = (flag.rules as unknown as FeatureRule[]).slice().sort((left, right) => left.priority - right.priority || left.id.localeCompare(right.id));
+        const rules = (flag.rules as unknown as FeatureRule[])
+          .slice()
+          .sort(
+            (left, right) =>
+              left.priority - right.priority || left.id.localeCompare(right.id),
+          );
         const matched = rules.find((rule) => {
-          const organizationMatch = !rule.organizationIds?.length || Boolean(input.organizationId && rule.organizationIds.includes(input.organizationId));
-          const roleMatch = !rule.roleCodes?.length || rule.roleCodes.some((role) => roles.has(role));
-          const percentageMatch = rule.percentage === undefined || bucket < rule.percentage;
+          const organizationMatch =
+            !rule.organizationIds?.length ||
+            Boolean(
+              input.organizationId &&
+              rule.organizationIds.includes(input.organizationId),
+            );
+          const roleMatch =
+            !rule.roleCodes?.length ||
+            rule.roleCodes.some((role) => roles.has(role));
+          const percentageMatch =
+            rule.percentage === undefined || bucket < rule.percentage;
           return organizationMatch && roleMatch && percentageMatch;
         });
         const enabled = matched?.enabled ?? flag.defaultEnabled;
@@ -233,6 +309,11 @@ export class FeatureFlagService {
   }
 
   private versionConflict() {
-    return new AppError('FEATURE_FLAG_VERSION_CONFLICT', 'Feature flag changed; refresh and retry', 409, { retryable: true });
+    return new AppError(
+      'FEATURE_FLAG_VERSION_CONFLICT',
+      'Feature flag changed; refresh and retry',
+      409,
+      { retryable: true },
+    );
   }
 }

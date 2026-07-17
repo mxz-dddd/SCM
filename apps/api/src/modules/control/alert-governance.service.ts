@@ -1,4 +1,3 @@
-import { randomUUID } from 'node:crypto';
 import { Inject, Injectable } from '@nestjs/common';
 import {
   Prisma,
@@ -13,6 +12,7 @@ import { toHttpJson } from '../../common/http-json';
 import { isUuid } from '../../common/validation';
 import { PrismaService } from '../../database/prisma.service';
 import { CalendarReleaseFacade } from '../mdm/public/calendar-release.facade';
+import { businessNumber } from '../platform/public/numbering.facade';
 import type { BusinessEventInput } from '../platform/event.service';
 import { EventConsumptionFacade } from '../platform/public/event-consumption.facade';
 import type { CommandMetadata } from '../platform/tenant.service';
@@ -1193,22 +1193,32 @@ export class AlertGovernanceService {
     else
       signal = await tx.controlAlertSignal.update({
         data: {
-          lastObservedAt: observedAt,
+          lastObservedAt:
+            observedAt > signal.lastObservedAt
+              ? observedAt
+              : signal.lastObservedAt,
           occurrenceCount: { increment: 1 },
           updatedBy: context.accountId,
           version: { increment: 1 },
         },
         where: { id: signal.id },
       });
+    const sinceFirstObserved =
+      observedAt.getTime() - signal.firstObservedAt.getTime();
     if (
-      observedAt.getTime() - signal.firstObservedAt.getTime() <
-      version.debounceSeconds * 1000
+      version.debounceSeconds > 0 &&
+      sinceFirstObserved >= 0 &&
+      sinceFirstObserved < version.debounceSeconds * 1000
     )
       return { outcome: 'DEBOUNCED', ruleCode };
+    const sinceLastAlert = signal.lastAlertAt
+      ? observedAt.getTime() - signal.lastAlertAt.getTime()
+      : undefined;
     if (
-      signal.lastAlertAt &&
-      observedAt.getTime() - signal.lastAlertAt.getTime() <
-        version.suppressionSeconds * 1000
+      version.suppressionSeconds > 0 &&
+      sinceLastAlert !== undefined &&
+      sinceLastAlert >= 0 &&
+      sinceLastAlert < version.suppressionSeconds * 1000
     )
       return { outcome: 'SUPPRESSED', ruleCode };
     const mergeAfter = new Date(
@@ -1227,7 +1237,10 @@ export class AlertGovernanceService {
     if (merge) {
       const changed = await tx.controlAlertCase.update({
         data: {
-          lastTriggeredAt: observedAt,
+          lastTriggeredAt:
+            observedAt > merge.lastTriggeredAt
+              ? observedAt
+              : merge.lastTriggeredAt,
           sourceSnapshot: json({ event, mergedFrom: merge.sourceSnapshot }),
           triggerCount: { increment: 1 },
           updatedBy: context.accountId,
@@ -1237,7 +1250,10 @@ export class AlertGovernanceService {
       });
       await tx.controlAlertSignal.update({
         data: {
-          lastAlertAt: observedAt,
+          lastAlertAt:
+            !signal.lastAlertAt || observedAt > signal.lastAlertAt
+              ? observedAt
+              : signal.lastAlertAt,
           lastCaseId: merge.id,
           updatedBy: context.accountId,
           version: { increment: 1 },
@@ -1264,7 +1280,13 @@ export class AlertGovernanceService {
     const created = await tx.controlAlertCase.create({
       data: {
         businessRef,
-        caseNo: this.caseNo(),
+        caseNo: await businessNumber(
+          this.prisma,
+          'CONTROL_ALERT_CASE',
+          context,
+          metadata,
+          `control-alert:${ruleCode}:${dedupeKey}`,
+        ),
         createdBy: context.accountId,
         customerRef: customerRef ?? null,
         dedupeKey,
@@ -1415,7 +1437,13 @@ export class AlertGovernanceService {
     const alert = await tx.controlAlertCase.create({
       data: {
         businessRef: clock.businessRef,
-        caseNo: this.caseNo(),
+        caseNo: await businessNumber(
+          this.prisma,
+          'CONTROL_ALERT_CASE',
+          context,
+          metadata,
+          `control-alert:${dedupeKey}`,
+        ),
         createdBy: context.accountId,
         customerRef: clock.customerRef,
         dedupeKey,
@@ -1728,10 +1756,6 @@ export class AlertGovernanceService {
 
   private uuid(value: string, code: string) {
     if (!isUuid(value)) throw new AppError(code, 'UUID is invalid', 400);
-  }
-
-  private caseNo() {
-    return `ALT-${Date.now()}-${randomUUID().slice(0, 8).toUpperCase()}`;
   }
 
   private lock(tx: Prisma.TransactionClient, key: string) {

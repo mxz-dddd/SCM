@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   CommandBar,
   DataGrid,
+  ListPageTemplate,
   QueryPanel,
   StatusBadge,
   createActionRegistry,
@@ -1102,12 +1103,11 @@ export function InboundWorkbench() {
   }
 
   return (
-    <section>
-      <Typography.Title level={2}>入库接入与收货执行</Typography.Title>
-      <Typography.Paragraph>
-        统一处理入库状态、ASN 箱托、预约投影、到场签到、派工抢单与
-        GS1/客户码解析。
-      </Typography.Paragraph>
+    <ListPageTemplate
+      description="统一处理入库状态、ASN 箱托、预约投影、到场签到、派工抢单与 GS1/客户码解析。"
+      eyebrow="仓储 · 入库管理"
+      title="入库接入与收货执行"
+    >
       {error ? <Alert message={error} showIcon type="error" /> : null}
       {notice ? <Alert message={notice} showIcon type="success" /> : null}
       <QueryPanel
@@ -1379,6 +1379,6 @@ export function InboundWorkbench() {
           </Card>
         </Space>
       </Drawer>
-    </section>
+    </ListPageTemplate>
   );
 }

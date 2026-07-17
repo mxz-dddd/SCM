@@ -2,9 +2,11 @@ import { Inject, Injectable, type NestMiddleware } from '@nestjs/common';
 import type { TenantContext } from '@scm/shared';
 import type { NextFunction, Request, Response } from 'express';
 import { SessionContextService } from './session-context.service';
+import type { WorkerOperation } from './worker-access.decorator';
 
 export interface TenantRequest extends Request {
   tenantContext: TenantContext;
+  workerOperation?: WorkerOperation;
 }
 
 @Injectable()

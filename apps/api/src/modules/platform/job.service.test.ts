@@ -46,7 +46,11 @@ describe('job state machine and validation', () => {
           tenantId: '10000000-0000-4000-8000-000000000002',
           tokenId: 'token',
         },
-        { correlationId: 'test', idempotencyKey: 'test', ipAddress: '127.0.0.1' },
+        {
+          correlationId: 'test',
+          idempotencyKey: 'test',
+          ipAddress: '127.0.0.1',
+        },
       ),
     ).rejects.toThrow(/invalid/);
   });

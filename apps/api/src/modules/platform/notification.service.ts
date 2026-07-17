@@ -223,12 +223,10 @@ export function assertInboxTransition(
   current: InboxItemStatus,
   target: InboxItemStatus,
 ): void {
-  if (
-    !(
-      (current === 'UNREAD' && target === 'READ') ||
-      (current === 'READ' && target === 'ARCHIVED')
-    )
-  ) {
+  if (!(
+    (current === 'UNREAD' && target === 'READ') ||
+    (current === 'READ' && target === 'ARCHIVED')
+  )) {
     throw new AppError(
       'INBOX_TRANSITION_INVALID',
       `Inbox transition ${current} -> ${target} is not allowed`,
@@ -241,12 +239,10 @@ export function assertTemplateTransition(
   current: NotificationTemplateStatus,
   target: NotificationTemplateStatus,
 ): void {
-  if (
-    !(
-      (current === 'DRAFT' && target === 'PUBLISHED') ||
-      (current === 'PUBLISHED' && target === 'RETIRED')
-    )
-  ) {
+  if (!(
+    (current === 'DRAFT' && target === 'PUBLISHED') ||
+    (current === 'PUBLISHED' && target === 'RETIRED')
+  )) {
     throw new AppError(
       'NOTIFICATION_TEMPLATE_TRANSITION_INVALID',
       `Template transition ${current} -> ${target} is not allowed`,
@@ -264,14 +260,11 @@ export function assertNotificationTransition(
     'PARTIAL_FAILED',
     'FAILED',
   ];
-  if (
-    !(
-      (current === 'PENDING' && targets.includes(target)) ||
-      (['PARTIAL_FAILED', 'FAILED'] as NotificationStatus[]).includes(
-        current,
-      ) && targets.includes(target)
-    )
-  ) {
+  if (!(
+    (current === 'PENDING' && targets.includes(target)) ||
+    ((['PARTIAL_FAILED', 'FAILED'] as NotificationStatus[]).includes(current) &&
+      targets.includes(target))
+  )) {
     throw new AppError(
       'NOTIFICATION_TRANSITION_INVALID',
       `Notification transition ${current} -> ${target} is not allowed`,
@@ -308,15 +301,18 @@ export class NotificationService {
   async listInbox(context: TenantContext, query: InboxListQuery) {
     const { page, pageSize } = pagination(query);
     if (
-      (query.status && !['UNREAD', 'READ', 'ARCHIVED'].includes(query.status)) ||
+      (query.status &&
+        !['UNREAD', 'READ', 'ARCHIVED'].includes(query.status)) ||
       (query.severity && !SEVERITIES.has(query.severity))
     ) {
-      throw new AppError('INBOX_FILTER_INVALID', 'Inbox filter is invalid', 400);
+      throw new AppError(
+        'INBOX_FILTER_INVALID',
+        'Inbox filter is invalid',
+        400,
+      );
     }
     const where: Prisma.InboxItemWhereInput = {
-      ...(query.businessDomain
-        ? { businessDomain: query.businessDomain }
-        : {}),
+      ...(query.businessDomain ? { businessDomain: query.businessDomain } : {}),
       ...(query.responsibilityGroup
         ? { responsibilityGroup: query.responsibilityGroup }
         : {}),
@@ -414,7 +410,12 @@ export class NotificationService {
           eventName: 'platform.inbox-item-created.v1',
           metadata,
         });
-        return { accepted: true, inboxItemId: id, status: 'UNREAD', version: 1 };
+        return {
+          accepted: true,
+          inboxItemId: id,
+          status: 'UNREAD',
+          version: 1,
+        };
       },
     );
   }
@@ -445,7 +446,8 @@ export class NotificationService {
         });
         if (!item) throw this.notFound('Inbox item');
         assertInboxTransition(item.status, target);
-        if (item.version !== input.expectedVersion) throw this.versionConflict();
+        if (item.version !== input.expectedVersion)
+          throw this.versionConflict();
         const now = new Date();
         const changed = await transaction.inboxItem.updateMany({
           data: {
@@ -482,7 +484,11 @@ export class NotificationService {
           eventName: `platform.inbox-item-${target.toLowerCase()}.v1`,
           metadata,
         });
-        return { inboxItemId: item.id, status: target, version: item.version + 1 };
+        return {
+          inboxItemId: item.id,
+          status: target,
+          version: item.version + 1,
+        };
       },
     );
   }
@@ -581,7 +587,8 @@ export class NotificationService {
         });
         if (!template) throw this.notFound('Notification template');
         assertTemplateTransition(template.status, 'PUBLISHED');
-        if (template.version !== input.expectedVersion) throw this.versionConflict();
+        if (template.version !== input.expectedVersion)
+          throw this.versionConflict();
         const current = await transaction.notificationTemplate.findFirst({
           where: {
             code: template.code,
@@ -770,10 +777,7 @@ export class NotificationService {
   ) {
     this.validateBusinessTarget(input);
     this.assertOrganizationScope(input.organizationId, context);
-    if (
-      !isUuid(input.recipientAccountId) ||
-      !SEVERITIES.has(input.severity)
-    ) {
+    if (!isUuid(input.recipientAccountId) || !SEVERITIES.has(input.severity)) {
       throw new AppError(
         'NOTIFICATION_RECIPIENT_INVALID',
         'recipientAccountId must be a UUID',
@@ -835,15 +839,14 @@ export class NotificationService {
             400,
           );
         }
-        const preferences =
-          await transaction.subscriptionPreference.findMany({
-            where: {
-              accountId: input.recipientAccountId,
-              channel: { in: requested },
-              status: 'ACTIVE',
-              tenantId: context.tenantId,
-            },
-          });
+        const preferences = await transaction.subscriptionPreference.findMany({
+          where: {
+            accountId: input.recipientAccountId,
+            channel: { in: requested },
+            status: 'ACTIVE',
+            tenantId: context.tenantId,
+          },
+        });
         const preferenceByChannel = new Map(
           preferences.map(
             (preference) => [preference.channel, preference] as const,
@@ -860,18 +863,15 @@ export class NotificationService {
               !isQuietTime(
                 preference?.quietStartMinutes ?? null,
                 preference?.quietEndMinutes ?? null,
-                minutesInTimezone(
-                  now,
-                  preference?.timezone ?? 'Asia/Shanghai',
-                ),
+                minutesInTimezone(now, preference?.timezone ?? 'Asia/Shanghai'),
               ))
           );
         });
         const fallbackChannels = unique(
           preferences
             .map(({ fallbackChannel }) => fallbackChannel)
-            .filter(
-              (channel): channel is NotificationChannel => Boolean(channel),
+            .filter((channel): channel is NotificationChannel =>
+              Boolean(channel),
             ),
         );
         const routed = selected.length
@@ -940,8 +940,11 @@ export class NotificationService {
           where: { id: notificationId, tenantId: context.tenantId },
         });
         if (!notification) throw this.notFound('Notification');
-        if (notification.version !== input.expectedVersion) throw this.versionConflict();
-        if (!['PENDING', 'PARTIAL_FAILED', 'FAILED'].includes(notification.status)) {
+        if (notification.version !== input.expectedVersion)
+          throw this.versionConflict();
+        if (
+          !['PENDING', 'PARTIAL_FAILED', 'FAILED'].includes(notification.status)
+        ) {
           throw new AppError(
             'NOTIFICATION_DISPATCH_STATE_INVALID',
             'Delivered notifications cannot be dispatched again',
@@ -956,7 +959,8 @@ export class NotificationService {
             .filter(({ status }) => status === 'DELIVERED')
             .map(({ channel }) => channel),
         );
-        const requested = notification.requestedChannels as NotificationChannel[];
+        const requested =
+          notification.requestedChannels as NotificationChannel[];
         const targetChannels = requested.filter((channel) => {
           const count = attempts.filter(
             (attempt) => attempt.channel === channel,
@@ -1118,7 +1122,8 @@ export class NotificationService {
           where: { id: notificationId, tenantId: context.tenantId },
         });
         if (!notification) throw this.notFound('Notification');
-        if (notification.version !== input.expectedVersion) throw this.versionConflict();
+        if (notification.version !== input.expectedVersion)
+          throw this.versionConflict();
         if (
           notification.escalatedAt ||
           !notification.escalationAt ||

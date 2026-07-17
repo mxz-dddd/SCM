@@ -26,4 +26,10 @@ describe('platform resource authorization', () => {
       requireAccountKind(context('USER'), ['PLATFORM_ADMIN']),
     ).toThrow('not allowed to perform this action');
   });
+
+  it('never treats the runtime worker principal as an administrator', () => {
+    expect(() =>
+      requireAccountKind(context('WORKER'), ['PLATFORM_ADMIN']),
+    ).toThrow('not allowed to perform this action');
+  });
 });

@@ -10,6 +10,7 @@ import { AppError } from '../../common/app-error';
 import { isUuid } from '../../common/validation';
 import { PrismaService } from '../../database/prisma.service';
 import { MdmReferenceService } from '../mdm/public/mdm-reference.service';
+import { businessNumber } from '../platform/public/numbering.facade';
 import type { CommandMetadata } from '../platform/tenant.service';
 
 export interface InventoryDimensions {
@@ -378,7 +379,13 @@ export class InventoryService {
       await tx.inventoryStatusChange.create({
         data: {
           approvalReference: input.approvalReference?.trim() ?? null,
-          changeNo: `ISC-${Date.now()}-${changeId.slice(0, 6)}`,
+          changeNo: await businessNumber(
+            this.prisma,
+            'WMS_INVENTORY_STATUS_CHANGE',
+            context,
+            metadata,
+            `status:${id}:${input.targetStatus}`,
+          ),
           createdBy: context.accountId,
           fromStatus: source.status,
           id: changeId,
@@ -455,7 +462,13 @@ export class InventoryService {
         data: {
           balanceId: id,
           createdBy: context.accountId,
-          holdNo: `HLD-${Date.now()}-${holdId.slice(0, 6)}`,
+          holdNo: await businessNumber(
+            this.prisma,
+            'WMS_INVENTORY_HOLD',
+            context,
+            metadata,
+            `hold:${id}:${input.reason}`,
+          ),
           id: holdId,
           quantityBase: quantity.base,
           quantityOriginal: quantity.original,
@@ -654,7 +667,13 @@ export class InventoryService {
           id: reservationId,
           quantityBase: quantity.base,
           quantityOriginal: quantity.original,
-          reservationNo: `RSV-${Date.now()}-${reservationId.slice(0, 6)}`,
+          reservationNo: await businessNumber(
+            this.prisma,
+            'WMS_INVENTORY_RESERVATION',
+            context,
+            metadata,
+            `reservation:${id}:${input.sourceType}:${input.sourceRef}`,
+          ),
           sourceRef: input.sourceRef.trim(),
           sourceType: input.sourceType,
           tenantId: context.tenantId,
@@ -845,7 +864,13 @@ export class InventoryService {
         id: reservationId,
         quantityBase: quantity.base,
         quantityOriginal: quantity.original,
-        reservationNo: `RSV-${Date.now()}-${reservationId.slice(0, 6)}`,
+        reservationNo: await businessNumber(
+          this.prisma,
+          'WMS_INVENTORY_RESERVATION',
+          context,
+          metadata,
+          `wave-reservation:${id}:${input.sourceRef}`,
+        ),
         sourceRef: input.sourceRef,
         sourceType: 'WAVE',
         tenantId: context.tenantId,
@@ -924,7 +949,9 @@ export class InventoryService {
       throw this.conflict('INVENTORY_SHIPMENT_QUANTITY_CONFLICT');
     const shippedOriginal = reservation.quantityBase.equals(0)
       ? new Prisma.Decimal(0)
-      : shippedBase.mul(reservation.quantityOriginal).div(reservation.quantityBase);
+      : shippedBase
+          .mul(reservation.quantityOriginal)
+          .div(reservation.quantityBase);
     const releasedBase = reservation.quantityBase.sub(shippedBase);
     const releasedOriginal = reservation.quantityOriginal.sub(shippedOriginal);
     const before = await tx.inventoryBalance.findFirstOrThrow({
@@ -1243,7 +1270,13 @@ export class InventoryService {
           sourceLocationId: source.locationId,
           targetBalanceId: target.balanceId,
           targetLocationId: input.targetLocationId,
-          taskNo: `TRF-${Date.now()}-${transferId.slice(0, 6)}`,
+          taskNo: await businessNumber(
+            this.prisma,
+            'WMS_INVENTORY_TRANSFER_TASK',
+            context,
+            metadata,
+            `transfer:${id}:${input.targetLocationId}`,
+          ),
           tenantId: context.tenantId,
           updatedBy: context.accountId,
         },
@@ -1501,7 +1534,13 @@ export class InventoryService {
           targetBalanceId: target.balanceId,
           tenantId: context.tenantId,
           toOwnerId: input.targetOwnerId,
-          transferNo: `OWN-${Date.now()}-${transferId.slice(0, 6)}`,
+          transferNo: await businessNumber(
+            this.prisma,
+            'WMS_OWNERSHIP_TRANSFER',
+            context,
+            metadata,
+            `ownership:${id}:${input.targetOwnerId}`,
+          ),
           updatedBy: context.accountId,
         },
       });
@@ -1568,7 +1607,13 @@ export class InventoryService {
       const order = await tx.inventoryCountOrder.create({
         data: {
           blind: input.blind ?? true,
-          countNo: `CNT-${Date.now()}-${countId.slice(0, 6)}`,
+          countNo: await businessNumber(
+            this.prisma,
+            'WMS_INVENTORY_COUNT',
+            context,
+            metadata,
+            `count:${input.warehouseId}:${input.type}:${input.ownerId ?? '*'}`,
+          ),
           createdBy: context.accountId,
           criteriaSnapshot: json({
             balanceIds: input.balanceIds ?? [],
@@ -1620,7 +1665,13 @@ export class InventoryService {
             data: {
               balanceId: balance.id,
               createdBy: context.accountId,
-              holdNo: `CNT-HLD-${Date.now()}-${holdId.slice(0, 6)}`,
+              holdNo: await businessNumber(
+                this.prisma,
+                'WMS_INVENTORY_HOLD',
+                context,
+                metadata,
+                `count-hold:${countId}:${balance.id}`,
+              ),
               id: holdId,
               quantityBase: current.availableBase,
               quantityOriginal: current.availableOriginal,
@@ -2418,7 +2469,13 @@ export class InventoryService {
       chainSequence: (previous?.chainSequence ?? 0) + 1,
       fromDimensions: json(fromDimensions),
       id,
-      movementNo: `IM-${Date.now()}-${id.slice(0, 6)}`,
+      movementNo: await businessNumber(
+        this.prisma,
+        'WMS_INVENTORY_MOVEMENT',
+        context,
+        metadata,
+        `movement:${businessType}:${businessRef}:${balanceId}:${type}:${(previous?.chainSequence ?? 0) + 1}`,
+      ),
       originalUom,
       previousHash: previous?.movementHash ?? null,
       quantityBase: quantity.base,

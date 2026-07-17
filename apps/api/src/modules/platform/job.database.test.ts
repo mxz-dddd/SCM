@@ -67,52 +67,98 @@ databaseDescribe('job lease concurrency and log immutability', () => {
         runs.map((run, index) =>
           service.claim(
             run.id,
-            { expectedVersion: 1, leaseOwner: `worker-${index}`, leaseSeconds: 60 },
+            {
+              expectedVersion: 1,
+              leaseOwner: `worker-${index}`,
+              leaseSeconds: 60,
+            },
             context,
-            { correlationId: randomUUID(), idempotencyKey: randomUUID(), ipAddress: '127.0.0.1' },
+            {
+              correlationId: randomUUID(),
+              idempotencyKey: randomUUID(),
+              ipAddress: '127.0.0.1',
+            },
           ),
         ),
       );
-      expect(settled.filter(({ status }) => status === 'fulfilled')).toHaveLength(1);
-      expect(settled.filter(({ status }) => status === 'rejected')).toHaveLength(1);
-      expect(await prisma.jobRun.count({ where: { jobDefinitionId: definition.id, status: 'RUNNING' } })).toBe(1);
+      expect(
+        settled.filter(({ status }) => status === 'fulfilled'),
+      ).toHaveLength(1);
+      expect(
+        settled.filter(({ status }) => status === 'rejected'),
+      ).toHaveLength(1);
+      expect(
+        await prisma.jobRun.count({
+          where: { jobDefinitionId: definition.id, status: 'RUNNING' },
+        }),
+      ).toBe(1);
 
       const replayKey = randomUUID();
       const first = await service.trigger(
         definition.id,
         { payload: { report: 'daily' }, triggerRef: 'event-1' },
         context,
-        { correlationId: randomUUID(), idempotencyKey: replayKey, ipAddress: '127.0.0.1' },
+        {
+          correlationId: randomUUID(),
+          idempotencyKey: replayKey,
+          ipAddress: '127.0.0.1',
+        },
       );
       const replay = await service.trigger(
         definition.id,
         { payload: { report: 'daily' }, triggerRef: 'event-1' },
         context,
-        { correlationId: randomUUID(), idempotencyKey: replayKey, ipAddress: '127.0.0.1' },
+        {
+          correlationId: randomUUID(),
+          idempotencyKey: replayKey,
+          ipAddress: '127.0.0.1',
+        },
       );
       expect(replay.jobRunId).toBe(first.jobRunId);
-      expect(await prisma.jobRun.count({ where: { tenantId, triggerRef: 'event-1' } })).toBe(1);
+      expect(
+        await prisma.jobRun.count({
+          where: { tenantId, triggerRef: 'event-1' },
+        }),
+      ).toBe(1);
       await expect(
         service.trigger(
           definition.id,
           { payload: { report: 'changed' }, triggerRef: 'event-1' },
           context,
-          { correlationId: randomUUID(), idempotencyKey: replayKey, ipAddress: '127.0.0.1' },
+          {
+            correlationId: randomUUID(),
+            idempotencyKey: replayKey,
+            ipAddress: '127.0.0.1',
+          },
         ),
-      ).rejects.toMatchObject({ code: 'IDEMPOTENCY_KEY_CONFLICT', statusCode: 409 });
+      ).rejects.toMatchObject({
+        code: 'IDEMPOTENCY_KEY_CONFLICT',
+        statusCode: 409,
+      });
       expect(enqueue).toHaveBeenCalledTimes(2);
 
       const log = await prisma.jobLog.findFirstOrThrow({ where: { tenantId } });
       await expect(
-        prisma.jobLog.update({ data: { message: 'tampered' }, where: { id: log.id } }),
+        prisma.jobLog.update({
+          data: { message: 'tampered' },
+          where: { id: log.id },
+        }),
       ).rejects.toThrow(/immutable/);
     } finally {
-      await prisma.$executeRawUnsafe('ALTER TABLE "platform"."job_log" DISABLE TRIGGER job_log_immutable');
+      await prisma.$executeRawUnsafe(
+        'ALTER TABLE "platform"."job_log" DISABLE TRIGGER job_log_immutable',
+      );
       await prisma.jobLog.deleteMany({ where: { tenantId } });
-      await prisma.$executeRawUnsafe('ALTER TABLE "platform"."job_log" ENABLE TRIGGER job_log_immutable');
-      await prisma.$executeRawUnsafe('ALTER TABLE "platform"."audit_log" DISABLE TRIGGER audit_log_immutable');
+      await prisma.$executeRawUnsafe(
+        'ALTER TABLE "platform"."job_log" ENABLE TRIGGER job_log_immutable',
+      );
+      await prisma.$executeRawUnsafe(
+        'ALTER TABLE "platform"."audit_log" DISABLE TRIGGER audit_log_immutable',
+      );
       await prisma.platformAuditLog.deleteMany({ where: { tenantId } });
-      await prisma.$executeRawUnsafe('ALTER TABLE "platform"."audit_log" ENABLE TRIGGER audit_log_immutable');
+      await prisma.$executeRawUnsafe(
+        'ALTER TABLE "platform"."audit_log" ENABLE TRIGGER audit_log_immutable',
+      );
       await prisma.platformOutbox.deleteMany({ where: { tenantId } });
       await prisma.idempotencyRecord.deleteMany({ where: { tenantId } });
       await prisma.jobRun.deleteMany({ where: { tenantId } });

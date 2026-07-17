@@ -264,10 +264,7 @@ export function AttachmentWorkbench() {
   async function execute(actionId: string) {
     const decision = decisions.find(({ id }) => id === actionId);
     if (!decision?.enabled) return;
-    if (
-      decision.confirmMessage &&
-      !window.confirm(decision.confirmMessage)
-    )
+    if (decision.confirmMessage && !window.confirm(decision.confirmMessage))
       return;
     if (actionId === 'mark-clean') await recordScan('CLEAN');
     if (actionId === 'quarantine') await recordScan('INFECTED');

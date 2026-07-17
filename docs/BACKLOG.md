@@ -95,3 +95,14 @@
 - [x] P5-07 生产就绪：性能压测（列表 P95<2s、命令 P95<1.5s、RF P95<800ms）、跨租户越权自动化测试门禁、恢复与事件重放演练、安全扫描（§12.3）
 
 <!-- 覆盖核对：PLT25 MDM10 OMS27 WMS60(IN16+INV16+OUT18+VAS4+LAB2+DEV2+RPT1+BIL1) TMS40 AMS21 BIL16 CTL15 AI5 INT10 MOB4 OPS8 = 241 -->
+
+## V2 运行闭环改造
+
+- [x] V2-01 事件目录、订阅清单与消费模式 〔依赖：P5-07〕
+- [x] V2-02 持久化 EventDelivery、按 consumer+partition 顺序投递、重试/死信/重放
+- [x] V2-03 OMS→WMS/TMS 履约过程管理器与自包含事件合同
+- [x] V2-04 多租户 Worker Principal、租户发现与后台端点 allowlist
+- [x] V2-05 入口硬化、真实 External Gateway Guard 与 Webhook SSRF 防护
+- [x] V2-06 全域业务单号统一与静态门禁
+- [x] V2-07 Browser Router、多终端 Shell 与原创 Design Tokens 基线
+- [x] V2-08 真实 Worker E2E、CI、运维文档与架构图更新

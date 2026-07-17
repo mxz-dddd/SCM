@@ -12,6 +12,7 @@ import {
 import type { TenantRequest } from '../platform/auth/tenant-context.middleware';
 import { RequirePermission } from '../platform/auth/permission.decorator';
 import { PermissionGuard } from '../platform/auth/permission.guard';
+import { WorkerAccessible } from '../platform/auth/worker-access.decorator';
 import { Idempotent } from '../platform/idempotent.decorator';
 import {
   AiOptimizationService,
@@ -45,7 +46,11 @@ export class AiOptimizationController {
     @Headers('x-correlation-id') correlationId: string,
     @Req() request: TenantRequest,
   ) {
-    return this.service.createRouteOptimization(input, request.tenantContext, metadata(request, correlationId, key));
+    return this.service.createRouteOptimization(
+      input,
+      request.tenantContext,
+      metadata(request, correlationId, key),
+    );
   }
 
   @Post('load-optimizations')
@@ -57,7 +62,11 @@ export class AiOptimizationController {
     @Headers('x-correlation-id') correlationId: string,
     @Req() request: TenantRequest,
   ) {
-    return this.service.createLoadOptimization(input, request.tenantContext, metadata(request, correlationId, key));
+    return this.service.createLoadOptimization(
+      input,
+      request.tenantContext,
+      metadata(request, correlationId, key),
+    );
   }
 
   @Post('load-optimizations/:id/decision')
@@ -70,7 +79,12 @@ export class AiOptimizationController {
     @Headers('x-correlation-id') correlationId: string,
     @Req() request: TenantRequest,
   ) {
-    return this.service.decideLoad(id, input, request.tenantContext, metadata(request, correlationId, key));
+    return this.service.decideLoad(
+      id,
+      input,
+      request.tenantContext,
+      metadata(request, correlationId, key),
+    );
   }
 
   @Post('load-optimizations/:id/deviations')
@@ -83,7 +97,12 @@ export class AiOptimizationController {
     @Headers('x-correlation-id') correlationId: string,
     @Req() request: TenantRequest,
   ) {
-    return this.service.recordLoadDeviation(id, input, request.tenantContext, metadata(request, correlationId, key));
+    return this.service.recordLoadDeviation(
+      id,
+      input,
+      request.tenantContext,
+      metadata(request, correlationId, key),
+    );
   }
 
   @Post('forecasts')
@@ -95,7 +114,11 @@ export class AiOptimizationController {
     @Headers('x-correlation-id') correlationId: string,
     @Req() request: TenantRequest,
   ) {
-    return this.service.createForecast(input, request.tenantContext, metadata(request, correlationId, key));
+    return this.service.createForecast(
+      input,
+      request.tenantContext,
+      metadata(request, correlationId, key),
+    );
   }
 
   @Post('forecasts/:id/publish')
@@ -108,7 +131,12 @@ export class AiOptimizationController {
     @Headers('x-correlation-id') correlationId: string,
     @Req() request: TenantRequest,
   ) {
-    return this.service.publishForecast(id, input, request.tenantContext, metadata(request, correlationId, key));
+    return this.service.publishForecast(
+      id,
+      input,
+      request.tenantContext,
+      metadata(request, correlationId, key),
+    );
   }
 
   @Post('forecasts/:id/retire')
@@ -121,7 +149,12 @@ export class AiOptimizationController {
     @Headers('x-correlation-id') correlationId: string,
     @Req() request: TenantRequest,
   ) {
-    return this.service.retireForecast(id, input, request.tenantContext, metadata(request, correlationId, key));
+    return this.service.retireForecast(
+      id,
+      input,
+      request.tenantContext,
+      metadata(request, correlationId, key),
+    );
   }
 
   @Post('forecasts/:id/deviations')
@@ -129,12 +162,18 @@ export class AiOptimizationController {
   @RequirePermission('control.ai.forecast.feedback')
   forecastDeviation(
     @Param('id') id: string,
-    @Body() input: Parameters<AiOptimizationService['recordForecastDeviation']>[1],
+    @Body()
+    input: Parameters<AiOptimizationService['recordForecastDeviation']>[1],
     @Headers('idempotency-key') key: string | undefined,
     @Headers('x-correlation-id') correlationId: string,
     @Req() request: TenantRequest,
   ) {
-    return this.service.recordForecastDeviation(id, input, request.tenantContext, metadata(request, correlationId, key));
+    return this.service.recordForecastDeviation(
+      id,
+      input,
+      request.tenantContext,
+      metadata(request, correlationId, key),
+    );
   }
 
   @Post('inventory-recommendations')
@@ -146,7 +185,11 @@ export class AiOptimizationController {
     @Headers('x-correlation-id') correlationId: string,
     @Req() request: TenantRequest,
   ) {
-    return this.service.createInventoryRecommendation(input, request.tenantContext, metadata(request, correlationId, key));
+    return this.service.createInventoryRecommendation(
+      input,
+      request.tenantContext,
+      metadata(request, correlationId, key),
+    );
   }
 
   @Post('inventory-recommendations/:id/decision')
@@ -159,7 +202,12 @@ export class AiOptimizationController {
     @Headers('x-correlation-id') correlationId: string,
     @Req() request: TenantRequest,
   ) {
-    return this.service.decideRecommendation(id, input, request.tenantContext, metadata(request, correlationId, key));
+    return this.service.decideRecommendation(
+      id,
+      input,
+      request.tenantContext,
+      metadata(request, correlationId, key),
+    );
   }
 
   @Post('network-scenarios')
@@ -171,7 +219,11 @@ export class AiOptimizationController {
     @Headers('x-correlation-id') correlationId: string,
     @Req() request: TenantRequest,
   ) {
-    return this.service.createScenario(input, request.tenantContext, metadata(request, correlationId, key));
+    return this.service.createScenario(
+      input,
+      request.tenantContext,
+      metadata(request, correlationId, key),
+    );
   }
 
   @Post('network-scenarios/:id/run')
@@ -184,7 +236,12 @@ export class AiOptimizationController {
     @Headers('x-correlation-id') correlationId: string,
     @Req() request: TenantRequest,
   ) {
-    return this.service.runScenario(id, input, request.tenantContext, metadata(request, correlationId, key));
+    return this.service.runScenario(
+      id,
+      input,
+      request.tenantContext,
+      metadata(request, correlationId, key),
+    );
   }
 
   @Post('network-scenarios/:id/archive')
@@ -197,10 +254,16 @@ export class AiOptimizationController {
     @Headers('x-correlation-id') correlationId: string,
     @Req() request: TenantRequest,
   ) {
-    return this.service.archiveScenario(id, input, request.tenantContext, metadata(request, correlationId, key));
+    return this.service.archiveScenario(
+      id,
+      input,
+      request.tenantContext,
+      metadata(request, correlationId, key),
+    );
   }
 
   @Post('jobs/execute')
+  @WorkerAccessible('AI_JOB_EXECUTE')
   @Idempotent('control.ai.job.execute.v1')
   @RequirePermission('control.ai.job.process')
   executeJob(
@@ -209,7 +272,11 @@ export class AiOptimizationController {
     @Headers('x-correlation-id') correlationId: string,
     @Req() request: TenantRequest,
   ) {
-    return this.service.executeJob(input, request.tenantContext, metadata(request, correlationId, key));
+    return this.service.executeJob(
+      input,
+      request.tenantContext,
+      metadata(request, correlationId, key),
+    );
   }
 
   @Get('network-scenarios/:id/export')

@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
+import type { WorkspaceContextSelection, WorkspaceTab } from '@scm/shared';
 import {
   Avatar,
   Button,
@@ -13,253 +14,21 @@ import {
   Tag,
   Typography,
 } from 'antd';
-import type { WorkspaceContextSelection, WorkspaceTab } from '@scm/shared';
-import { AuthWorkbench } from '../platform/AuthWorkbench';
-import { AppointmentCapacityWorkbench } from '../ams/AppointmentCapacityWorkbench';
-import { BillingFactWorkbench } from '../billing/BillingFactWorkbench';
-import { ControlTowerWorkbench } from '../control/ControlTowerWorkbench';
-import { AlertGovernanceWorkbench } from '../control/AlertGovernanceWorkbench';
-import { BiAnalyticsWorkbench } from '../control/BiAnalyticsWorkbench';
-import { ReconciliationWorkbench } from '../control/ReconciliationWorkbench';
-import { AiOptimizationWorkbench } from '../control/AiOptimizationWorkbench';
-import { ApiGatewayWorkbench } from '../integration/ApiGatewayWorkbench';
-import { AdapterIotWorkbench } from '../integration/AdapterIotWorkbench';
-import { MessageExchangeWorkbench } from '../integration/MessageExchangeWorkbench';
-import { MobilePortalWorkbench } from '../integration/MobilePortalWorkbench';
-import { AuditWorkbench } from '../platform/AuditWorkbench';
-import { AttachmentWorkbench } from '../platform/AttachmentWorkbench';
-import { ConfigurationWorkbench } from '../platform/ConfigurationWorkbench';
-import { OrganizationRbacWorkbench } from '../platform/OrganizationRbacWorkbench';
-import { NotificationWorkbench } from '../platform/NotificationWorkbench';
-import { DataExchangeWorkbench } from '../platform/DataExchangeWorkbench';
-import { WorkflowWorkbench } from '../platform/WorkflowWorkbench';
-import { RuleEngineWorkbench } from '../platform/RuleEngineWorkbench';
-import { JobWorkbench } from '../platform/JobWorkbench';
-import { EventWorkbench } from '../platform/EventWorkbench';
-import { PlatformFinalizationWorkbench } from '../platform/PlatformFinalizationWorkbench';
-import { OperationsWorkbench } from '../platform/OperationsWorkbench';
-import { ProductWorkbench } from '../mdm/ProductWorkbench';
-import { PartnerWorkbench } from '../mdm/PartnerWorkbench';
-import { WarehouseFleetWorkbench } from '../mdm/WarehouseFleetWorkbench';
-import { MdmGovernanceWorkbench } from '../mdm/MdmGovernanceWorkbench';
-import { OrderIntakeWorkbench } from '../oms/OrderIntakeWorkbench';
-import { TransportOrderWorkbench } from '../tms/TransportOrderWorkbench';
-import { InboundWorkbench } from '../wms/InboundWorkbench';
-import { InventoryWorkbench } from '../wms/InventoryWorkbench';
-import { OutboundWorkbench } from '../wms/OutboundWorkbench';
-import { MobileOperationsWorkbench } from '../wms/MobileOperationsWorkbench';
+import { Outlet, useLocation, useNavigate } from 'react-router-dom';
+import {
+  ADMIN_NAV_CATEGORIES,
+  ADMIN_ROUTE_REGISTRY,
+  type AppRouteDefinition,
+} from '../router/route-registry';
+import {
+  findAdminRouteById,
+  findAdminRouteByPath,
+  routeToWorkspaceTab,
+} from '../router/route-helpers';
 import { useSessionStore } from '../platform/session-store';
-import { ComponentGallery } from '../ui/ComponentGallery';
 import { useWorkspaceStore } from './workspace-store';
 
 const { Content, Header, Sider } = Layout;
-
-const pageRegistry: readonly WorkspaceTab[] = [
-  { dirty: false, id: 'workbench', route: '/workbench', title: '工作台' },
-  {
-    dirty: false,
-    id: 'identity',
-    route: '/platform/identity',
-    title: '租户与认证',
-  },
-  { dirty: false, id: 'rbac', route: '/platform/rbac', title: '组织与权限' },
-  {
-    dirty: false,
-    id: 'components',
-    route: '/platform/components',
-    title: '统一组件',
-  },
-  {
-    dirty: false,
-    id: 'configuration',
-    route: '/platform/configuration',
-    title: '配置中心',
-  },
-  {
-    dirty: false,
-    id: 'audit',
-    route: '/platform/audit',
-    title: '审计中心',
-  },
-  {
-    dirty: false,
-    id: 'attachments',
-    route: '/platform/attachments',
-    title: '附件中心',
-  },
-  {
-    dirty: false,
-    id: 'inbox',
-    route: '/platform/inbox',
-    title: '待办消息',
-  },
-  {
-    dirty: false,
-    id: 'data-exchange',
-    route: '/platform/data-exchange',
-    title: '数据交换与搜索',
-  },
-  {
-    dirty: false,
-    id: 'workflow',
-    route: '/platform/workflow',
-    title: '工作流与审批',
-  },
-  {
-    dirty: false,
-    id: 'rules',
-    route: '/platform/rules',
-    title: '规则引擎',
-  },
-  {
-    dirty: false,
-    id: 'jobs',
-    route: '/platform/jobs',
-    title: '调度任务',
-  },
-  {
-    dirty: false,
-    id: 'events',
-    route: '/platform/events',
-    title: '业务事件',
-  },
-  {
-    dirty: false,
-    id: 'finalization',
-    route: '/platform/finalization',
-    title: '平台收尾',
-  },
-  { dirty: false, id: 'products', route: '/mdm/products', title: '商品主数据' },
-  { dirty: false, id: 'partners', route: '/mdm/partners', title: '伙伴与地址' },
-  {
-    dirty: false,
-    id: 'warehouses',
-    route: '/mdm/warehouses',
-    title: '仓库与车队',
-  },
-  {
-    dirty: false,
-    id: 'mdm-governance',
-    route: '/mdm/governance',
-    title: '主数据治理',
-  },
-  { dirty: false, id: 'orders', route: '/oms/orders', title: '订单中心' },
-  { dirty: false, id: 'inbound', route: '/wms/inbounds', title: '入库接入' },
-  { dirty: false, id: 'inventory', route: '/wms/inventory', title: '库存视图' },
-  {
-    dirty: false,
-    id: 'outbound',
-    route: '/wms/outbounds',
-    title: '出库与波次',
-  },
-  {
-    dirty: false,
-    id: 'operations',
-    route: '/wms/operations',
-    title: '移动作业与看板',
-  },
-  { dirty: false, id: 'transport', route: '/tms/shipments', title: '运输执行' },
-  {
-    dirty: false,
-    id: 'appointments',
-    route: '/ams/capacity',
-    title: '预约容量',
-  },
-  { dirty: false, id: 'billing', route: '/billing/facts', title: '结算中心' },
-  { dirty: false, id: 'control', route: '/control/tower', title: '控制塔' },
-  {
-    dirty: false,
-    id: 'control-alerts',
-    route: '/control/alerts',
-    title: '预警例外',
-  },
-  {
-    dirty: false,
-    id: 'control-bi',
-    route: '/control/bi',
-    title: 'BI 分析',
-  },
-  {
-    dirty: false,
-    id: 'control-acceptance',
-    route: '/control/acceptance',
-    title: 'P4 验收',
-  },
-  {
-    dirty: false,
-    id: 'control-ai',
-    route: '/control/ai',
-    title: 'AI 优化',
-  },
-  {
-    dirty: false,
-    id: 'integration-gateway',
-    route: '/integration/gateway',
-    title: '开放 API',
-  },
-  {
-    dirty: false,
-    id: 'integration-exchange',
-    route: '/integration/exchange',
-    title: '消息集成',
-  },
-  {
-    dirty: false,
-    id: 'integration-adapter-iot',
-    route: '/integration/adapter-iot',
-    title: '适配器与 IoT',
-  },
-  {
-    dirty: false,
-    id: 'mobile-portal',
-    route: '/mobile/portal',
-    title: '移动与伙伴门户',
-  },
-  {
-    dirty: false,
-    id: 'platform-operations',
-    route: '/platform/operations',
-    title: '生产运维',
-  },
-];
-
-const modules = [
-  ['工作台', 'workbench'],
-  ['平台', 'rbac'],
-  ['组件', 'components'],
-  ['配置', 'configuration'],
-  ['审计', 'audit'],
-  ['附件', 'attachments'],
-  ['消息', 'inbox'],
-  ['数据', 'data-exchange'],
-  ['审批', 'workflow'],
-  ['规则', 'rules'],
-  ['调度', 'jobs'],
-  ['事件', 'events'],
-  ['收尾', 'finalization'],
-  ['商品', 'products'],
-  ['伙伴', 'partners'],
-  ['仓库', 'warehouses'],
-  ['治理', 'mdm-governance'],
-  ['订单', 'orders'],
-  ['入库', 'inbound'],
-  ['仓储', 'inventory'],
-  ['出库', 'outbound'],
-  ['作业', 'operations'],
-  ['运输', 'transport'],
-  ['预约', 'appointments'],
-  ['结算', 'billing'],
-  ['控制塔', 'control'],
-  ['预警', 'control-alerts'],
-  ['BI', 'control-bi'],
-  ['验收', 'control-acceptance'],
-  ['AI 优化', 'control-ai'],
-  ['集成', 'integration-gateway'],
-  ['消息集成', 'integration-exchange'],
-  ['适配器与 IoT', 'integration-adapter-iot'],
-  ['移动与门户', 'mobile-portal'],
-  ['生产运维', 'platform-operations'],
-] as const;
 
 interface WorkspaceCatalogItem {
   pageKey: string;
@@ -278,6 +47,8 @@ interface WorkspaceResponse {
 }
 
 export function ApplicationShell() {
+  const location = useLocation();
+  const navigate = useNavigate();
   const claims = useSessionStore((state) => state.claims);
   const accessToken = useSessionStore((state) => state.accessToken);
   const activeTabId = useWorkspaceStore((state) => state.activeTabId);
@@ -286,7 +57,6 @@ export function ApplicationShell() {
   const activate = useWorkspaceStore((state) => state.activate);
   const close = useWorkspaceStore((state) => state.close);
   const hydrate = useWorkspaceStore((state) => state.hydrate);
-  const markDirty = useWorkspaceStore((state) => state.markDirty);
   const open = useWorkspaceStore((state) => state.open);
   const selectContext = useWorkspaceStore((state) => state.selectContext);
   const [commandOpen, setCommandOpen] = useState(false);
@@ -295,6 +65,56 @@ export function ApplicationShell() {
   const [restored, setRestored] = useState(false);
   const [favorites, setFavorites] = useState<WorkspaceCatalogItem[]>([]);
   const [recent, setRecent] = useState<WorkspaceCatalogItem[]>([]);
+
+  const permittedRoutes = useMemo(
+    () =>
+      ADMIN_ROUTE_REGISTRY.filter(
+        (route) =>
+          !claims ||
+          !route.allowedAccountKinds ||
+          route.allowedAccountKinds.includes(claims.accountKind),
+      ),
+    [claims],
+  );
+
+  const navigation = useMemo(() => {
+    const permittedById = new Map(
+      permittedRoutes.map((route) => [route.id, route] as const),
+    );
+    return ADMIN_NAV_CATEGORIES.map((category) => ({
+      ...category,
+      groups: category.groups
+        .map((group) => ({
+          ...group,
+          routes: group.routeIds.flatMap((routeId) => {
+            const route = permittedById.get(routeId);
+            return route ? [route] : [];
+          }),
+        }))
+        .filter((group) => group.routes.length > 0),
+    })).filter((category) => category.groups.length > 0);
+  }, [permittedRoutes]);
+
+  const activeRoute =
+    findAdminRouteByPath(location.pathname) ?? findAdminRouteById(activeTabId);
+  const activeCategory =
+    navigation.find((category) =>
+      category.groups.some((group) =>
+        group.routes.some((route) => route.id === activeRoute?.id),
+      ),
+    ) ?? navigation[0];
+  const activeGroup =
+    activeCategory?.groups.find((group) =>
+      group.routes.some((route) => route.id === activeRoute?.id),
+    ) ?? activeCategory?.groups[0];
+
+  useEffect(() => {
+    const route = findAdminRouteByPath(location.pathname);
+    if (!route) return;
+    if (!tabs.some((tab) => tab.id === route.id))
+      open(routeToWorkspaceTab(route));
+    else if (activeTabId !== route.id) activate(route.id);
+  }, [activate, activeTabId, location.pathname, open, tabs]);
 
   useEffect(() => {
     if (!claims || !accessToken) {
@@ -323,9 +143,7 @@ export function ApplicationShell() {
             context: catalog.layout.context,
             tabs: catalog.layout.openTabs,
           });
-        } else {
-          selectContext({ tenantId: claims.tenantId });
-        }
+        } else selectContext({ tenantId: claims.tenantId });
         setRestored(true);
       })
       .catch((error: unknown) => {
@@ -368,98 +186,90 @@ export function ApplicationShell() {
 
   const commands = useMemo(
     () =>
-      pageRegistry.filter(({ title }) =>
-        title.toLowerCase().includes(query.toLowerCase()),
-      ),
-    [query],
+      permittedRoutes.filter(({ navLabel, title }) => {
+        const normalized = query.trim().toLowerCase();
+        return (
+          title.toLowerCase().includes(normalized) ||
+          navLabel.toLowerCase().includes(normalized)
+        );
+      }),
+    [permittedRoutes, query],
   );
+
+  function openRoute(route: AppRouteDefinition) {
+    void navigate(route.path);
+  }
+
+  function openCategory(categoryId: string) {
+    const category = navigation.find(({ id }) => id === categoryId);
+    const firstRoute = category?.groups[0]?.routes[0];
+    if (firstRoute) openRoute(firstRoute);
+  }
+
+  function openGroup(groupId: string) {
+    const group = activeCategory?.groups.find(({ id }) => id === groupId);
+    const firstRoute = group?.routes[0];
+    if (firstRoute) openRoute(firstRoute);
+  }
+
+  function activateTab(tabId: string) {
+    const route = findAdminRouteById(tabId);
+    if (!route) return;
+    activate(tabId);
+    void navigate(route.path);
+  }
 
   function closeTab(tabId: string) {
     const target = tabs.find(({ id }) => id === tabId);
+    const finish = (confirmDirty: boolean) => {
+      if (!close(tabId, confirmDirty)) return;
+      const nextId = useWorkspaceStore.getState().activeTabId;
+      const nextRoute = findAdminRouteById(nextId);
+      if (nextRoute) void navigate(nextRoute.path);
+    };
     if (!target?.dirty) {
-      close(tabId, false);
+      finish(false);
       return;
     }
     Modal.confirm({
       cancelText: '继续编辑',
       content: '此标签包含未提交草稿，关闭后将丢失当前修改。',
       okText: '确认关闭',
-      onOk: () => close(tabId, true),
+      onOk: () => finish(true),
       title: '关闭未保存标签？',
     });
   }
 
-  function renderPage(tabId: string) {
-    if (tabId === 'identity') return <AuthWorkbench />;
-    if (tabId === 'rbac') return <OrganizationRbacWorkbench />;
-    if (tabId === 'components') return <ComponentGallery />;
-    if (tabId === 'configuration') return <ConfigurationWorkbench />;
-    if (tabId === 'audit') return <AuditWorkbench />;
-    if (tabId === 'attachments') return <AttachmentWorkbench />;
-    if (tabId === 'inbox') return <NotificationWorkbench />;
-    if (tabId === 'data-exchange') return <DataExchangeWorkbench />;
-    if (tabId === 'workflow') return <WorkflowWorkbench />;
-    if (tabId === 'rules') return <RuleEngineWorkbench />;
-    if (tabId === 'jobs') return <JobWorkbench />;
-    if (tabId === 'events') return <EventWorkbench />;
-    if (tabId === 'finalization') return <PlatformFinalizationWorkbench />;
-    if (tabId === 'products') return <ProductWorkbench />;
-    if (tabId === 'partners') return <PartnerWorkbench />;
-    if (tabId === 'warehouses') return <WarehouseFleetWorkbench />;
-    if (tabId === 'mdm-governance') return <MdmGovernanceWorkbench />;
-    if (tabId === 'orders') return <OrderIntakeWorkbench />;
-    if (tabId === 'inbound') return <InboundWorkbench />;
-    if (tabId === 'inventory') return <InventoryWorkbench />;
-    if (tabId === 'outbound') return <OutboundWorkbench />;
-    if (tabId === 'operations') return <MobileOperationsWorkbench />;
-    if (tabId === 'transport') return <TransportOrderWorkbench />;
-    if (tabId === 'appointments') return <AppointmentCapacityWorkbench />;
-    if (tabId === 'billing') return <BillingFactWorkbench />;
-    if (tabId === 'control') return <ControlTowerWorkbench />;
-    if (tabId === 'control-alerts') return <AlertGovernanceWorkbench />;
-    if (tabId === 'control-bi') return <BiAnalyticsWorkbench />;
-    if (tabId === 'control-acceptance') return <ReconciliationWorkbench />;
-    if (tabId === 'control-ai') return <AiOptimizationWorkbench />;
-    if (tabId === 'integration-gateway') return <ApiGatewayWorkbench />;
-    if (tabId === 'integration-exchange') return <MessageExchangeWorkbench />;
-    if (tabId === 'integration-adapter-iot') return <AdapterIotWorkbench />;
-    if (tabId === 'mobile-portal') return <MobilePortalWorkbench />;
-    if (tabId === 'platform-operations') return <OperationsWorkbench />;
-    return (
-      <section className="workspace-placeholder">
-        <Typography.Title level={2}>
-          {pageRegistry.find(({ id }) => id === tabId)?.title ?? '工作台'}
-        </Typography.Title>
-        <Typography.Paragraph>
-          查询条件与未提交草稿会随标签会话保存。
-        </Typography.Paragraph>
-        <Button onClick={() => markDirty(tabId, true)}>标记未保存草稿</Button>
-      </section>
-    );
+  function openCatalogItem(item: WorkspaceCatalogItem) {
+    const route =
+      findAdminRouteByPath(item.route) ?? findAdminRouteById(item.pageKey);
+    if (route) openRoute(route);
   }
 
   return (
     <Layout className="app-shell">
-      <Sider className="app-sidebar" collapsed width={216}>
-        <div className="app-mark" aria-label="SCM Cloud">
-          SC
+      <Sider className="app-sidebar" collapsedWidth={56} width={56}>
+        <div className="app-mark" aria-label="澄链 SCM">
+          澄
         </div>
         <nav aria-label="模块导航" className="module-nav">
-          {modules.map(([label, pageId]) => (
+          {navigation.map((category) => (
             <Button
-              aria-label={label}
+              aria-label={category.label}
               className={
-                activeTabId === pageId
+                activeCategory?.id === category.id
                   ? 'module-button active'
                   : 'module-button'
               }
-              key={pageId}
-              onClick={() =>
-                open(pageRegistry.find(({ id }) => id === pageId)!)
-              }
+              key={category.id}
+              onClick={() => openCategory(category.id)}
+              title={category.label}
               type="text"
             >
-              {label.slice(0, 1)}
+              <span className="module-button-mark" aria-hidden="true">
+                {category.shortLabel.slice(0, 1)}
+              </span>
+              <span className="module-button-label">{category.shortLabel}</span>
             </Button>
           ))}
         </nav>
@@ -508,14 +318,67 @@ export function ApplicationShell() {
             <Avatar>{claims?.accountKind.slice(0, 1) ?? '访'}</Avatar>
           </Space>
         </Header>
+        {activeCategory && activeGroup ? (
+          <section
+            aria-label={`${activeCategory.label}分层导航`}
+            className="business-navigation"
+          >
+            <div className="business-navigation-title">
+              <Typography.Text type="secondary">当前模块</Typography.Text>
+              <Typography.Text strong>{activeCategory.label}</Typography.Text>
+            </div>
+            <nav aria-label="业务分组" className="business-group-nav">
+              {activeCategory.groups.map((group) => (
+                <Button
+                  aria-current={
+                    activeGroup.id === group.id ? 'page' : undefined
+                  }
+                  className={
+                    activeGroup.id === group.id
+                      ? 'business-group-button active'
+                      : 'business-group-button'
+                  }
+                  key={group.id}
+                  onClick={() => openGroup(group.id)}
+                  type="text"
+                >
+                  {group.label}
+                </Button>
+              ))}
+            </nav>
+            <nav aria-label="页面导航" className="page-nav">
+              {activeGroup.routes.map((route) => (
+                <Button
+                  aria-current={
+                    activeRoute?.id === route.id ? 'page' : undefined
+                  }
+                  className={
+                    activeRoute?.id === route.id
+                      ? 'page-nav-button active'
+                      : 'page-nav-button'
+                  }
+                  key={route.id}
+                  onClick={() => openRoute(route)}
+                  size="small"
+                  type="text"
+                >
+                  {route.title}
+                </Button>
+              ))}
+            </nav>
+          </section>
+        ) : null}
         <Tabs
           activeKey={activeTabId}
           className="workspace-tabs"
           hideAdd
           items={tabs.map((tab) => ({
-            children: (
-              <Content className="app-content">{renderPage(tab.id)}</Content>
-            ),
+            children:
+              tab.id === activeTabId ? (
+                <Content className="app-content">
+                  <Outlet />
+                </Content>
+              ) : null,
             closable: tab.id !== 'workbench',
             key: tab.id,
             label: (
@@ -525,7 +388,7 @@ export function ApplicationShell() {
               </span>
             ),
           }))}
-          onChange={activate}
+          onChange={activateTab}
           onEdit={(targetKey, action) =>
             action === 'remove' && closeTab(String(targetKey))
           }
@@ -553,7 +416,7 @@ export function ApplicationShell() {
                 <Button
                   key="open"
                   onClick={() => {
-                    open(page);
+                    openRoute(page);
                     setCommandOpen(false);
                   }}
                 >
@@ -575,7 +438,13 @@ export function ApplicationShell() {
         {favorites.length > 0 ? (
           <List
             dataSource={favorites}
-            renderItem={(item) => <List.Item>{item.title}</List.Item>}
+            renderItem={(item) => (
+              <List.Item>
+                <Button type="link" onClick={() => openCatalogItem(item)}>
+                  {item.title}
+                </Button>
+              </List.Item>
+            )}
           />
         ) : (
           <Tag>暂无收藏</Tag>
@@ -584,7 +453,13 @@ export function ApplicationShell() {
         <List
           dataSource={recent}
           locale={{ emptyText: '暂无最近访问' }}
-          renderItem={(item) => <List.Item>{item.title}</List.Item>}
+          renderItem={(item) => (
+            <List.Item>
+              <Button type="link" onClick={() => openCatalogItem(item)}>
+                {item.title}
+              </Button>
+            </List.Item>
+          )}
         />
       </Drawer>
     </Layout>

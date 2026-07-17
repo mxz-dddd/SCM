@@ -146,7 +146,8 @@ export class JobSchedulingFacade {
         definitionId = raced.id;
       }
     }
-    if (!definitionId) throw new Error('AI optimization job definition was not created');
+    if (!definitionId)
+      throw new Error('AI optimization job definition was not created');
     return this.jobs.trigger(
       definitionId,
       {
@@ -186,7 +187,10 @@ export class JobSchedulingFacade {
             defaultPayload: {},
             eventName: 'platform.ops-operation-requested.v1',
             ...(definition
-              ? { expectedVersion: definition.version, jobDefinitionId: definition.id }
+              ? {
+                  expectedVersion: definition.version,
+                  jobDefinitionId: definition.id,
+                }
               : {}),
             handler: 'OPS_OPERATION',
             maxAttempts: 3,
@@ -213,7 +217,8 @@ export class JobSchedulingFacade {
         definitionId = raced.id;
       }
     }
-    if (!definitionId) throw new Error('OPS operation job definition was not created');
+    if (!definitionId)
+      throw new Error('OPS operation job definition was not created');
     return this.jobs.trigger(
       definitionId,
       {

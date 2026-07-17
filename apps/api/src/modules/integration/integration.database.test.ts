@@ -124,6 +124,19 @@ databaseDescribe('Integration API gateway and OpenAPI governance', () => {
         type: 'HMAC',
       }),
     ).resolves.toMatchObject({ allowed: true });
+    await expect(
+      gateway.authorize({
+        body,
+        ipAddress: '127.0.0.1',
+        keyId: hmac.keyId,
+        method: 'POST',
+        requestBytes: 130,
+        route: '/api/v1/external/orders',
+        signature,
+        timestamp,
+        type: 'HMAC',
+      }),
+    ).rejects.toMatchObject({ code: 'GATEWAY_HMAC_REPLAYED', statusCode: 401 });
 
     const fingerprint = 'AA:BB:CC:DD:EE:FF';
     const mtls = await gateway.createCredential(
@@ -336,7 +349,26 @@ databaseDescribe('Integration API gateway and OpenAPI governance', () => {
           requestBytes: 50,
         }),
       ),
-    ).rejects.toMatchObject({ code: 'GATEWAY_IP_DENIED' });
+    ).rejects.toMatchObject({ code: 'GATEWAY_IP_DENIED', statusCode: 403 });
+    await expect(
+      gateway.authorize(
+        authorize(credential.secret!, credential.keyId, {
+          ipAddress: '127.0.0.1',
+          requestBytes: 50,
+        }),
+      ),
+    ).rejects.toMatchObject({
+      code: 'GATEWAY_REQUEST_TOO_LARGE',
+      statusCode: 413,
+    });
+    await expect(
+      gateway.authorize(
+        authorize(credential.secret!, credential.keyId, {
+          ipAddress: '127.0.0.1',
+          requestBytes: 1,
+        }),
+      ),
+    ).rejects.toMatchObject({ code: 'GATEWAY_SCOPE_DENIED', statusCode: 403 });
     const reasons = await prisma.integrationRateLimitDecision.findMany({
       select: { reasonCode: true },
       where: { credentialId: credential.credentialId },

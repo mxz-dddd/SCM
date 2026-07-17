@@ -1,4 +1,4 @@
-import { createHash, randomUUID } from 'node:crypto';
+import { createHash } from 'node:crypto';
 import { Inject, Injectable } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 import type { TenantContext } from '@scm/shared';
@@ -8,6 +8,7 @@ import { isUuid } from '../../common/validation';
 import { PrismaService } from '../../database/prisma.service';
 import { RateMatchingFacade } from '../mdm/public/rate-matching.facade';
 import { EventConsumptionFacade } from '../platform/public/event-consumption.facade';
+import { businessNumber } from '../platform/public/numbering.facade';
 import type { BusinessEventInput } from '../platform/event.service';
 import type { CommandMetadata } from '../platform/tenant.service';
 
@@ -586,7 +587,13 @@ export class ChargeFactRateService {
           chargeFactId: id,
           contentHash,
           correctedSnapshot: json(normalized),
-          correctionNo: `COR-${new Date().toISOString().replace(/\D/g, '').slice(0, 14)}-${randomUUID().slice(0, 8).toUpperCase()}`,
+          correctionNo: await businessNumber(
+            this.prisma,
+            'BILLING_CHARGE_FACT_CORRECTION',
+            context,
+            metadata,
+            `charge-fact-correction:${id}`,
+          ),
           createdBy: context.accountId,
           previousHash: latest?.contentHash ?? fact.contentHash,
           reason,

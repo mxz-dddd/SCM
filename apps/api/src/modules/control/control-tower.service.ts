@@ -6,6 +6,7 @@ import { toHttpJson } from '../../common/http-json';
 import { PrismaService } from '../../database/prisma.service';
 import type { BusinessEventInput } from '../platform/event.service';
 import { EventConsumptionFacade } from '../platform/public/event-consumption.facade';
+import { businessNumber } from '../platform/public/numbering.facade';
 import type { CommandMetadata } from '../platform/tenant.service';
 
 const object = (value: unknown): Record<string, unknown> =>
@@ -124,6 +125,41 @@ export class ControlTowerService {
           await this.projectTransport(tx, businessRef, view, message, context);
         else if (viewType === 'YARD')
           await this.projectYard(tx, view, message, context);
+        if (message.eventType === 'oms.fulfillment-process-failed.v1') {
+          const dedupeKey = `FULFILLMENT_PROCESS:${message.aggregateId}`;
+          const existingCase = await tx.controlAlertCase.findFirst({
+            where: { dedupeKey, tenantId: context.tenantId },
+          });
+          if (!existingCase)
+            await tx.controlAlertCase.create({
+              data: {
+                businessRef,
+                caseNo: await businessNumber(
+                  this.prisma,
+                  'CONTROL_FULFILLMENT_FAILURE_CASE',
+                  context,
+                  metadata,
+                  `fulfillment-failure:${message.aggregateId}`,
+                ),
+                createdBy: context.accountId,
+                dedupeKey,
+                description:
+                  this.optionalText(payload.message, 1000) ??
+                  'Fulfillment process requires manual intervention',
+                dueAt: new Date(Date.now() + 4 * 60 * 60 * 1000),
+                lastTriggeredAt: new Date(message.occurredAt),
+                responsibleDomain: 'OMS',
+                severity: 'HIGH',
+                sourceDomain: 'OMS',
+                sourceSnapshot: json(message.payload),
+                tenantId: context.tenantId,
+                title:
+                  this.optionalText(payload.summary, 300) ??
+                  'Fulfillment process failed',
+                updatedBy: context.accountId,
+              },
+            });
+        }
         return {
           businessRef,
           eventId: message.eventId,

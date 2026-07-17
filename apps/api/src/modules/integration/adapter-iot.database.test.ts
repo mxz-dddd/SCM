@@ -70,7 +70,11 @@ databaseDescribe('ERP/finance adapters and IoT gateway', () => {
       actor,
       command(),
     );
-    expect(tested).toMatchObject({ passed: true, status: 'TESTED', version: 2 });
+    expect(tested).toMatchObject({
+      passed: true,
+      status: 'TESTED',
+      version: 2,
+    });
     await service.publishAdapterVersion(
       adapter.adapterVersionId,
       { expectedVersion: 2 },
@@ -85,24 +89,38 @@ databaseDescribe('ERP/finance adapters and IoT gateway', () => {
       externalRef: 'SAP-SO-1',
       vendorPayload: { KUNNR: 'CUS-1', SAP_BUKRS: '1000', VBELN: 'SO-1' },
     };
-    const normalized = await service.submitAdapterCommand(input, actor, command());
+    const normalized = await service.submitAdapterCommand(
+      input,
+      actor,
+      command(),
+    );
     expect(normalized).toMatchObject({
       canonicalPayload: { customerId: 'CUS-1', orderNo: 'SO-1' },
       duplicate: false,
       status: 'NORMALIZED',
     });
-    expect(JSON.stringify(normalized.canonicalPayload)).not.toContain('SAP_BUKRS');
-    await expect(service.submitAdapterCommand(input, actor, command())).resolves.toMatchObject({
+    expect(JSON.stringify(normalized.canonicalPayload)).not.toContain(
+      'SAP_BUKRS',
+    );
+    await expect(
+      service.submitAdapterCommand(input, actor, command()),
+    ).resolves.toMatchObject({
       adapterCommandId: normalized.adapterCommandId,
       duplicate: true,
     });
     await expect(
       service.submitAdapterCommand(
-        { ...input, vendorPayload: { ...input.vendorPayload, VBELN: 'SO-CHANGED' } },
+        {
+          ...input,
+          vendorPayload: { ...input.vendorPayload, VBELN: 'SO-CHANGED' },
+        },
         actor,
         command(),
       ),
-    ).rejects.toMatchObject({ code: 'ADAPTER_EXTERNAL_REF_CONFLICT', statusCode: 409 });
+    ).rejects.toMatchObject({
+      code: 'ADAPTER_EXTERNAL_REF_CONFLICT',
+      statusCode: 409,
+    });
     const dispatched = await service.dispatchAdapterCommand(
       normalized.adapterCommandId,
       { expectedVersion: normalized.version },
@@ -113,22 +131,37 @@ databaseDescribe('ERP/finance adapters and IoT gateway', () => {
     await expect(
       service.acknowledgeAdapterCommand(
         normalized.adapterCommandId,
-        { expectedVersion: dispatched.version, outcome: 'ACKNOWLEDGED', vendorResponse: { SAP_DOC: '9001' } },
+        {
+          expectedVersion: dispatched.version,
+          outcome: 'ACKNOWLEDGED',
+          vendorResponse: { SAP_DOC: '9001' },
+        },
         actor,
         command(),
       ),
     ).resolves.toMatchObject({ status: 'ACKNOWLEDGED', version: 3 });
     const dispatchedOutbox = await prisma.platformOutbox.findFirstOrThrow({
       orderBy: { createdAt: 'desc' },
-      where: { aggregateId: normalized.adapterCommandId, eventName: 'integration.adapter-command-dispatched.v1' },
+      where: {
+        aggregateId: normalized.adapterCommandId,
+        eventName: 'integration.adapter-command-dispatched.v1',
+      },
     });
     expect(JSON.stringify(dispatchedOutbox.payload)).not.toContain('SAP_BUKRS');
     await expect(
-      prisma.integrationAdapterVersion.update({ data: { rules: [] }, where: { id: adapter.adapterVersionId } }),
+      prisma.integrationAdapterVersion.update({
+        data: { rules: [] },
+        where: { id: adapter.adapterVersionId },
+      }),
     ).rejects.toBeDefined();
-    const event = await prisma.integrationAdapterEvent.findFirstOrThrow({ where: { commandId: normalized.adapterCommandId } });
+    const event = await prisma.integrationAdapterEvent.findFirstOrThrow({
+      where: { commandId: normalized.adapterCommandId },
+    });
     await expect(
-      prisma.integrationAdapterEvent.update({ data: { eventType: 'tampered' }, where: { id: event.id } }),
+      prisma.integrationAdapterEvent.update({
+        data: { eventType: 'tampered' },
+        where: { id: event.id },
+      }),
     ).rejects.toBeDefined();
   });
 
@@ -148,8 +181,18 @@ databaseDescribe('ERP/finance adapters and IoT gateway', () => {
       actor,
       command(),
     );
-    await service.testAdapterVersion(adapter.adapterVersionId, { expectedVersion: 1 }, actor, command());
-    await service.publishAdapterVersion(adapter.adapterVersionId, { expectedVersion: 2 }, actor, command());
+    await service.testAdapterVersion(
+      adapter.adapterVersionId,
+      { expectedVersion: 1 },
+      actor,
+      command(),
+    );
+    await service.publishAdapterVersion(
+      adapter.adapterVersionId,
+      { expectedVersion: 2 },
+      actor,
+      command(),
+    );
     const next = await service.createAdapterVersion(
       adapter.adapterId,
       {
@@ -161,7 +204,12 @@ databaseDescribe('ERP/finance adapters and IoT gateway', () => {
       command(),
     );
     await expect(
-      service.testAdapterVersion(next.adapterVersionId, { expectedVersion: 1 }, actor, command()),
+      service.testAdapterVersion(
+        next.adapterVersionId,
+        { expectedVersion: 1 },
+        actor,
+        command(),
+      ),
     ).rejects.toMatchObject({ code: 'ADAPTER_SEMANTIC_LEAKAGE' });
     const submitted = await service.submitAdapterCommand(
       {
@@ -175,11 +223,20 @@ databaseDescribe('ERP/finance adapters and IoT gateway', () => {
       actor,
       command(),
     );
-    const sent = await service.dispatchAdapterCommand(submitted.adapterCommandId, { expectedVersion: 1 }, actor, command());
+    const sent = await service.dispatchAdapterCommand(
+      submitted.adapterCommandId,
+      { expectedVersion: 1 },
+      actor,
+      command(),
+    );
     await expect(
       service.acknowledgeAdapterCommand(
         submitted.adapterCommandId,
-        { errorCode: 'ERP_REJECTED', expectedVersion: sent.version, outcome: 'FAILED' },
+        {
+          errorCode: 'ERP_REJECTED',
+          expectedVersion: sent.version,
+          outcome: 'FAILED',
+        },
         actor,
         command(),
       ),
@@ -227,9 +284,16 @@ databaseDescribe('ERP/finance adapters and IoT gateway', () => {
       actor,
       command(),
     );
-    const active = await service.transitionDevice(registered.deviceId, { expectedVersion: 1, target: 'ACTIVE' }, actor, command());
+    const active = await service.transitionDevice(
+      registered.deviceId,
+      { expectedVersion: 1, target: 'ACTIVE' },
+      actor,
+      command(),
+    );
     expect(active).toMatchObject({ status: 'ACTIVE', version: 2 });
-    const identity = await prisma.integrationDevice.findUniqueOrThrow({ where: { id: registered.deviceId } });
+    const identity = await prisma.integrationDevice.findUniqueOrThrow({
+      where: { id: registered.deviceId },
+    });
     const heartbeatInput = {
       certificateFingerprint: firstFingerprint,
       firmwareVersion: '1.2.3',
@@ -243,22 +307,42 @@ databaseDescribe('ERP/finance adapters and IoT gateway', () => {
     const replay = await service.heartbeat(heartbeatInput, key, randomUUID());
     expect(replay).toEqual(first);
     await expect(
-      service.heartbeat({ ...heartbeatInput, health: { battery: 91 } }, key, randomUUID()),
-    ).rejects.toMatchObject({ code: 'IDEMPOTENCY_KEY_CONFLICT', statusCode: 409 });
+      service.heartbeat(
+        { ...heartbeatInput, health: { battery: 91 } },
+        key,
+        randomUUID(),
+      ),
+    ).rejects.toMatchObject({
+      code: 'IDEMPOTENCY_KEY_CONFLICT',
+      statusCode: 409,
+    });
     const rotated = await service.rotateDeviceCertificate(
       registered.deviceId,
-      { certificateFingerprint: fingerprint('b'), expectedVersion: first.version, validUntil: '2036-01-01T00:00:00.000Z' },
+      {
+        certificateFingerprint: fingerprint('b'),
+        expectedVersion: first.version,
+        validUntil: '2036-01-01T00:00:00.000Z',
+      },
       actor,
       command(),
     );
     expect(rotated.version).toBe(first.version + 1);
     const issued = await service.issueDeviceCommand(
       registered.deviceId,
-      { commandType: 'SET_SAMPLE_INTERVAL', expiresAt: '2030-01-01T00:00:00.000Z', payload: { seconds: 30 } },
+      {
+        commandType: 'SET_SAMPLE_INTERVAL',
+        expiresAt: '2030-01-01T00:00:00.000Z',
+        payload: { seconds: 30 },
+      },
       actor,
       command(),
     );
-    const sent = await service.sendDeviceCommand(issued.deviceCommandId, { expectedVersion: issued.version }, actor, command());
+    const sent = await service.sendDeviceCommand(
+      issued.deviceCommandId,
+      { expectedVersion: issued.version },
+      actor,
+      command(),
+    );
     const ack = await service.acknowledgeDeviceCommand(
       {
         certificateFingerprint: fingerprint('b'),
@@ -272,10 +356,17 @@ databaseDescribe('ERP/finance adapters and IoT gateway', () => {
       randomUUID(),
       randomUUID(),
     );
-    expect(ack).toMatchObject({ status: 'ACKNOWLEDGED', version: sent.version + 1 });
+    expect(ack).toMatchObject({
+      status: 'ACKNOWLEDGED',
+      version: sent.version + 1,
+    });
     const failedIssued = await service.issueDeviceCommand(
       registered.deviceId,
-      { commandType: 'REBOOT', expiresAt: '2030-01-01T00:00:00.000Z', payload: {} },
+      {
+        commandType: 'REBOOT',
+        expiresAt: '2030-01-01T00:00:00.000Z',
+        payload: {},
+      },
       actor,
       command(),
     );
@@ -299,10 +390,17 @@ databaseDescribe('ERP/finance adapters and IoT gateway', () => {
         randomUUID(),
         randomUUID(),
       ),
-    ).resolves.toMatchObject({ status: 'FAILED', version: failedSent.version + 1 });
+    ).resolves.toMatchObject({
+      status: 'FAILED',
+      version: failedSent.version + 1,
+    });
     const expiring = await service.issueDeviceCommand(
       registered.deviceId,
-      { commandType: 'STALE_COMMAND', expiresAt: '2030-01-01T00:00:00.000Z', payload: {} },
+      {
+        commandType: 'STALE_COMMAND',
+        expiresAt: '2030-01-01T00:00:00.000Z',
+        payload: {},
+      },
       actor,
       command(),
     );
@@ -361,7 +459,12 @@ databaseDescribe('ERP/finance adapters and IoT gateway', () => {
       actor,
       command(),
     );
-    await service.transitionDevice(registered.deviceId, { expectedVersion: 1, target: 'ACTIVE' }, actor, command());
+    await service.transitionDevice(
+      registered.deviceId,
+      { expectedVersion: 1, target: 'ACTIVE' },
+      actor,
+      command(),
+    );
     const base = {
       certificateFingerprint: cert,
       hardwareId,
@@ -370,16 +473,45 @@ databaseDescribe('ERP/finance adapters and IoT gateway', () => {
       tenantId: actor.tenantId,
     };
     const outcomes = await Promise.allSettled([
-      service.ingestTelemetry({ ...base, sequence: '1', values: { latitude: 31.2, longitude: 121.5 } }, randomUUID(), randomUUID()),
-      service.ingestTelemetry({ ...base, sequence: '2', values: { latitude: 31.3, longitude: 121.6 } }, randomUUID(), randomUUID()),
+      service.ingestTelemetry(
+        {
+          ...base,
+          sequence: '1',
+          values: { latitude: 31.2, longitude: 121.5 },
+        },
+        randomUUID(),
+        randomUUID(),
+      ),
+      service.ingestTelemetry(
+        {
+          ...base,
+          sequence: '2',
+          values: { latitude: 31.3, longitude: 121.6 },
+        },
+        randomUUID(),
+        randomUUID(),
+      ),
     ]);
-    expect(outcomes.filter(({ status }) => status === 'fulfilled')).toHaveLength(1);
+    expect(
+      outcomes.filter(({ status }) => status === 'fulfilled'),
+    ).toHaveLength(1);
     const rejected = outcomes.find(({ status }) => status === 'rejected');
-    expect(rejected).toMatchObject({ reason: { code: 'DEVICE_TELEMETRY_RATE_LIMITED', statusCode: 429 } });
-    const telemetry = await prisma.integrationDeviceTelemetry.findFirstOrThrow({ where: { deviceId: registered.deviceId } });
+    expect(rejected).toMatchObject({
+      reason: { code: 'DEVICE_TELEMETRY_RATE_LIMITED', statusCode: 429 },
+    });
+    const telemetry = await prisma.integrationDeviceTelemetry.findFirstOrThrow({
+      where: { deviceId: registered.deviceId },
+    });
     await expect(
-      prisma.integrationDeviceTelemetry.update({ data: { valueSnapshot: { tampered: true } }, where: { id: telemetry.id } }),
+      prisma.integrationDeviceTelemetry.update({
+        data: { valueSnapshot: { tampered: true } },
+        where: { id: telemetry.id },
+      }),
     ).rejects.toBeDefined();
-    expect(await prisma.integrationDeviceTelemetry.count({ where: { deviceId: registered.deviceId } })).toBe(1);
+    expect(
+      await prisma.integrationDeviceTelemetry.count({
+        where: { deviceId: registered.deviceId },
+      }),
+    ).toBe(1);
   });
 });

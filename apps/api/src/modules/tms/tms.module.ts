@@ -26,6 +26,8 @@ import { TrackingController } from './tracking.controller';
 import { TrackingService } from './tracking.service';
 import { TransportOrderController } from './transport-order.controller';
 import { TransportOrderService } from './transport-order.service';
+import { TmsEventConsumerController } from './tms-event-consumer.controller';
+import { TmsEventConsumerService } from './tms-event-consumer.service';
 
 @Module({
   controllers: [
@@ -40,6 +42,7 @@ import { TransportOrderService } from './transport-order.service';
     PublicTrackingController,
     TrackingController,
     TransportOrderController,
+    TmsEventConsumerController,
   ],
   imports: [MdmModule, PlatformModule],
   providers: [
@@ -53,6 +56,7 @@ import { TransportOrderService } from './transport-order.service';
     PlanningService,
     TrackingService,
     TransportOrderService,
+    TmsEventConsumerService,
     PermissionGuard,
     PermissionService,
   ],

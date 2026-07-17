@@ -1,0 +1,76 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://scm.local/schemas/reference-page-catalog.schema.json",
+  "title": "Redacted UI reference page catalog",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schemaVersion", "generatedAt", "evidencePolicy", "records"],
+  "properties": {
+    "schemaVersion": { "const": 1 },
+    "generatedAt": { "type": "string", "format": "date-time" },
+    "evidencePolicy": { "type": "string", "minLength": 1 },
+    "records": {
+      "type": "array",
+      "minItems": 527,
+      "maxItems": 527,
+      "items": { "$ref": "#/$defs/record" }
+    }
+  },
+  "$defs": {
+    "nullableEvidence": { "type": ["string", "null"] },
+    "record": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "referenceId",
+        "sequence",
+        "recordKind",
+        "primaryCategory",
+        "businessGroup",
+        "menuPath",
+        "pageTitle",
+        "referenceRouteHash",
+        "screenshotSha256",
+        "screenshotEvidence",
+        "captureTimestamp",
+        "observedRegions",
+        "queryFieldCount",
+        "toolbarActionCount",
+        "tableColumnCount",
+        "tabCount",
+        "dialogCount",
+        "localRoute",
+        "localComponent",
+        "localApiEvidence",
+        "localTestEvidence",
+        "status",
+        "gapReason"
+      ],
+      "properties": {
+        "referenceId": { "type": "string", "pattern": "^(LEAF|DIR)-[A-Z_]+-[0-9]{3}$" },
+        "sequence": { "type": "integer", "minimum": 1, "maximum": 527 },
+        "recordKind": { "enum": ["BUSINESS_LEAF", "DIRECTORY_VIEW"] },
+        "primaryCategory": { "enum": ["WMS", "OMS", "TMS", "MDM", "REPORTS", "MESSAGES", "SUPPORT", "DATA_SCREEN"] },
+        "businessGroup": { "type": "string", "minLength": 1 },
+        "menuPath": { "type": "array", "minItems": 1, "items": { "type": "string", "pattern": "^sha256:[a-f0-9]{64}$" } },
+        "pageTitle": { "type": "string", "pattern": "^sha256:[a-f0-9]{64}$" },
+        "referenceRouteHash": { "type": "string", "pattern": "^sha256:[a-f0-9]{64}$" },
+        "screenshotSha256": { "type": "string", "pattern": "^[a-f0-9]{64}$" },
+        "screenshotEvidence": { "enum": ["CAPTURE_HASH", "REDACTED_BLOCKED_PLACEHOLDER"] },
+        "captureTimestamp": { "type": "string", "format": "date-time" },
+        "observedRegions": { "type": "array", "uniqueItems": true, "items": { "type": "string" } },
+        "queryFieldCount": { "type": "integer", "minimum": 0 },
+        "toolbarActionCount": { "type": "integer", "minimum": 0 },
+        "tableColumnCount": { "type": "integer", "minimum": 0 },
+        "tabCount": { "type": "integer", "minimum": 0 },
+        "dialogCount": { "type": "integer", "minimum": 0 },
+        "localRoute": { "$ref": "#/$defs/nullableEvidence" },
+        "localComponent": { "$ref": "#/$defs/nullableEvidence" },
+        "localApiEvidence": { "$ref": "#/$defs/nullableEvidence" },
+        "localTestEvidence": { "$ref": "#/$defs/nullableEvidence" },
+        "status": { "enum": ["IMPLEMENTED", "PARTIAL", "MISSING", "NOT_APPLICABLE", "BLOCKED"] },
+        "gapReason": { "type": "string" }
+      }
+    }
+  }
+}

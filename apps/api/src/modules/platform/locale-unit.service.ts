@@ -40,7 +40,8 @@ const UOM_PATTERN = /^[A-Z][A-Z0-9_.-]{0,19}$/;
 function parseDate(value: string | undefined, field: string): Date | null {
   if (!value) return null;
   const date = new Date(value);
-  if (Number.isNaN(date.getTime())) throw new AppError('LOCALE_DATE_INVALID', `${field} is invalid`, 400);
+  if (Number.isNaN(date.getTime()))
+    throw new AppError('LOCALE_DATE_INVALID', `${field} is invalid`, 400);
   return date;
 }
 
@@ -48,45 +49,69 @@ function decimal(value: string, field: string): Prisma.Decimal {
   try {
     return new Prisma.Decimal(value);
   } catch {
-    throw new AppError('UNIT_DECIMAL_INVALID', `${field} must be a decimal string`, 400);
+    throw new AppError(
+      'UNIT_DECIMAL_INVALID',
+      `${field} must be a decimal string`,
+      400,
+    );
   }
 }
 
 @Injectable()
 export class LocaleUnitService {
   constructor(
-    @Inject(IdempotencyService) private readonly idempotency: IdempotencyService,
+    @Inject(IdempotencyService)
+    private readonly idempotency: IdempotencyService,
     @Inject(PrismaService) private readonly prisma: PrismaService,
   ) {}
 
   async getLocale(context: TenantContext) {
     return (
-      await this.prisma.localePreference.findUnique({
-        where: { tenantId_accountId: { accountId: context.accountId, tenantId: context.tenantId } },
-      })
-    ) ?? {
-      accountId: context.accountId,
-      currency: 'CNY',
-      language: 'zh-CN',
-      status: 'ACTIVE',
-      timeZone: 'Asia/Shanghai',
-      unitSystem: 'METRIC',
-      version: 0,
-    };
+      (await this.prisma.localePreference.findUnique({
+        where: {
+          tenantId_accountId: {
+            accountId: context.accountId,
+            tenantId: context.tenantId,
+          },
+        },
+      })) ?? {
+        accountId: context.accountId,
+        currency: 'CNY',
+        language: 'zh-CN',
+        status: 'ACTIVE',
+        timeZone: 'Asia/Shanghai',
+        unitSystem: 'METRIC',
+        version: 0,
+      }
+    );
   }
 
-  saveLocale(input: LocalePreferenceInput, context: TenantContext, metadata: CommandMetadata) {
+  saveLocale(
+    input: LocalePreferenceInput,
+    context: TenantContext,
+    metadata: CommandMetadata,
+  ) {
     try {
-      new Intl.DateTimeFormat(input.language, { timeZone: input.timeZone }).format(new Date());
+      new Intl.DateTimeFormat(input.language, {
+        timeZone: input.timeZone,
+      }).format(new Date());
     } catch {
-      throw new AppError('LOCALE_CONTEXT_INVALID', 'Language or IANA time zone is invalid', 400);
+      throw new AppError(
+        'LOCALE_CONTEXT_INVALID',
+        'Language or IANA time zone is invalid',
+        400,
+      );
     }
     if (
       !['en-US', 'zh-CN'].includes(input.language) ||
       !/^[A-Z]{3}$/.test(input.currency) ||
       !['IMPERIAL', 'METRIC'].includes(input.unitSystem)
     ) {
-      throw new AppError('LOCALE_CONTEXT_INVALID', 'Locale context is invalid', 400);
+      throw new AppError(
+        'LOCALE_CONTEXT_INVALID',
+        'Locale context is invalid',
+        400,
+      );
     }
     return this.idempotency.execute(
       {
@@ -99,9 +124,15 @@ export class LocaleUnitService {
       },
       async (transaction) => {
         const existing = await transaction.localePreference.findUnique({
-          where: { tenantId_accountId: { accountId: context.accountId, tenantId: context.tenantId } },
+          where: {
+            tenantId_accountId: {
+              accountId: context.accountId,
+              tenantId: context.tenantId,
+            },
+          },
         });
-        if (existing && existing.version !== input.expectedVersion) throw this.versionConflict();
+        if (existing && existing.version !== input.expectedVersion)
+          throw this.versionConflict();
         const preference = existing
           ? await transaction.localePreference.update({
               data: {
@@ -137,7 +168,8 @@ export class LocaleUnitService {
 
   async formatInstant(instant: string, context: TenantContext) {
     const date = parseDate(instant, 'instant');
-    if (!date) throw new AppError('LOCALE_DATE_INVALID', 'instant is required', 400);
+    if (!date)
+      throw new AppError('LOCALE_DATE_INVALID', 'instant is required', 400);
     const locale = await this.getLocale(context);
     return {
       instant: date.toISOString(),
@@ -158,13 +190,18 @@ export class LocaleUnitService {
     });
   }
 
-  createConversion(input: UnitConversionInput, context: TenantContext, metadata: CommandMetadata) {
+  createConversion(
+    input: UnitConversionInput,
+    context: TenantContext,
+    metadata: CommandMetadata,
+  ) {
     const code = input.code?.trim().toUpperCase();
     const fromUom = input.fromUom?.trim().toUpperCase();
     const toUom = input.toUom?.trim().toUpperCase();
     const factor = decimal(input.factor, 'factor');
     const offset = decimal(input.offset ?? '0', 'offset');
-    const effectiveFrom = parseDate(input.effectiveFrom, 'effectiveFrom') ?? new Date();
+    const effectiveFrom =
+      parseDate(input.effectiveFrom, 'effectiveFrom') ?? new Date();
     const effectiveUntil = parseDate(input.effectiveUntil, 'effectiveUntil');
     if (
       !CODE_PATTERN.test(code) ||
@@ -175,7 +212,11 @@ export class LocaleUnitService {
       factor.lte(0) ||
       (effectiveUntil && effectiveUntil <= effectiveFrom)
     ) {
-      throw new AppError('UNIT_CONVERSION_INVALID', 'Unit conversion is invalid', 400);
+      throw new AppError(
+        'UNIT_CONVERSION_INVALID',
+        'Unit conversion is invalid',
+        400,
+      );
     }
     return this.idempotency.execute(
       {
@@ -208,7 +249,11 @@ export class LocaleUnitService {
             version: (current?.version ?? 0) + 1,
           },
         });
-        return { conversionId: conversion.id, status: conversion.status, version: conversion.version };
+        return {
+          conversionId: conversion.id,
+          status: conversion.status,
+          version: conversion.version,
+        };
       },
     );
   }
@@ -228,7 +273,12 @@ export class LocaleUnitService {
         toUom: input.toUom.trim().toUpperCase(),
       },
     });
-    if (!conversion) throw new AppError('UNIT_CONVERSION_NOT_FOUND', 'No effective conversion was found', 404);
+    if (!conversion)
+      throw new AppError(
+        'UNIT_CONVERSION_NOT_FOUND',
+        'No effective conversion was found',
+        404,
+      );
     const baseAmount = amount.mul(conversion.factor).add(conversion.offset);
     return {
       baseAmount: baseAmount.toFixed(),
@@ -241,8 +291,13 @@ export class LocaleUnitService {
   }
 
   private versionConflict() {
-    return new AppError('LOCALE_VERSION_CONFLICT', 'Locale preference changed; refresh and retry', 409, {
-      retryable: true,
-    });
+    return new AppError(
+      'LOCALE_VERSION_CONFLICT',
+      'Locale preference changed; refresh and retry',
+      409,
+      {
+        retryable: true,
+      },
+    );
   }
 }

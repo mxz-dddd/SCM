@@ -7,6 +7,7 @@ import { toHttpJson } from '../../common/http-json';
 import { isUuid } from '../../common/validation';
 import { PrismaService } from '../../database/prisma.service';
 import { RateMatchingFacade } from '../mdm/public/rate-matching.facade';
+import { businessNumber } from '../platform/public/numbering.facade';
 import type { CommandMetadata } from '../platform/tenant.service';
 
 const json = (value: unknown) =>
@@ -241,7 +242,13 @@ export class FreightBillingService {
         const fact = await tx.freightChargeFact.create({
           data: {
             createdBy: context.accountId,
-            factNo: `FCF-${Date.now()}-${id.slice(0, 6)}`,
+            factNo: await businessNumber(
+              this.prisma,
+              'TMS_FREIGHT_CHARGE_FACT',
+              context,
+              metadata,
+              `freight-charge-fact:${shipmentId}:${input.factType}:${input.source}:${input.sourceReference}`,
+            ),
             factSnapshot: json({ shipmentVersion: shipment.version }),
             factType: input.factType,
             id,
@@ -330,7 +337,13 @@ export class FreightBillingService {
           data: {
             baseAmount: 0,
             calculatedAt: new Date(),
-            calculationNo: `CAL-${Date.now()}-${id.slice(0, 6)}`,
+            calculationNo: await businessNumber(
+              this.prisma,
+              'TMS_CHARGE_CALCULATION',
+              context,
+              metadata,
+              `charge-calculation:${fact.id}:${input.direction}:${calculationVersion}`,
+            ),
             calculationTrace: json({
               candidates,
               dimensions: input.dimensions,
@@ -411,7 +424,13 @@ export class FreightBillingService {
       const calculation = await tx.chargeCalculation.create({
         data: {
           baseAmount,
-          calculationNo: `CAL-${Date.now()}-${id.slice(0, 6)}`,
+          calculationNo: await businessNumber(
+            this.prisma,
+            'TMS_CHARGE_CALCULATION',
+            context,
+            metadata,
+            `charge-calculation:${fact.id}:${input.direction}:${calculationVersion}`,
+          ),
           calculationTrace: json({
             candidates,
             formula: 'BASE_PLUS_UNIT_MINIMUM_SURCHARGE_TAX_V1',
@@ -555,7 +574,13 @@ export class FreightBillingService {
           shipmentId: calculation.shipmentId,
           tenantId: context.tenantId,
           updatedBy: context.accountId,
-          voucherNo: `ACR-${Date.now()}-${id.slice(0, 6)}`,
+          voucherNo: await businessNumber(
+            this.prisma,
+            'TMS_ACCRUAL_VOUCHER',
+            context,
+            metadata,
+            `accrual-voucher:${calculation.id}`,
+          ),
         },
       });
       await this.emit(
@@ -651,7 +676,13 @@ export class FreightBillingService {
                 id,
                 periodFrom: from,
                 periodTo: to,
-                statementNo: `CST-${Date.now()}-${id.slice(0, 6)}`,
+                statementNo: await businessNumber(
+                  this.prisma,
+                  'TMS_CARRIER_STATEMENT',
+                  context,
+                  metadata,
+                  `carrier-statement:${input.partnerRef}:${from.toISOString()}:${to.toISOString()}`,
+                ),
                 subtotal,
                 taxAmount,
                 tenantId: context.tenantId,
@@ -669,7 +700,13 @@ export class FreightBillingService {
                 periodFrom: from,
                 periodTo: to,
                 pricingSnapshot: json(input.pricingSnapshot),
-                statementNo: `UST-${Date.now()}-${id.slice(0, 6)}`,
+                statementNo: await businessNumber(
+                  this.prisma,
+                  'TMS_CUSTOMER_STATEMENT',
+                  context,
+                  metadata,
+                  `customer-statement:${input.partnerRef}:${from.toISOString()}:${to.toISOString()}`,
+                ),
                 subtotal,
                 taxAmount,
                 tenantId: context.tenantId,
@@ -783,7 +820,13 @@ export class FreightBillingService {
                   taxAmount: statement.taxAmount,
                   tenantId: context.tenantId,
                   updatedBy: context.accountId,
-                  voucherNo: `AP-${Date.now()}-${id.slice(0, 6)}`,
+                  voucherNo: await businessNumber(
+                    this.prisma,
+                    'TMS_AP_VOUCHER',
+                    context,
+                    metadata,
+                    `ap-voucher:${id}:${changed.version}`,
+                  ),
                 },
               })
             : await tx.aRVoucher.create({
@@ -796,7 +839,13 @@ export class FreightBillingService {
                   taxAmount: statement.taxAmount,
                   tenantId: context.tenantId,
                   updatedBy: context.accountId,
-                  voucherNo: `AR-${Date.now()}-${id.slice(0, 6)}`,
+                  voucherNo: await businessNumber(
+                    this.prisma,
+                    'TMS_AR_VOUCHER',
+                    context,
+                    metadata,
+                    `ar-voucher:${id}:${changed.version}`,
+                  ),
                 },
               });
         voucherId = voucher.id;

@@ -2,6 +2,7 @@ import {
   Body,
   Controller,
   Get,
+  Header,
   Headers,
   Inject,
   Param,
@@ -10,7 +11,6 @@ import {
   UseGuards,
 } from '@nestjs/common';
 import type { IntegrationCredentialType } from '@prisma/client';
-import type { Request } from 'express';
 import type { TenantRequest } from '../platform/auth/tenant-context.middleware';
 import { RequirePermission } from '../platform/auth/permission.decorator';
 import { PermissionGuard } from '../platform/auth/permission.guard';
@@ -26,6 +26,7 @@ import {
   type GatewayAuthorizationInput,
   type SaveGatewayPolicyInput,
 } from './gateway.service';
+import { ExternalGatewayBypass } from './external-gateway.decorator';
 
 const metadata = (
   request: TenantRequest,
@@ -233,6 +234,7 @@ export class ExternalGatewayController {
   ) {}
 
   @Post('oauth/token')
+  @ExternalGatewayBypass('TOKEN_ISSUE')
   issueToken(
     @Body()
     input: {
@@ -246,15 +248,24 @@ export class ExternalGatewayController {
   }
 
   @Post('gateway/authorize')
+  @Header('Deprecation', 'true')
+  @Header('Sunset', 'Thu, 31 Dec 2026 23:59:59 GMT')
+  @ExternalGatewayBypass('ADMIN_DIAGNOSTIC')
+  @UseGuards(PermissionGuard)
+  @RequirePermission('integration.gateway.manage')
   authorize(
     @Body()
-    input: Omit<GatewayAuthorizationInput, 'correlationId' | 'ipAddress'>,
+    input: Omit<
+      GatewayAuthorizationInput,
+      'bodyHash' | 'correlationId' | 'expectedTenantId' | 'ipAddress'
+    >,
     @Headers('x-correlation-id') correlationId: string | undefined,
-    @Req() request: Request,
+    @Req() request: TenantRequest,
   ) {
     return this.gateway.authorize({
       ...input,
       ...(correlationId ? { correlationId } : {}),
+      expectedTenantId: request.tenantContext.tenantId,
       ipAddress: request.ip ?? 'unknown',
     });
   }

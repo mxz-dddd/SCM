@@ -11,6 +11,7 @@ import { isUuid } from '../../common/validation';
 import { PrismaService } from '../../database/prisma.service';
 import { CalendarReleaseFacade } from '../mdm/public/calendar-release.facade';
 import { PermissionDecisionFacade } from '../platform/public/permission-decision.facade';
+import { businessNumber } from '../platform/public/numbering.facade';
 import type { CommandMetadata } from '../platform/tenant.service';
 import {
   ChangeReverseService,
@@ -938,7 +939,13 @@ export class OrderOperationsService {
           fulfillmentSnapshot: json({ fulfillments, progress, shipments }),
           id,
           orderVersion: order.version,
-          requestNo: `SET-${order.orderNo}-${id.slice(0, 8)}`,
+          requestNo: await businessNumber(
+            this.prisma,
+            'OMS_SETTLEMENT_REQUEST',
+            context,
+            metadata,
+            `settlement-request:${orderId}:${order.version}`,
+          ),
           requestedAmount: requested,
           serviceAmount: service,
           tenantId: context.tenantId,

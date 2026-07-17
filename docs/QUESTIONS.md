@@ -2,6 +2,11 @@
 
 ## 已解决
 
+### V2-05 / V2-07：两个窄职责运行时依赖（2026-07-16 已按改造指令授权）
+
+- `helmet@8.1.0` 维护 API 安全响应头，`react-router-dom` 在 V2-07 提供 Browser Router 与深链恢复。
+- 改造指令明确授权这两个 runtime dependency；理由与边界记录于 `docs/adr/ADR-0001-v2-runtime-dependencies.md`。不引入其他平行框架或重型运行时，继续执行目标模式。
+
 ### P5-05 / AI-001：OR-Tools 运行时方案（2026-07-15 已解决）
 
 - 任务卡明确要求车辆路径优化使用 OR-Tools，并在时间窗、容量、司机工时、路况和成本约束下保存结果与解释。

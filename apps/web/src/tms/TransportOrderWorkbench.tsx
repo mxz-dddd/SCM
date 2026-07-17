@@ -6,7 +6,7 @@ import {
   StatusBadge,
   createActionRegistry,
 } from '@scm/ui';
-import { Alert, Card, Typography } from 'antd';
+import { Alert, Card, Tabs, Typography } from 'antd';
 import { useSessionStore } from '../platform/session-store';
 import { TransportPlanningPanel } from './TransportPlanningPanel';
 import { LoadRouteOptimizationPanel } from './LoadRouteOptimizationPanel';
@@ -73,7 +73,15 @@ const actions = createActionRegistry<TransportStatus | 'NONE'>([
   },
 ]);
 
-export function TransportOrderWorkbench() {
+type TransportSection = 'orders' | 'planning' | 'execution' | 'settlement';
+
+interface TransportOrderWorkbenchProps {
+  readonly initialSection?: TransportSection;
+}
+
+export function TransportOrderWorkbench({
+  initialSection = 'orders',
+}: TransportOrderWorkbenchProps = {}) {
   const accessToken = useSessionStore((state) => state.accessToken);
   const claims = useSessionStore((state) => state.claims);
   const [rows, setRows] = useState<readonly TransportOrderRow[]>([]);
@@ -256,62 +264,113 @@ export function TransportOrderWorkbench() {
       </Typography.Paragraph>
       {notice ? <Alert message={notice} showIcon type="success" /> : null}
       {error ? <Alert message={error} showIcon type="error" /> : null}
-      <Card title="运输订单池">
-        <QueryPanel
-          fields={[
-            { label: '订单号 / 来源号', name: 'query', quick: true },
-            { label: '运输状态', name: 'status', quick: true },
-          ]}
-          onQuery={(values) => {
-            setPage(1);
-            setQuery(values.query ?? '');
-            setStatus(values.status ?? '');
-          }}
-          onReset={() => {
-            setPage(1);
-            setQuery('');
-            setStatus('');
-          }}
-        />
-        <CommandBar
-          actions={decisions}
-          onAction={(action) => void execute(action.id)}
-        />
-        <DataGrid
-          columns={[
-            { key: 'orderNo', label: '运输订单号' },
-            { key: 'sourceRef', label: '来源单号' },
-            { key: 'type', label: '类型' },
-            { key: 'serviceLevel', label: '服务等级' },
-            { key: 'weightBase', label: '重量 KG' },
-            { key: 'volumeBase', label: '体积 M³' },
-            { key: 'pickupWindowFrom', label: '提货窗开始' },
-            { key: 'deliveryWindowTo', label: '交付窗结束' },
-            {
-              key: 'status',
-              label: '状态',
-              render: (value) => <StatusBadge status={String(value)} />,
-            },
-            { key: 'version', label: '版本' },
-          ]}
-          onPageChange={setPage}
-          onSelectionChange={(ids) => setSelectedIds(ids.slice(-1))}
-          page={page}
-          pageSize={50}
-          rows={rows}
-          selectedIds={selectedIds}
-          total={total}
-        />
-      </Card>
-      <TransportPlanningPanel />
-      <LoadRouteOptimizationPanel />
-      <CapacityTenderPanel />
-      <DispatchPanel />
-      <DriverTrackingPanel />
-      <InTransitOperationsPanel />
-      <DeliveryReversePanel />
-      <FreightBillingPanel />
-      <FleetInsightsPanel />
+      <Tabs
+        defaultActiveKey={initialSection}
+        items={[
+          {
+            children: (
+              <Card title="运输订单池">
+                <QueryPanel
+                  fields={[
+                    { label: '订单号 / 来源号', name: 'query', quick: true },
+                    { label: '运输状态', name: 'status', quick: true },
+                  ]}
+                  onQuery={(values) => {
+                    setPage(1);
+                    setQuery(values.query ?? '');
+                    setStatus(values.status ?? '');
+                  }}
+                  onReset={() => {
+                    setPage(1);
+                    setQuery('');
+                    setStatus('');
+                  }}
+                />
+                <CommandBar
+                  actions={decisions}
+                  onAction={(action) => void execute(action.id)}
+                />
+                <DataGrid
+                  columns={[
+                    { key: 'orderNo', label: '运输订单号' },
+                    { key: 'sourceRef', label: '来源单号' },
+                    { key: 'type', label: '类型' },
+                    { key: 'serviceLevel', label: '服务等级' },
+                    { key: 'weightBase', label: '重量 KG' },
+                    { key: 'volumeBase', label: '体积 M³' },
+                    { key: 'pickupWindowFrom', label: '提货窗开始' },
+                    { key: 'deliveryWindowTo', label: '交付窗结束' },
+                    {
+                      key: 'status',
+                      label: '状态',
+                      render: (value) => <StatusBadge status={String(value)} />,
+                    },
+                    { key: 'version', label: '版本' },
+                  ]}
+                  onPageChange={setPage}
+                  onSelectionChange={(ids) => setSelectedIds(ids.slice(-1))}
+                  page={page}
+                  pageSize={50}
+                  rows={rows}
+                  selectedIds={selectedIds}
+                  total={total}
+                />
+              </Card>
+            ),
+            key: 'orders',
+            label: '订单',
+          },
+          {
+            children: (
+              <>
+                <TransportPlanningPanel />
+                <LoadRouteOptimizationPanel />
+                <CapacityTenderPanel />
+              </>
+            ),
+            key: 'planning',
+            label: '计划',
+          },
+          {
+            children: (
+              <>
+                <DispatchPanel />
+                <DriverTrackingPanel />
+                <InTransitOperationsPanel />
+                <DeliveryReversePanel />
+              </>
+            ),
+            key: 'execution',
+            label: '执行',
+          },
+          {
+            children: (
+              <>
+                <FreightBillingPanel />
+                <FleetInsightsPanel />
+              </>
+            ),
+            key: 'settlement',
+            label: '结算与分析',
+          },
+        ]}
+      />
     </section>
   );
+}
+
+export function TransportOrdersPage() {
+  return <TransportOrderWorkbench initialSection="orders" />;
+}
+
+export function TransportPlanningPage() {
+  return <TransportOrderWorkbench initialSection="planning" />;
+}
+
+export function TransportExecutionPage() {
+  return <TransportOrderWorkbench initialSection="execution" />;
+}
+
+export function TransportSettlementPage() {
+  return <TransportOrderWorkbench initialSection="settlement" />;
 }

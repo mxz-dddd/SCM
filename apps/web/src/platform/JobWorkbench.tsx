@@ -49,7 +49,9 @@ export function JobWorkbench() {
   const claims = useSessionStore((state) => state.claims);
   const [definitions, setDefinitions] = useState<readonly DefinitionRow[]>([]);
   const [runs, setRuns] = useState<readonly RunRow[]>([]);
-  const [selectedDefinitionIds, setSelectedDefinitionIds] = useState<readonly string[]>([]);
+  const [selectedDefinitionIds, setSelectedDefinitionIds] = useState<
+    readonly string[]
+  >([]);
   const [selectedRunIds, setSelectedRunIds] = useState<readonly string[]>([]);
   const [runStatus, setRunStatus] = useState('');
   const [code, setCode] = useState('DAILY_REPORT');
@@ -92,9 +94,14 @@ export function JobWorkbench() {
           ...init?.headers,
         },
       });
-      const body = (await response.json()) as { code?: string; message?: string };
+      const body = (await response.json()) as {
+        code?: string;
+        message?: string;
+      };
       if (!response.ok) {
-        throw new Error(`${body.code ?? 'REQUEST_FAILED'}: ${body.message ?? '请求失败'}`);
+        throw new Error(
+          `${body.code ?? 'REQUEST_FAILED'}: ${body.message ?? '请求失败'}`,
+        );
       }
       return body;
     },
@@ -106,7 +113,9 @@ export function JobWorkbench() {
     try {
       const [definitionRows, runRows] = await Promise.all([
         request('/api/v1/platform/jobs/definitions'),
-        request(`/api/v1/platform/jobs/runs${runStatus ? `?status=${runStatus}` : ''}`),
+        request(
+          `/api/v1/platform/jobs/runs${runStatus ? `?status=${runStatus}` : ''}`,
+        ),
       ]);
       setDefinitions(definitionRows as unknown as DefinitionRow[]);
       setRuns(runRows as unknown as RunRow[]);
@@ -120,7 +129,9 @@ export function JobWorkbench() {
     void refresh();
   }, [refresh]);
 
-  const selectedDefinition = definitions.find(({ id }) => id === selectedDefinitionIds[0]);
+  const selectedDefinition = definitions.find(
+    ({ id }) => id === selectedDefinitionIds[0],
+  );
   const selectedRun = runs.find(({ id }) => id === selectedRunIds[0]);
   const decisions = [
     registry.decide('trigger', {
@@ -141,10 +152,14 @@ export function JobWorkbench() {
         body: JSON.stringify({
           code,
           cronExpression: triggerType === 'CRON' ? '0 2 * * *' : undefined,
-          eventName: triggerType === 'EVENT' ? 'platform.demo-ready.v1' : undefined,
+          eventName:
+            triggerType === 'EVENT' ? 'platform.demo-ready.v1' : undefined,
           handler,
           name,
-          runAt: triggerType === 'ONCE' ? new Date(Date.now() + 60_000).toISOString() : undefined,
+          runAt:
+            triggerType === 'ONCE'
+              ? new Date(Date.now() + 60_000).toISOString()
+              : undefined,
           triggerType,
         }),
         method: 'POST',
@@ -159,15 +174,21 @@ export function JobWorkbench() {
   async function act(id: string) {
     try {
       if (id === 'trigger' && selectedDefinition) {
-        await request(`/api/v1/platform/jobs/definitions/${selectedDefinition.id}/runs`, {
-          body: JSON.stringify({ payload: { source: 'workbench' } }),
-          method: 'POST',
-        });
+        await request(
+          `/api/v1/platform/jobs/definitions/${selectedDefinition.id}/runs`,
+          {
+            body: JSON.stringify({ payload: { source: 'workbench' } }),
+            method: 'POST',
+          },
+        );
         setNotice('任务已进入队列，可在运行列表查看进度');
       }
       if (id === 'cancel' && selectedRun) {
         await request(`/api/v1/platform/jobs/runs/${selectedRun.id}/cancel`, {
-          body: JSON.stringify({ expectedVersion: selectedRun.version, reason: '工作台人工取消' }),
+          body: JSON.stringify({
+            expectedVersion: selectedRun.version,
+            reason: '工作台人工取消',
+          }),
           method: 'POST',
         });
         setNotice('取消请求已提交');
@@ -182,18 +203,45 @@ export function JobWorkbench() {
     <section className="job-workbench">
       <Typography.Title level={2}>调度任务与异步执行中心</Typography.Title>
       <Typography.Paragraph>
-        一次、周期与事件触发统一进入 BullMQ；数据库租约控制并发与防重，并保留进度、结果及不可变日志。
+        一次、周期与事件触发统一进入
+        BullMQ；数据库租约控制并发与防重，并保留进度、结果及不可变日志。
       </Typography.Paragraph>
       {notice ? <Alert message={notice} showIcon type="success" /> : null}
       {error ? <Alert message={error} showIcon type="error" /> : null}
 
       <Card title="JobDefinition 调度定义">
         <Space wrap>
-          <Input aria-label="任务代码" onChange={(event) => setCode(event.target.value)} value={code} />
-          <Input aria-label="任务名称" onChange={(event) => setName(event.target.value)} value={name} />
-          <Select aria-label="处理器" onChange={setHandler} options={['REPORT', 'EXPORT', 'IMPORT', 'RECONCILIATION'].map((value) => ({ label: value, value }))} value={handler} />
-          <Select aria-label="触发类型" onChange={setTriggerType} options={['ONCE', 'CRON', 'EVENT'].map((value) => ({ label: value, value }))} value={triggerType} />
-          <Button disabled={!permissions.has('platform.job.write')} onClick={() => void createDefinition()}>
+          <Input
+            aria-label="任务代码"
+            onChange={(event) => setCode(event.target.value)}
+            value={code}
+          />
+          <Input
+            aria-label="任务名称"
+            onChange={(event) => setName(event.target.value)}
+            value={name}
+          />
+          <Select
+            aria-label="处理器"
+            onChange={setHandler}
+            options={['REPORT', 'EXPORT', 'IMPORT', 'RECONCILIATION'].map(
+              (value) => ({ label: value, value }),
+            )}
+            value={handler}
+          />
+          <Select
+            aria-label="触发类型"
+            onChange={setTriggerType}
+            options={['ONCE', 'CRON', 'EVENT'].map((value) => ({
+              label: value,
+              value,
+            }))}
+            value={triggerType}
+          />
+          <Button
+            disabled={!permissions.has('platform.job.write')}
+            onClick={() => void createDefinition()}
+          >
             新建调度定义
           </Button>
         </Space>
@@ -203,7 +251,11 @@ export function JobWorkbench() {
             { key: 'name', label: '名称' },
             { key: 'handler', label: '处理器' },
             { key: 'triggerType', label: '触发' },
-            { key: 'status', label: '状态', render: (value) => <StatusBadge status={String(value)} /> },
+            {
+              key: 'status',
+              label: '状态',
+              render: (value) => <StatusBadge status={String(value)} />,
+            },
           ]}
           onPageChange={() => undefined}
           onSelectionChange={(ids) => setSelectedDefinitionIds(ids.slice(-1))}
@@ -227,7 +279,11 @@ export function JobWorkbench() {
             { key: 'handler', label: '处理器' },
             { key: 'triggerType', label: '触发' },
             { key: 'progress', label: '进度 %' },
-            { key: 'status', label: '状态', render: (value) => <StatusBadge status={String(value)} /> },
+            {
+              key: 'status',
+              label: '状态',
+              render: (value) => <StatusBadge status={String(value)} />,
+            },
           ]}
           onPageChange={() => undefined}
           onSelectionChange={(ids) => setSelectedRunIds(ids.slice(-1))}

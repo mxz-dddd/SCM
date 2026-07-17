@@ -6,6 +6,7 @@ import { AppError } from '../../common/app-error';
 import { isUuid } from '../../common/validation';
 import { PrismaService } from '../../database/prisma.service';
 import { MdmReferenceService } from '../mdm/public/mdm-reference.service';
+import { businessNumber } from '../platform/public/numbering.facade';
 import type { CommandMetadata } from '../platform/tenant.service';
 import { InventoryService } from './inventory.service';
 
@@ -78,7 +79,13 @@ export class InventoryGovernanceService {
     return this.prisma.$transaction(async (tx) => {
       const row = await tx.inventoryAdjustmentOrder.create({
         data: {
-          adjustmentNo: `ADJ-${Date.now()}-${id.slice(0, 6)}`,
+          adjustmentNo: await businessNumber(
+            this.prisma,
+            'WMS_INVENTORY_ADJUSTMENT',
+            context,
+            metadata,
+            `inventory-adjustment:${input.balanceId}`,
+          ),
           attachmentRefs: [...input.attachmentRefs],
           balanceId: input.balanceId,
           createdBy: context.accountId,
@@ -272,7 +279,13 @@ export class InventoryGovernanceService {
           minimumBase: minimum,
           ownerId: input.ownerId ?? null,
           pickLocationId: input.pickLocationId,
-          policyNo: `RPL-P-${Date.now()}-${id.slice(0, 6)}`,
+          policyNo: await businessNumber(
+            this.prisma,
+            'WMS_REPLENISHMENT_POLICY',
+            context,
+            metadata,
+            `replenishment-policy:${input.warehouseId}:${input.productId}:${input.pickLocationId}`,
+          ),
           productId: input.productId,
           tenantId: context.tenantId,
           updatedBy: context.accountId,
@@ -432,7 +445,13 @@ export class InventoryGovernanceService {
             }),
             sourceBalanceId: source.id,
             targetLocationId: policy.pickLocationId,
-            taskNo: `RPL-${Date.now()}-${taskId.slice(0, 6)}`,
+            taskNo: await businessNumber(
+              this.prisma,
+              'WMS_REPLENISHMENT_TASK',
+              context,
+              metadata,
+              `replenishment-task:${policy.id}:${source.id}`,
+            ),
             tenantId: context.tenantId,
             updatedBy: context.accountId,
           },
@@ -673,7 +692,13 @@ export class InventoryGovernanceService {
                 : row.type === 'NEAR_EXPIRY'
                   ? 'Prioritize FEFO issue or return'
                   : 'Review promotion or return',
-            alertNo: `EXP-${Date.now()}-${alertId.slice(0, 6)}`,
+            alertNo: await businessNumber(
+              this.prisma,
+              'WMS_INVENTORY_EXPIRY_ALERT',
+              context,
+              metadata,
+              `inventory-expiry-alert:${dedupeKey}`,
+            ),
             balanceId: row.balance.id,
             createdBy: context.accountId,
             dedupeKey,
@@ -943,7 +968,13 @@ export class InventoryGovernanceService {
           periodEnd,
           periodStart,
           receiptBase: receipt,
-          reconciliationNo: `REC-${Date.now()}-${id.slice(0, 6)}`,
+          reconciliationNo: await businessNumber(
+            this.prisma,
+            'WMS_INVENTORY_RECONCILIATION',
+            context,
+            metadata,
+            `inventory-reconciliation:${input.warehouseId}:${periodStart.toISOString()}:${periodEnd.toISOString()}`,
+          ),
           shipmentBase: shipment,
           status: difference.equals(0) ? 'MATCHED' : 'DIFFERENCE_RECORDED',
           tenantId: context.tenantId,
@@ -957,7 +988,13 @@ export class InventoryGovernanceService {
         await tx.inventoryReconciliationCase.create({
           data: {
             actualBase: erpClosing,
-            caseNo: `REC-CASE-${Date.now()}-${caseId.slice(0, 6)}`,
+            caseNo: await businessNumber(
+              this.prisma,
+              'WMS_INVENTORY_RECONCILIATION_CASE',
+              context,
+              metadata,
+              `inventory-reconciliation-case:${id}`,
+            ),
             createdBy: context.accountId,
             dedupeKey: `${id}:ERP_CLOSING`,
             description:

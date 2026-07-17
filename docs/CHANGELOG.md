@@ -2,6 +2,11 @@
 
 按任务卡记录已完成的工作包。
 
+- 2026-07-17 UI 对标重构：完成参考站 8 个一级入口及代表性列表叶子的只读取证与脱敏，建立功能矩阵和布局观察；将 37 条管理端路由重组为一级大类、二级业务组、三级页面，修复 URL/工作区 Tab 导航竞态，新增四类共享页面模板和可复用取证对比脚本。
+- 2026-07-17 UI 对标补证：提交 517 个业务叶子与 10 个目录视图的脱敏 Catalog，补齐真实菜单遍历、22 路由结构/遮罩图像比较、18 张本地视觉基线、五个长尾功能族稳定入口和 CI UI parity 门禁；保留 365 条 PARTIAL、81 条 NOT_APPLICABLE 与 3 条 BLOCKED，不将参考取证误报为 517 个本地页面。
+- 2026-07-17 CI 门禁修复：补齐干净环境下共享包构建与 V2 UI 构建，标注事件投递迁移阶段和新表在线索引，并升级优化器系统包、OR-Tools 与 Protobuf 以清除 High/Critical 镜像漏洞。
+- 2026-07-16 V2-07：以单一 route registry 建立 Browser Router、深链/刷新/历史与 Workspace Tabs 双向同步、懒加载/错误边界/403 和旧链接重定向，拆分客户/伙伴/司机/RF 四类独立移动终端，新增原创 Design Tokens 并连接 Ant Design 与 CSS variables，保留 P0-01/P0-02 为待人工批准。
+- 2026-07-16 V2-06：新增租户/组织规则回退、原子序列、周期重置、模板校验、宽度耗尽、审计与幂等的公共编号门面，统一 OMS/WMS/TMS/AMS/Billing/Control 业务单号，补齐默认规则 seed、租户唯一索引、并发测试和源码静态门禁。
 - 2026-07-14 P1-01：完成 pnpm/Turborepo Monorepo、Web/API/Worker/Shared/UI 骨架、PostgreSQL/Redis/MinIO 本地基础设施与统一 CI 验证门禁。
 - 2026-07-14 P1-02：完成 Prisma 九域 multiSchema、通用实体参考模型、Money/双单位数量/受控扩展约定、从零迁移与幂等种子框架。
 - 2026-07-14 P1-03：完成租户生命周期、账号/人员/组织身份绑定、本地 JWT 登录与租户上下文、服务账号/API 凭证、登录审计、事务 Outbox 和写命令幂等控制。
@@ -73,3 +78,11 @@
 - 2026-07-15 P5-05：新增固定 Python 3.12.11 镜像与 OR-Tools 9.14.6206 的无状态求解 sidecar，以 2 MB 有界窄 JSON 契约完成车辆时间窗/容量/工时/成本路径优化及重量/体积/重心/禁配/卸货顺序装载优化，结果固化求解器版本、约束判定和解释；通过现有 BullMQ 平台异步返回 jobId，并以租户聚合锁保证并发重放仅一次求解；新增装载建议人工确认/拒绝及不可覆盖偏差反馈，双单位训练快照、单调版本、置信区间和偏差反馈的需求预测，只产出安全库存/补货点/调拨建议且不访问或修改 WMS 库存的策略聚合，以及基线/情景独立、可比较导出的网络模拟；新增不可变结果数据库保护、RBAC/ABAC、通用幂等、审计 Outbox 和 AI Action Registry 工作台，覆盖正常、状态、权限、重放、租户隔离、并发单求解和不写库存测试，并通过完整 verify、75 个迁移全新库、293 项 API 测试、29 项 Web 测试、12 项 Worker 测试和 4 项镜像内 OR-Tools 测试。
 - 2026-07-15 P5-06：新增含 tenantId、userId、businessRef、traceId 的结构化日志、W3C Trace、OTLP/HTTP 导出、Prometheus 指标与运维可观测视图；完成业务/技术信号、规则、去重告警和确认解决状态机，PITR/WAL/对象版本/跨区域证据、RPO/RTO 与单写栅栏容灾演练，镜像扫描、灰度回滚和 expand/migrate/contract 安全门禁；新增按 legal hold/合同治理的保留归档、哈希化主体请求和跨域隐私命令、不可变脱敏证据，租户用量/配额/冷热层/扩缩容计划，以及依赖预检和数量/金额/状态对账的租户迁移；所有长任务经 BullMQ 返回真实 jobId，新增 RBAC、通用幂等、审计 Outbox、Action Registry 运维工作台、恢复/发布/数据治理 runbook，并通过完整 verify、76 个迁移全新库、298 项 API 测试、30 项 Web 测试和 13 项 Worker 测试。
 - 2026-07-15 P5-07：建立可自动重建独立数据库并启动真实 API 的生产就绪门禁，以 100 次列表、100 次普通命令和 50 次 RF 确认验证 P95 分别为 34.21ms、22.22ms、12.75ms，均低于设计阈值；完成 JWT/租户头不匹配和跨租户资源引用拒绝、死信事件状态安全重放及 Idempotency-Key 同内容/异内容契约验证；完成逻辑备份到全新库的 76 个迁移及业务哨兵逐项恢复比对，实测 RPO 0、RTO 2.02 秒；将生产依赖 High/Critical 审计、固定 Trivy 镜像扫描和完整生产就绪演练接入 CI，形成 P5-07 验收报告。
+- 2026-07-16 V2-01：建立从 `eventName`/`emit`/`record`/Outbox 扫描生成的 392 项事件目录、10 个具名消费者的内部端点订阅清单与 allowlist；新增共享 BusinessEventEnvelope、版本化跨域 payload 契约与 `EVERY_EVENT`/`LATEST_STATE` 模式，修正计费事实、时间线、预警、数据湖和对账的逐事件语义，仅最终状态投影可忽略旧版本；限制通用 consume 为诊断接口并拒绝空 handler 伪成功，通过全量 verify（API 301 项）。
+- 2026-07-16 V2-02：新增持久化 EventDelivery、消费模式与六态投递账本，Outbox 在同事务按 10 个静态订阅幂等 fan-out 后才发布；以 `(tenant, consumer, partitionKey, sourceOccurredAt, sourceEventCreatedAt, eventId)` 和 `FOR UPDATE SKIP LOCKED` 实现严格分区顺序、跨分区并行、租约、指数退避、独立成功/失败、必需消费者死信阻塞、审计重放与人工跳过，死信自动发布 Control exception；修复预警逐事件乱序时零抑制窗口仍误判 SUPPRESSED，并保持 signal/case 时间水位单调；Worker 移除 BullMQ 通用空消费路径，改为二次校验静态内部 endpoint、使用 `eventId:consumer` 幂等键直达具名领域 handler 并回写 Delivery；事件工作台新增 Delivery、Inbox、Checkpoint、死信和重放视图，事件目录增至 393 项；77 个迁移在全新 PostgreSQL 空库部署通过，并覆盖真实并发顺序与回放不重复副作用测试。
+- 2026-07-16 V2-03：新增 OMS 履约 Process/Step/CrossDomainObjectLink 持久化模型、显式状态机、审计 Outbox、失败重试与安全补偿；release 同事务发布运行时校验的自包含 `fulfillment.released.v2`/`shipment.requested.v2`，WMS/TMS 具名 consumer 复用既有领域服务并按来源版本幂等创建 Outbound/TransportOrder，OMS 仅凭下游事实事件更新过程与投影；必需消费者永久死信进入人工介入并生成 Control AlertCase，Web 新增履约过程中心，P2 验收改为真实 Worker 自动编排且不再手工创建出库；79 个迁移从零部署成功，并覆盖重放、单分支失败、永久失败、显式恢复及全部允许状态转换。
+- 2026-07-16 V2-04：新增 32+ 字符 Worker control token 与专用 actor 的恒时认证、ACTIVE 租户游标发现、运行时 `WORKER` context、全局 deny-by-default WorkerAccessGuard 及 31 个逐操作后台 allowlist；Worker 移除单租户变量，按 30 秒发现结果以有界并发轮询各租户 Outbox/EventDelivery/Webhook，同进程防重入、多进程数据库租约去重，健康端点展示五类 backlog/失败租户/in-flight 并在关闭时等待在途任务；完成 A/B 租户隔离、SUSPENDED 排除、普通 JWT 发现拒绝、业务 CRUD 403 与真实自动履约验收。
+- 2026-07-16 V2-05：API 启用 Helmet、CORS allowlist、body 上限、可信代理与 shutdown hooks；新增登录/普通 API PostgreSQL 原子限流、真实 External Gateway Guard、raw body HMAC 单次签名和管理员诊断弃用边界；Webhook 在创建与每次投递前拒绝私网/metadata/DNS 混合解析，Worker 以固定公共 IP 的 HTTPS/SNI 连接禁止 redirect、代理环境变量和超大响应，并补齐威胁模型与安全运行手册。
+- 2026-07-16 V2-06：统一平台、OMS、WMS、TMS、AMS、Billing、Integration 全域业务单号到租户范围 NumberRule/NumberSequence，补齐并发唯一、幂等重放、无规则失败及静态禁用时间戳/UUID 拼号门禁；新增业务号迁移和租户唯一索引，82 个迁移从空库部署通过。
+- 2026-07-16 V2-07：以 Browser Router 注册 37 个管理端路由和客户、伙伴、司机、RF 四类终端 Shell，支持深链、刷新、历史、Workspace Tab 同步、账号类型拒绝和旧链接重定向；建立原创 UI Design Tokens 并统一接入 Ant Design/CSS，P0-01/P0-02 保持人工待办。
+- 2026-07-16 V2-08：新增独立 PostgreSQL/Redis、真实 NestJS API、多租户 Worker、Web 和 Chromium 的运行闭环验收，5 个测试覆盖 OMS 自动 WMS/TMS、逐事件顺序、重试、死信阻塞/重放、双租户、allowlist、Gateway 配额、Webhook SSRF、深链终端和统一单号 11 个场景；CI 增加 concurrency、V2 job 与失败证据，补齐架构图、事件目录及运维/安全手册，并通过 13 项全量门禁。

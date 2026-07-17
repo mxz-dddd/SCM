@@ -7,6 +7,7 @@ import { toHttpJson } from '../../common/http-json';
 import { isUuid } from '../../common/validation';
 import { PrismaService } from '../../database/prisma.service';
 import { AttachmentReferenceFacade } from '../platform/public/attachment-reference.facade';
+import { businessNumber } from '../platform/public/numbering.facade';
 import type { CommandMetadata } from '../platform/tenant.service';
 
 const json = (value: unknown) =>
@@ -189,7 +190,13 @@ export class DeliveryReverseService {
       const confirmation = await tx.deliveryConfirmation.create({
         data: {
           arrivedAt,
-          confirmationNo: `DC-${Date.now()}-${id.slice(0, 6)}`,
+          confirmationNo: await businessNumber(
+            this.prisma,
+            'TMS_DELIVERY_CONFIRMATION',
+            context,
+            metadata,
+            `delivery-confirmation:${shipmentId}`,
+          ),
           createdBy: context.accountId,
           deliveryLocationSnapshot: json(input.deliveryLocationSnapshot),
           hasVariance: varianceInputs.length > 0,
@@ -237,6 +244,11 @@ export class DeliveryReverseService {
         },
         where: { id: shipmentId },
       });
+      const sourceRefs = await this.shipmentSources(
+        tx,
+        shipmentId,
+        context.tenantId,
+      );
       await this.emit(
         tx,
         changed.id,
@@ -249,6 +261,7 @@ export class DeliveryReverseService {
           deliveryConfirmationId: confirmation.id,
           podRef: null,
           shipmentId,
+          sourceRefs,
           varianceIds,
         },
         'Shipment',
@@ -322,7 +335,13 @@ export class DeliveryReverseService {
           id,
           notes: input.notes?.trim() ?? null,
           pageCount: input.pageCount,
-          podNo: `POD-${Date.now()}-${id.slice(0, 6)}`,
+          podNo: await businessNumber(
+            this.prisma,
+            'TMS_PROOF_OF_DELIVERY',
+            context,
+            metadata,
+            `proof-of-delivery:${shipmentId}`,
+          ),
           shipmentId,
           signatureSnapshot: json(input.signatureSnapshot),
           submittedBy: context.accountId,
@@ -471,6 +490,11 @@ export class DeliveryReverseService {
         const confirmation = await tx.deliveryConfirmation.findUniqueOrThrow({
           where: { id: pod.deliveryConfirmationId },
         });
+        const sourceRefs = await this.shipmentSources(
+          tx,
+          shipment.id,
+          context.tenantId,
+        );
         await this.emit(
           tx,
           updated.id,
@@ -482,6 +506,7 @@ export class DeliveryReverseService {
             deliveredAt: confirmation.signedAt,
             podRef: pod.id,
             shipmentId: shipment.id,
+            sourceRefs,
             variance: confirmation.hasVariance,
           },
           'Shipment',
@@ -498,6 +523,11 @@ export class DeliveryReverseService {
           podId: id,
           reviewId: review.id,
           shipmentId: pod.shipmentId,
+          sourceRefs: await this.shipmentSources(
+            tx,
+            pod.shipmentId,
+            context.tenantId,
+          ),
           status: next,
         },
         'ProofOfDelivery',
@@ -635,7 +665,13 @@ export class DeliveryReverseService {
       const id = randomUUID();
       const claim = await tx.claimCase.create({
         data: {
-          claimNo: `CLM-${Date.now()}-${id.slice(0, 6)}`,
+          claimNo: await businessNumber(
+            this.prisma,
+            'TMS_CLAIM_CASE',
+            context,
+            metadata,
+            `claim:${shipmentId}:${input.deliveryVarianceId}`,
+          ),
           claimedAmount: amount,
           claimantRef: input.claimantRef.trim(),
           createdBy: context.accountId,
@@ -857,7 +893,13 @@ export class DeliveryReverseService {
           deliveryWindowFrom: delivery,
           deliveryWindowTo: new Date(delivery.getTime() + 2 * 3_600_000),
           destinationAddressSnapshot: json(shipment.originSnapshot),
-          orderNo: `TO-RET-${Date.now()}-${id.slice(0, 6)}`,
+          orderNo: await businessNumber(
+            this.prisma,
+            'TMS_RETURN_TRANSPORT_ORDER',
+            context,
+            metadata,
+            `return-transport-order:${shipmentId}:${input.type}`,
+          ),
           originAddressSnapshot: json(shipment.destinationSnapshot),
           packagingSnapshot: json({ items: input.itemSnapshot }),
           pickupWindowFrom: pickup,
@@ -894,7 +936,13 @@ export class DeliveryReverseService {
             originalShipmentNo: shipment.shipmentNo,
             transportOrderNo: order.orderNo,
           }),
-          returnNo: `RET-${Date.now()}-${id.slice(0, 6)}`,
+          returnNo: await businessNumber(
+            this.prisma,
+            'TMS_RETURN_ORDER',
+            context,
+            metadata,
+            `return-order:${shipmentId}:${input.type}`,
+          ),
           tenantId: context.tenantId,
           transportOrderId: order.id,
           type: input.type,
@@ -928,6 +976,29 @@ export class DeliveryReverseService {
 
   private async lock(tx: Prisma.TransactionClient, key: string) {
     await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtextextended(${key}, 0))`;
+  }
+  private async shipmentSources(
+    tx: Prisma.TransactionClient,
+    shipmentId: string,
+    tenantId: string,
+  ) {
+    const items = await tx.shipmentItem.findMany({
+      distinct: ['transportOrderId'],
+      select: { transportOrderId: true },
+      where: { shipmentId, tenantId },
+    });
+    if (!items.length) return [];
+    const orders = await tx.transportOrder.findMany({
+      select: { orderNo: true, sourceRef: true },
+      where: {
+        id: { in: items.map(({ transportOrderId }) => transportOrderId) },
+        tenantId,
+      },
+    });
+    return orders.map((order) => ({
+      sourceRef: order.sourceRef,
+      transportOrderNo: order.orderNo,
+    }));
   }
   private nonNegative(value: unknown) {
     const result = this.decimal(value);

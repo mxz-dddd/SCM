@@ -54,6 +54,7 @@ import { IdempotencyExecutionFacade } from './public/idempotency-execution.facad
 import { ObservabilityService } from './observability.service';
 import { OperationsController } from './operations.controller';
 import { OperationsService } from './operations.service';
+import { NumberingFacade } from './public/numbering.facade';
 
 @Module({
   controllers: [
@@ -96,6 +97,7 @@ import { OperationsService } from './operations.service';
     LocaleUnitService,
     NotificationChannelService,
     NotificationService,
+    NumberingFacade,
     ObservabilityService,
     OperationsService,
     OrganizationService,
@@ -122,6 +124,7 @@ import { OperationsService } from './operations.service';
     EventConsumptionFacade,
     IdempotencyExecutionFacade,
     JobSchedulingFacade,
+    NumberingFacade,
     ObservabilityService,
     PermissionDecisionFacade,
     RuleEvaluationFacade,

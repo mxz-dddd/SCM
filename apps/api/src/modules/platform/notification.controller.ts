@@ -165,11 +165,11 @@ export class NotificationController {
     @Headers('x-correlation-id') correlationId: string,
     @Req() request: TenantRequest,
   ) {
-    return this.notifications.createNotification(
-      input,
-      request.tenantContext,
-      { correlationId, idempotencyKey, ipAddress: request.ip },
-    );
+    return this.notifications.createNotification(input, request.tenantContext, {
+      correlationId,
+      idempotencyKey,
+      ipAddress: request.ip,
+    });
   }
 
   @Post(':notificationId/dispatch')

@@ -40,6 +40,7 @@ export interface CreateGatewayCredentialInput {
 export interface GatewayAuthorizationInput {
   readonly accessToken?: string;
   readonly body?: unknown;
+  readonly bodyHash?: string;
   readonly certificateFingerprint?: string;
   readonly correlationId?: string;
   readonly ipAddress: string;
@@ -52,6 +53,7 @@ export interface GatewayAuthorizationInput {
   readonly signature?: string;
   readonly timestamp?: string;
   readonly type: IntegrationCredentialType;
+  readonly expectedTenantId?: string;
 }
 
 const sha256 = (value: string): string =>
@@ -424,6 +426,11 @@ export class GatewayService {
 
   async authorize(input: GatewayAuthorizationInput) {
     const authenticated = await this.authenticate(input);
+    if (
+      input.expectedTenantId &&
+      input.expectedTenantId !== authenticated.credential.tenantId
+    )
+      this.auth('GATEWAY_CREDENTIAL_INVALID', 'Gateway credential is invalid');
     const correlationId = input.correlationId?.trim() || randomUUID();
     if (correlationId.length > 100)
       this.invalid('correlationId must not exceed 100 characters');
@@ -431,6 +438,30 @@ export class GatewayService {
     this.text(input.method, 'method', 10);
     const result = await this.prisma.$transaction(async (tx) => {
       await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${`${authenticated.credential.tenantId}:gateway:${authenticated.credential.id}`}))`;
+      if (authenticated.replayHash) {
+        try {
+          await tx.integrationGatewayReplay.create({
+            data: {
+              createdBy: authenticated.credential.id,
+              credentialId: authenticated.credential.id,
+              expiresAt: new Date(Date.now() + 300_000),
+              signatureHash: authenticated.replayHash,
+              tenantId: authenticated.credential.tenantId,
+              updatedBy: authenticated.credential.id,
+            },
+          });
+        } catch (error) {
+          if (
+            error instanceof Prisma.PrismaClientKnownRequestError &&
+            error.code === 'P2002'
+          )
+            this.auth(
+              'GATEWAY_HMAC_REPLAYED',
+              'HMAC signature has already been used',
+            );
+          throw error;
+        }
+      }
       const policies = await tx.integrationGatewayPolicy.findMany({
         orderBy: { activatedAt: 'desc' },
         where: {
@@ -465,6 +496,7 @@ export class GatewayService {
         tx,
         policy.id,
         authenticated.credential,
+        input.route,
         'MINUTE',
         minuteStart,
       );
@@ -472,6 +504,7 @@ export class GatewayService {
         tx,
         policy.id,
         authenticated.credential,
+        input.route,
         'DAY',
         dayStart,
       );
@@ -519,7 +552,8 @@ export class GatewayService {
             policyId: policy.id,
             reasonCode,
             requestBytes: input.requestBytes,
-            requestHash: sha256(JSON.stringify(input.body ?? null)),
+            requestHash:
+              input.bodyHash ?? sha256(JSON.stringify(input.body ?? null)),
             route: input.route,
             tenantId: authenticated.credential.tenantId,
             updatedBy: authenticated.credential.id,
@@ -574,7 +608,7 @@ export class GatewayService {
       if (!credential)
         this.auth('GATEWAY_CREDENTIAL_INVALID', 'OAuth credential is invalid');
       this.assertActive(credential);
-      return { credential, scopes: list(token.scopes) };
+      return { credential, replayHash: undefined, scopes: list(token.scopes) };
     }
     const keyId = input.keyId?.trim();
     if (!keyId)
@@ -599,7 +633,8 @@ export class GatewayService {
           'GATEWAY_HMAC_TIMESTAMP_INVALID',
           'HMAC timestamp is invalid',
         );
-      const bodyHash = sha256(JSON.stringify(input.body ?? null));
+      const bodyHash =
+        input.bodyHash ?? sha256(JSON.stringify(input.body ?? null));
       const expected = createHmac(
         'sha256',
         this.secret(credential.tenantId, credential.keyId),
@@ -615,7 +650,11 @@ export class GatewayService {
         this.auth('GATEWAY_SECRET_REQUIRED', 'Secret is required');
       this.assertSecret(credential, input.secret);
     }
-    return { credential, scopes: list(credential.scopes) };
+    return {
+      credential,
+      replayHash: input.type === 'HMAC' ? sha256(input.signature!) : undefined,
+      scopes: list(credential.scopes),
+    };
   }
 
   private async insertCredential(
@@ -693,6 +732,7 @@ export class GatewayService {
     tx: Prisma.TransactionClient,
     policyId: string,
     credential: { readonly id: string; readonly tenantId: string },
+    route: string,
     bucketKind: string,
     bucketStart: Date,
   ) {
@@ -703,6 +743,7 @@ export class GatewayService {
         createdBy: credential.id,
         credentialId: credential.id,
         policyId,
+        route,
         requestCount: 1,
         tenantId: credential.tenantId,
         updatedBy: credential.id,
@@ -713,11 +754,12 @@ export class GatewayService {
         version: { increment: 1 },
       },
       where: {
-        tenantId_policyId_credentialId_bucketKind_bucketStart: {
+        tenantId_policyId_credentialId_route_bucketKind_bucketStart: {
           bucketKind,
           bucketStart,
           credentialId: credential.id,
           policyId,
+          route,
           tenantId: credential.tenantId,
         },
       },

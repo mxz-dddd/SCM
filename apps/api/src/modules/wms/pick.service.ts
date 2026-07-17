@@ -7,6 +7,7 @@ import { toHttpJson } from '../../common/http-json';
 import { isUuid } from '../../common/validation';
 import { PrismaService } from '../../database/prisma.service';
 import { MdmReferenceService } from '../mdm/public/mdm-reference.service';
+import { businessNumber } from '../platform/public/numbering.facade';
 import type { CommandMetadata } from '../platform/tenant.service';
 
 const json = (value: unknown) =>
@@ -128,7 +129,11 @@ export class PickService {
       const task = await tx.pickTask.findFirst({
         where: { id, tenantId: context.tenantId },
       });
-      if (!task || task.status !== 'ASSIGNED' || task.version !== input.expectedVersion)
+      if (
+        !task ||
+        task.status !== 'ASSIGNED' ||
+        task.version !== input.expectedVersion
+      )
         throw this.conflict('PICK_TASK_CONFLICT');
       const changed = await tx.pickTask.update({
         data: {
@@ -145,14 +150,26 @@ export class PickService {
         where: { taskId: id, tenantId: context.tenantId },
       });
       await tx.outboundOrder.updateMany({
-        data: { status: 'PICKING', updatedBy: context.accountId, version: { increment: 1 } },
+        data: {
+          status: 'PICKING',
+          updatedBy: context.accountId,
+          version: { increment: 1 },
+        },
         where: {
           id: { in: orderIds.map(({ outboundOrderId }) => outboundOrderId) },
           status: 'ALLOCATED',
           tenantId: context.tenantId,
         },
       });
-      await this.emit(tx, id, changed.version, 'picking.task-started.v1', context, metadata, { taskId: id });
+      await this.emit(
+        tx,
+        id,
+        changed.version,
+        'picking.task-started.v1',
+        context,
+        metadata,
+        { taskId: id },
+      );
       return { status: changed.status, version: changed.version };
     });
   }
@@ -175,9 +192,14 @@ export class PickService {
     const wave = await this.prisma.wavePlan.findFirstOrThrow({
       where: { id: task.waveId, tenantId: context.tenantId },
     });
-    const locations = await this.mdm.listWarehouseLocations(wave.warehouseId, context);
+    const locations = await this.mdm.listWarehouseLocations(
+      wave.warehouseId,
+      context,
+    );
     return this.prisma.$transaction(async (tx) => {
-      const current = await tx.pickTask.findFirst({ where: { id, tenantId: context.tenantId } });
+      const current = await tx.pickTask.findFirst({
+        where: { id, tenantId: context.tenantId },
+      });
       if (
         !current ||
         !['OPEN', 'ASSIGNED', 'IN_PROGRESS'].includes(current.status) ||
@@ -194,8 +216,11 @@ export class PickService {
         const rightLocation = locationById.get(right.sourceLocationId);
         const direction = input.aisleDirection === 'REVERSE' ? -1 : 1;
         return (
-          (Number(congestion[left.sourceLocationId] ?? 0) - Number(congestion[right.sourceLocationId] ?? 0)) ||
-          direction * ((leftLocation?.sequence ?? 999999) - (rightLocation?.sequence ?? 999999)) ||
+          Number(congestion[left.sourceLocationId] ?? 0) -
+            Number(congestion[right.sourceLocationId] ?? 0) ||
+          direction *
+            ((leftLocation?.sequence ?? 999999) -
+              (rightLocation?.sequence ?? 999999)) ||
           left.id.localeCompare(right.id)
         );
       });
@@ -223,10 +248,22 @@ export class PickService {
         },
       });
       const changed = await tx.pickTask.update({
-        data: { routeVersion, updatedBy: context.accountId, version: { increment: 1 } },
+        data: {
+          routeVersion,
+          updatedBy: context.accountId,
+          version: { increment: 1 },
+        },
         where: { id },
       });
-      await this.emit(tx, id, changed.version, 'picking.route-replanned.v1', context, metadata, { routeVersion, taskId: id });
+      await this.emit(
+        tx,
+        id,
+        changed.version,
+        'picking.route-replanned.v1',
+        context,
+        metadata,
+        { routeVersion, taskId: id },
+      );
       return { routeVersion, version: changed.version };
     });
   }
@@ -245,8 +282,14 @@ export class PickService {
     const quantity = this.quantity(input.quantityBase);
     const sequence = this.sequence(input.deviceSequence);
     const scannedAt = new Date(input.scannedAt);
-    if (!input.deviceId?.trim() || !input.targetContainerCode?.trim() || Number.isNaN(scannedAt.getTime()))
-      this.invalid('Device, sequence, target container and scan time are required');
+    if (
+      !input.deviceId?.trim() ||
+      !input.targetContainerCode?.trim() ||
+      Number.isNaN(scannedAt.getTime())
+    )
+      this.invalid(
+        'Device, sequence, target container and scan time are required',
+      );
     const result = await this.prisma.$transaction(async (tx) => {
       const existing = await tx.pickScanEvent.findUnique({
         where: {
@@ -286,17 +329,32 @@ export class PickService {
       const [task, line] = await Promise.all([
         tx.pickTask.findFirst({ where: { id, tenantId: context.tenantId } }),
         tx.pickTaskLine.findFirst({
-          where: { id: input.taskLineId, taskId: id, tenantId: context.tenantId },
+          where: {
+            id: input.taskLineId,
+            taskId: id,
+            tenantId: context.tenantId,
+          },
         }),
       ]);
       let rejectionCode: string | undefined;
-      if (!task || task.status !== 'IN_PROGRESS') rejectionCode = 'PICK_TASK_NOT_EXECUTING';
+      if (!task || task.status !== 'IN_PROGRESS')
+        rejectionCode = 'PICK_TASK_NOT_EXECUTING';
       else if (!line) rejectionCode = 'PICK_TASK_LINE_INVALID';
-      else if (line.sourceLocationId !== input.sourceLocationId) rejectionCode = 'PICK_SOURCE_LOCATION_MISMATCH';
-      else if (line.productId !== input.productId) rejectionCode = 'PICK_PRODUCT_MISMATCH';
-      else if ((line.handlingUnitId ?? null) !== (input.handlingUnitId ?? null)) rejectionCode = 'PICK_HANDLING_UNIT_MISMATCH';
-      else if (task.containerCode !== input.targetContainerCode.trim()) rejectionCode = 'PICK_TARGET_CONTAINER_MISMATCH';
-      else if (line.pickedBase.add(line.shortBase).add(quantity).greaterThan(line.requiredBase)) rejectionCode = 'PICK_QUANTITY_EXCEEDED';
+      else if (line.sourceLocationId !== input.sourceLocationId)
+        rejectionCode = 'PICK_SOURCE_LOCATION_MISMATCH';
+      else if (line.productId !== input.productId)
+        rejectionCode = 'PICK_PRODUCT_MISMATCH';
+      else if ((line.handlingUnitId ?? null) !== (input.handlingUnitId ?? null))
+        rejectionCode = 'PICK_HANDLING_UNIT_MISMATCH';
+      else if (task.containerCode !== input.targetContainerCode.trim())
+        rejectionCode = 'PICK_TARGET_CONTAINER_MISMATCH';
+      else if (
+        line.pickedBase
+          .add(line.shortBase)
+          .add(quantity)
+          .greaterThan(line.requiredBase)
+      )
+        rejectionCode = 'PICK_QUANTITY_EXCEEDED';
       const scan = await tx.pickScanEvent.create({
         data: {
           createdBy: context.accountId,
@@ -330,7 +388,12 @@ export class PickService {
             taskId: id,
           },
         );
-        return { outcome: 'REJECTED' as const, rejectionCode, replayed: false, scanEventId: scan.id };
+        return {
+          outcome: 'REJECTED' as const,
+          rejectionCode,
+          replayed: false,
+          scanEventId: scan.id,
+        };
       }
       const confirmation = await tx.pickConfirmation.create({
         data: {
@@ -353,7 +416,11 @@ export class PickService {
         },
       });
       await tx.pickTaskLine.update({
-        data: { pickedBase: { increment: quantity }, updatedBy: context.accountId, version: { increment: 1 } },
+        data: {
+          pickedBase: { increment: quantity },
+          updatedBy: context.accountId,
+          version: { increment: 1 },
+        },
         where: { id: input.taskLineId },
       });
       const taskLines = await tx.pickTaskLine.findMany({
@@ -372,13 +439,26 @@ export class PickService {
             where: { id },
           })
         : task!;
-      await this.emit(tx, id, changedTask.version, 'picking.scan-accepted.v1', context, metadata, {
+      await this.emit(
+        tx,
+        id,
+        changedTask.version,
+        'picking.scan-accepted.v1',
+        context,
+        metadata,
+        {
+          confirmationId: confirmation.id,
+          quantityBase: quantity.toString(),
+          scanEventId: scan.id,
+          taskId: id,
+        },
+      );
+      return {
         confirmationId: confirmation.id,
-        quantityBase: quantity.toString(),
+        outcome: 'ACCEPTED' as const,
+        replayed: false,
         scanEventId: scan.id,
-        taskId: id,
-      });
-      return { confirmationId: confirmation.id, outcome: 'ACCEPTED' as const, replayed: false, scanEventId: scan.id };
+      };
     });
     if (result.outcome === 'REJECTED')
       throw new AppError(
@@ -392,7 +472,12 @@ export class PickService {
 
   shortPick(
     taskLineId: string,
-    input: { expectedLineVersion: number; reason: string; reasonCode: string; shortBase: string },
+    input: {
+      expectedLineVersion: number;
+      reason: string;
+      reasonCode: string;
+      shortBase: string;
+    },
     context: TenantContext,
     metadata: CommandMetadata,
   ) {
@@ -401,18 +486,43 @@ export class PickService {
     if (!input.reasonCode?.trim() || !input.reason?.trim())
       this.invalid('Short-pick reason code and explanation are required');
     return this.prisma.$transaction(async (tx) => {
-      const line = await tx.pickTaskLine.findFirst({ where: { id: taskLineId, tenantId: context.tenantId } });
-      if (!line || line.version !== input.expectedLineVersion) throw this.conflict('PICK_TASK_LINE_CONFLICT');
-      const task = await tx.pickTask.findFirstOrThrow({ where: { id: line.taskId, tenantId: context.tenantId } });
-      if (task.status !== 'IN_PROGRESS' || line.pickedBase.add(line.shortBase).add(quantity).greaterThan(line.requiredBase))
+      const line = await tx.pickTaskLine.findFirst({
+        where: { id: taskLineId, tenantId: context.tenantId },
+      });
+      if (!line || line.version !== input.expectedLineVersion)
+        throw this.conflict('PICK_TASK_LINE_CONFLICT');
+      const task = await tx.pickTask.findFirstOrThrow({
+        where: { id: line.taskId, tenantId: context.tenantId },
+      });
+      if (
+        task.status !== 'IN_PROGRESS' ||
+        line.pickedBase
+          .add(line.shortBase)
+          .add(quantity)
+          .greaterThan(line.requiredBase)
+      )
         throw this.conflict('PICK_SHORT_QUANTITY_CONFLICT');
       const caseId = randomUUID();
       const row = await tx.shortPickCase.create({
         data: {
-          caseNo: `SPK-${Date.now()}-${caseId.slice(0, 6)}`,
+          caseNo: await businessNumber(
+            this.prisma,
+            'WMS_SHORT_PICK_CASE',
+            context,
+            metadata,
+            `short-pick:${task.id}:${line.id}`,
+          ),
           createdBy: context.accountId,
           id: caseId,
-          optionsSnapshot: json({ allowed: ['REVIEW', 'FREEZE', 'CYCLE_COUNT', 'REALLOCATE', 'SHORT_SHIP'] }),
+          optionsSnapshot: json({
+            allowed: [
+              'REVIEW',
+              'FREEZE',
+              'CYCLE_COUNT',
+              'REALLOCATE',
+              'SHORT_SHIP',
+            ],
+          }),
           reason: input.reason.trim(),
           reasonCode: input.reasonCode.trim(),
           shortBase: quantity,
@@ -423,36 +533,76 @@ export class PickService {
         },
       });
       await tx.pickTaskLine.update({
-        data: { shortBase: { increment: quantity }, updatedBy: context.accountId, version: { increment: 1 } },
+        data: {
+          shortBase: { increment: quantity },
+          updatedBy: context.accountId,
+          version: { increment: 1 },
+        },
         where: { id: taskLineId },
       });
       const changed = await tx.pickTask.update({
-        data: { status: 'SHORT_PICK', updatedBy: context.accountId, version: { increment: 1 } },
+        data: {
+          status: 'SHORT_PICK',
+          updatedBy: context.accountId,
+          version: { increment: 1 },
+        },
         where: { id: task.id },
       });
-      await this.emit(tx, task.id, changed.version, 'picking.short-pick-recorded.v1', context, metadata, {
-        reasonCode: row.reasonCode,
-        shortBase: quantity.toString(),
+      await this.emit(
+        tx,
+        task.id,
+        changed.version,
+        'picking.short-pick-recorded.v1',
+        context,
+        metadata,
+        {
+          reasonCode: row.reasonCode,
+          shortBase: quantity.toString(),
+          shortPickId: row.id,
+          taskId: task.id,
+        },
+      );
+      return {
         shortPickId: row.id,
-        taskId: task.id,
-      });
-      return { shortPickId: row.id, status: row.status, taskVersion: changed.version, version: row.version };
+        status: row.status,
+        taskVersion: changed.version,
+        version: row.version,
+      };
     });
   }
 
   resolveShortPick(
     id: string,
-    input: { expectedVersion: number; resolutionSnapshot: Readonly<Record<string, unknown>>; type: string },
+    input: {
+      expectedVersion: number;
+      resolutionSnapshot: Readonly<Record<string, unknown>>;
+      type: string;
+    },
     context: TenantContext,
     metadata: CommandMetadata,
   ) {
     this.uuid(id, 'shortPickId');
-    const allowed = ['REVIEW', 'FREEZE', 'CYCLE_COUNT', 'REALLOCATE', 'SHORT_SHIP'];
-    if (!allowed.includes(input.type) || !Object.keys(input.resolutionSnapshot ?? {}).length)
+    const allowed = [
+      'REVIEW',
+      'FREEZE',
+      'CYCLE_COUNT',
+      'REALLOCATE',
+      'SHORT_SHIP',
+    ];
+    if (
+      !allowed.includes(input.type) ||
+      !Object.keys(input.resolutionSnapshot ?? {}).length
+    )
       this.invalid('Valid resolution type and detail are required');
     return this.prisma.$transaction(async (tx) => {
-      const row = await tx.shortPickCase.findFirst({ where: { id, tenantId: context.tenantId } });
-      if (!row || row.status !== 'OPEN' || row.version !== input.expectedVersion)
+      const row = await tx.shortPickCase.findFirst({
+        where: { id, tenantId: context.tenantId },
+      });
+      if (
+        !row ||
+        row.status !== 'OPEN' ||
+        row.version !== input.expectedVersion
+      )
         throw this.conflict('PICK_SHORT_CASE_CONFLICT');
       const changed = await tx.shortPickCase.update({
         data: {
@@ -465,8 +615,12 @@ export class PickService {
         },
         where: { id },
       });
-      const lines = await tx.pickTaskLine.findMany({ where: { taskId: row.taskId, tenantId: context.tenantId } });
-      const complete = lines.every((line) => line.pickedBase.add(line.shortBase).equals(line.requiredBase));
+      const lines = await tx.pickTaskLine.findMany({
+        where: { taskId: row.taskId, tenantId: context.tenantId },
+      });
+      const complete = lines.every((line) =>
+        line.pickedBase.add(line.shortBase).equals(line.requiredBase),
+      );
       const task = await tx.pickTask.update({
         data: {
           status: complete ? 'REVIEWING' : 'IN_PROGRESS',
@@ -475,12 +629,25 @@ export class PickService {
         },
         where: { id: row.taskId },
       });
-      await this.emit(tx, row.taskId, task.version, 'picking.short-pick-resolved.v1', context, metadata, {
-        resolutionType: input.type,
-        shortPickId: id,
-        taskId: row.taskId,
-      });
-      return { status: changed.status, taskStatus: task.status, taskVersion: task.version, version: changed.version };
+      await this.emit(
+        tx,
+        row.taskId,
+        task.version,
+        'picking.short-pick-resolved.v1',
+        context,
+        metadata,
+        {
+          resolutionType: input.type,
+          shortPickId: id,
+          taskId: row.taskId,
+        },
+      );
+      return {
+        status: changed.status,
+        taskStatus: task.status,
+        taskVersion: task.version,
+        version: changed.version,
+      };
     });
   }
 
@@ -496,17 +663,44 @@ export class PickService {
     metadata: CommandMetadata,
   ) {
     this.uuid(id, 'taskId');
-    if (!input.scopeRef?.trim() || !Object.keys(input.actualSnapshot ?? {}).length)
+    if (
+      !input.scopeRef?.trim() ||
+      !Object.keys(input.actualSnapshot ?? {}).length
+    )
       this.invalid('Verification scope and actual snapshot are required');
     return this.prisma.$transaction(async (tx) => {
-      const task = await tx.pickTask.findFirst({ where: { id, tenantId: context.tenantId } });
-      if (!task || task.status !== 'REVIEWING' || task.version !== input.expectedVersion)
+      const task = await tx.pickTask.findFirst({
+        where: { id, tenantId: context.tenantId },
+      });
+      if (
+        !task ||
+        task.status !== 'REVIEWING' ||
+        task.version !== input.expectedVersion
+      )
         throw this.conflict('PICK_TASK_CONFLICT');
-      if (await tx.shortPickCase.count({ where: { status: 'OPEN', taskId: id, tenantId: context.tenantId } }))
-        throw new AppError('PICK_SHORT_CASE_OPEN', 'Open short picks block verification', 409);
-      const lines = await tx.pickTaskLine.findMany({ where: { taskId: id, tenantId: context.tenantId } });
-      if (!lines.every((line) => line.pickedBase.add(line.shortBase).equals(line.requiredBase)))
-        throw new AppError('PICK_TASK_UNACCOUNTED', 'Every required quantity must be picked or shorted', 409);
+      if (
+        await tx.shortPickCase.count({
+          where: { status: 'OPEN', taskId: id, tenantId: context.tenantId },
+        })
+      )
+        throw new AppError(
+          'PICK_SHORT_CASE_OPEN',
+          'Open short picks block verification',
+          409,
+        );
+      const lines = await tx.pickTaskLine.findMany({
+        where: { taskId: id, tenantId: context.tenantId },
+      });
+      if (
+        !lines.every((line) =>
+          line.pickedBase.add(line.shortBase).equals(line.requiredBase),
+        )
+      )
+        throw new AppError(
+          'PICK_TASK_UNACCOUNTED',
+          'Every required quantity must be picked or shorted',
+          409,
+        );
       const expectedSnapshot = {
         containerCode: task.containerCode,
         lines: lines.map((line) => ({
@@ -517,17 +711,24 @@ export class PickService {
       };
       const actual = object(input.actualSnapshot);
       const expectedLines = expectedSnapshot.lines
-        .map((line) => `${line.taskLineId}:${line.productId}:${line.quantityBase}`)
+        .map(
+          (line) => `${line.taskLineId}:${line.productId}:${line.quantityBase}`,
+        )
         .sort();
       const actualLines = Array.isArray(actual.lines)
         ? actual.lines
             .map((value) => object(value))
-            .map((line) => `${String(line.taskLineId)}:${String(line.productId)}:${this.decimalText(line.quantityBase)}`)
+            .map(
+              (line) =>
+                `${String(line.taskLineId)}:${String(line.productId)}:${this.decimalText(line.quantityBase)}`,
+            )
             .sort()
         : [];
       const variances: string[] = [];
-      if (task.containerCode !== String(actual.containerCode ?? '')) variances.push('CONTAINER_MISMATCH');
-      if (canonical(expectedLines) !== canonical(actualLines)) variances.push('LINE_MISMATCH');
+      if (task.containerCode !== String(actual.containerCode ?? ''))
+        variances.push('CONTAINER_MISMATCH');
+      if (canonical(expectedLines) !== canonical(actualLines))
+        variances.push('LINE_MISMATCH');
       const status = variances.length ? 'FAILED' : 'PASSED';
       const verification = await tx.pickVerificationResult.create({
         data: {
@@ -546,31 +747,51 @@ export class PickService {
       let taskVersion = task.version;
       if (status === 'PASSED') {
         const changed = await tx.pickTask.update({
-          data: { completedAt: new Date(), status: 'COMPLETED', updatedBy: context.accountId, version: { increment: 1 } },
+          data: {
+            completedAt: new Date(),
+            status: 'COMPLETED',
+            updatedBy: context.accountId,
+            version: { increment: 1 },
+          },
           where: { id },
         });
         taskVersion = changed.version;
       }
-      await this.emit(tx, id, taskVersion, `picking.verification-${status.toLowerCase()}.v1`, context, metadata, {
-        taskId: id,
-        verificationId: verification.id,
-        variances,
-      });
+      await this.emit(
+        tx,
+        id,
+        taskVersion,
+        `picking.verification-${status.toLowerCase()}.v1`,
+        context,
+        metadata,
+        {
+          taskId: id,
+          verificationId: verification.id,
+          variances,
+        },
+      );
       return { status, taskVersion, verificationId: verification.id };
     });
   }
 
   correctVerification(
     id: string,
-    input: { actualSnapshot: Readonly<Record<string, unknown>>; correctionType: 'RETURN' | 'SUPPLEMENT' | 'REALLOCATE' },
+    input: {
+      actualSnapshot: Readonly<Record<string, unknown>>;
+      correctionType: 'RETURN' | 'SUPPLEMENT' | 'REALLOCATE';
+    },
     context: TenantContext,
     metadata: CommandMetadata,
   ) {
     this.uuid(id, 'verificationId');
-    if (!Object.keys(input.actualSnapshot ?? {}).length) this.invalid('Correction detail is required');
+    if (!Object.keys(input.actualSnapshot ?? {}).length)
+      this.invalid('Correction detail is required');
     return this.prisma.$transaction(async (tx) => {
-      const original = await tx.pickVerificationResult.findFirst({ where: { id, tenantId: context.tenantId } });
-      if (!original || original.status !== 'FAILED') throw this.conflict('PICK_VERIFICATION_CONFLICT');
+      const original = await tx.pickVerificationResult.findFirst({
+        where: { id, tenantId: context.tenantId },
+      });
+      if (!original || original.status !== 'FAILED')
+        throw this.conflict('PICK_VERIFICATION_CONFLICT');
       const corrected = await tx.pickVerificationResult.create({
         data: {
           actualSnapshot: json(input.actualSnapshot),
@@ -587,13 +808,24 @@ export class PickService {
           varianceSnapshot: json({ correctsVerificationId: original.id }),
         },
       });
-      await this.emit(tx, original.taskId, corrected.version, 'picking.verification-corrected.v1', context, metadata, {
-        correctionType: input.correctionType,
+      await this.emit(
+        tx,
+        original.taskId,
+        corrected.version,
+        'picking.verification-corrected.v1',
+        context,
+        metadata,
+        {
+          correctionType: input.correctionType,
+          correctionVerificationId: corrected.id,
+          originalVerificationId: original.id,
+          taskId: original.taskId,
+        },
+      );
+      return {
         correctionVerificationId: corrected.id,
-        originalVerificationId: original.id,
-        taskId: original.taskId,
-      });
-      return { correctionVerificationId: corrected.id, status: corrected.status };
+        status: corrected.status,
+      };
     });
   }
 
@@ -607,14 +839,26 @@ export class PickService {
     metadata: CommandMetadata,
   ) {
     return this.prisma.$transaction(async (tx) => {
-      const row = await tx.pickTask.findFirst({ where: { id, tenantId: context.tenantId } });
-      if (!row || !statuses.includes(row.status) || row.version !== expectedVersion)
+      const row = await tx.pickTask.findFirst({
+        where: { id, tenantId: context.tenantId },
+      });
+      if (
+        !row ||
+        !statuses.includes(row.status) ||
+        row.version !== expectedVersion
+      )
         throw this.conflict('PICK_TASK_CONFLICT');
       const changed = await tx.pickTask.update({
-        data: { ...data, updatedBy: context.accountId, version: { increment: 1 } },
+        data: {
+          ...data,
+          updatedBy: context.accountId,
+          version: { increment: 1 },
+        },
         where: { id },
       });
-      await this.emit(tx, id, changed.version, event, context, metadata, { taskId: id });
+      await this.emit(tx, id, changed.version, event, context, metadata, {
+        taskId: id,
+      });
       return { status: changed.status, version: changed.version };
     });
   }
@@ -682,7 +926,9 @@ export class PickService {
   }
 
   private conflict(code: string) {
-    return new AppError(code, 'Resource version or state changed', 409, { retryable: true });
+    return new AppError(code, 'Resource version or state changed', 409, {
+      retryable: true,
+    });
   }
 
   private async emit(

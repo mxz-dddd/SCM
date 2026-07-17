@@ -6,6 +6,7 @@ import { AppError } from '../../common/app-error';
 import { toHttpJson } from '../../common/http-json';
 import { isUuid } from '../../common/validation';
 import { PrismaService } from '../../database/prisma.service';
+import { businessNumber } from '../platform/public/numbering.facade';
 import type { CommandMetadata } from '../platform/tenant.service';
 
 const json = (value: unknown) =>
@@ -142,7 +143,13 @@ export class TrackingService {
         data: {
           createdBy: context.accountId,
           id,
-          planNo: `MP-${Date.now()}-${id.slice(0, 6)}`,
+          planNo: await businessNumber(
+            this.prisma,
+            'TMS_MILESTONE_PLAN',
+            context,
+            metadata,
+            `milestone-plan:${shipmentId}`,
+          ),
           shipmentId,
           templateSnapshot: json(input.templateSnapshot),
           tenantId: context.tenantId,
@@ -237,7 +244,13 @@ export class TrackingService {
           id,
           milestonePlanId: plan.id,
           shipmentId: assignment.shipmentId,
-          taskNo: `DT-${Date.now()}-${id.slice(0, 6)}`,
+          taskNo: await businessNumber(
+            this.prisma,
+            'TMS_DRIVER_TASK',
+            context,
+            metadata,
+            `driver-task:${assignment.id}`,
+          ),
           tenantId: context.tenantId,
           updatedBy: context.accountId,
           vehicleAssignmentId: assignment.id,
@@ -416,7 +429,13 @@ export class TrackingService {
             deviceId: input.deviceId,
             deviceSequence: command.deviceSequence,
             driverTaskId: task.id,
-            eventNo: `TE-${Date.now()}-${eventId.slice(0, 6)}`,
+            eventNo: await businessNumber(
+              this.prisma,
+              'TMS_TRACKING_EVENT',
+              context,
+              metadata,
+              `tracking-event:${task.id}:${command.deviceSequence}`,
+            ),
             eventType: command.commandType,
             evidenceSnapshot: json(command.payload.evidenceSnapshot),
             id: eventId,
@@ -631,7 +650,7 @@ export class TrackingService {
           },
         });
       if (!rejectionReason)
-        await this.evaluateGeofences(tx, point, previous, context);
+        await this.evaluateGeofences(tx, point, previous, context, metadata);
       await this.emit(
         tx,
         point.id,
@@ -778,6 +797,7 @@ export class TrackingService {
     },
     previous: { latitude: Prisma.Decimal; longitude: Prisma.Decimal } | null,
     context: TenantContext,
+    metadata: CommandMetadata,
   ) {
     const milestones = await tx.shipmentMilestone.findMany({
       where: {
@@ -843,7 +863,13 @@ export class TrackingService {
         data: {
           conflictEventId: driverEvent?.id ?? null,
           createdBy: context.accountId,
-          eventNo: `TE-GEO-${Date.now()}-${geofence.id.slice(0, 6)}`,
+          eventNo: await businessNumber(
+            this.prisma,
+            'TMS_GEOFENCE_TRACKING_EVENT',
+            context,
+            metadata,
+            `geofence-event:${geofence.id}`,
+          ),
           eventType: `GEOFENCE_${eventType}`,
           evidenceSnapshot: json({ geofenceEventId: geofence.id }),
           locationSnapshot: json({
