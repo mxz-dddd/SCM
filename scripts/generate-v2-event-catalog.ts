@@ -1,6 +1,6 @@
 import { readdir, readFile, writeFile } from 'node:fs/promises';
 import { dirname, join, relative, resolve } from 'node:path';
-import { fileURLToPath } from 'node:url';
+import { fileURLToPath, pathToFileURL } from 'node:url';
 import ts from 'typescript';
 import {
   EVENT_SUBSCRIPTIONS,
@@ -166,7 +166,7 @@ ${events}
 `;
 }
 
-async function main() {
+async function generateValidatedEventCatalog() {
   const discovered = await discoverEmittedEvents();
   const unclassified = [...discovered.keys()].filter(
     (event) => subscriptionsForEvent(event).length === 0,
@@ -176,15 +176,26 @@ async function main() {
       `Emitted events require a subscription or explicit classification: ${unclassified.join(', ')}`,
     );
   }
-  const generated = render(discovered);
-  if (process.argv.includes('--check')) {
-    const current = await readFile(output, 'utf8').catch(() => '');
-    if (current !== generated) {
-      throw new Error('V2_EVENT_CATALOG.md is stale; run pnpm event:catalog');
-    }
-  } else {
-    await writeFile(output, generated);
+  return render(discovered);
+}
+
+export async function assertGeneratedEventCatalog() {
+  const generated = await generateValidatedEventCatalog();
+  const current = await readFile(output, 'utf8').catch(() => '');
+  if (current !== generated) {
+    throw new Error('V2_EVENT_CATALOG.md is stale; run pnpm event:catalog');
   }
 }
 
-void main();
+async function main() {
+  if (process.argv.includes('--check')) {
+    await assertGeneratedEventCatalog();
+    return;
+  }
+  await writeFile(output, await generateValidatedEventCatalog());
+}
+
+const entrypoint = process.argv[1]
+  ? pathToFileURL(resolve(process.argv[1])).href
+  : undefined;
+if (entrypoint === import.meta.url) void main();

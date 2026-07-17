@@ -36,10 +36,15 @@ describe('V2 event subscription catalog', () => {
   it('keeps the generated design catalog synchronized with code', () => {
     const root = resolve(process.cwd(), '../..');
     expect(() =>
-      execFileSync('pnpm', ['event:catalog', '--check'], {
-        cwd: root,
-        stdio: 'pipe',
-      }),
+      execFileSync(
+        process.execPath,
+        [
+          resolve(root, 'apps/api/node_modules/tsx/dist/cli.mjs'),
+          resolve(root, 'scripts/generate-v2-event-catalog.ts'),
+          '--check',
+        ],
+        { cwd: root, stdio: 'pipe' },
+      ),
     ).not.toThrow();
   });
 });

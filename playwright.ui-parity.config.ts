@@ -18,7 +18,10 @@ export default defineConfig({
       { open: 'never', outputFolder: 'artifacts/ui-parity/playwright-report' },
     ],
   ],
-  snapshotPathTemplate: '{testDir}/{testFilePath}-snapshots/{arg}{ext}',
+  // Browser text rasterization is OS-specific. Keep reviewed baselines per
+  // platform so CI compares Linux-to-Linux without relaxing pixel thresholds.
+  snapshotPathTemplate:
+    '{testDir}/{testFilePath}-snapshots/{platform}/{arg}{ext}',
   testDir: './tests/ui-parity',
   timeout: 60_000,
   use: {
