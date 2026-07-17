@@ -5,14 +5,16 @@
 - 分支：`codex/frontend-parity`
 - `main` baseline：`2ffe648820ce484e3ee3b6b09695f0a0f8820d54`
 - 本轮目标起点：`6f242491bc964ea1a3924400f8e53ad30c543365`
-- 已验证实现 HEAD：`4c1f0b3e93d88a7772e2aefb79d32d50d9726aad`
-- 报告首次发布提交：`dc897b956990a224b46187904d30df8fada3c3ad`；本次 CI 隔离修订与测试修复位于同一 `HEAD`，提交对象不能在自身内容中固定写入自己的 SHA。
+- 合并前已验证成功 HEAD：`abc3229a1f7ef92c3c38773e4098aa95c364ffa1`
+- 合并前已验证成功 Run：`29559990602`；该 Run 只证明上述 HEAD，不冒充后续提交的状态。
+- 最终合并证据修订：本文件所在 `HEAD`；提交对象不能在自身内容中固定写入自己的 SHA。
 - Draft PR：https://github.com/mxz-dddd/SCM/pull/1
+- 当前检查入口：https://github.com/mxz-dddd/SCM/pull/1/checks
 - 对比范围是 517 个参考业务叶子和 10 个目录视图的脱敏审计映射，以及 22 条代表性本地路由；不把参考取证数量表述成本地实现了 517 个页面。
 
 ## 完整提交范围
 
-相对 `main` 共 28 个提交，分为 13 个 V2 运行时提交、6 个本轮开始前已有的 UI 对标提交、8 个本轮新增实现提交和 1 个本报告提交。
+相对 `main` 共 29 个提交，分为 13 个 V2 运行时提交、6 个本轮开始前已有的 UI 对标提交、9 个 UI 对标完成提交和 1 个最终合并证据提交。
 
 ### V2 运行时提交（13）
 
@@ -39,7 +41,7 @@
 5. `e05f3590cb3b78743216c2439cf48a637ab24763` docs(ui-parity): correct parity totals
 6. `6f242491bc964ea1a3924400f8e53ad30c543365` feat(ui-parity): complete reference audit and split transport views
 
-### 本轮新增实现提交（8）
+### UI 对标完成提交（9）
 
 1. `b347394ef4a6917feae3e3a2e33f85023984088f` feat(ui-parity): resolve audited long-tail navigation families
 2. `09a45ba2bd55af18a9df59bd2b4cce9d5a886b5b` test(ui-parity): add redacted evidence and visual gates
@@ -48,9 +50,10 @@
 5. `e5ec69e01cbadd5d10bd29c58cabea3d236a63f3` test(ui-parity): stabilize cross-platform CI evidence
 6. `a1ddd97de6f13149fcc0077fcdb18ab79216eb6c` test(ui-parity): validate platform-specific baselines
 7. `4c1f0b3e93d88a7772e2aefb79d32d50d9726aad` test(ui-parity): adopt reviewed runner baselines
-8. 本文件所在 `HEAD`：test(web): isolate workspace state across app routes
+8. `dc897b956990a224b46187904d30df8fada3c3ad` docs(ui-parity): publish final audited report
+9. `abc3229a1f7ef92c3c38773e4098aa95c364ffa1` test(web): isolate workspace state across app routes
 
-本报告首次发布提交为 `dc897b956990a224b46187904d30df8fada3c3ad`。第 28 个提交同时修订本报告并隔离 Web 路由测试的 Session/Workspace 单例状态，其 SHA 以最终分支 `HEAD` 为准；完整 SHA 清单使用 `git log main..HEAD` 读取，避免自引用改变提交对象标识。
+第 29 个提交只修订合并证据与检查链接，其 SHA 以最终分支 `HEAD` 为准；完整 SHA 清单使用 `git log main..HEAD` 读取，避免自引用改变提交对象标识。
 
 ## Catalog 审计
 
@@ -121,13 +124,16 @@
 | `pnpm audit --prod --audit-level high` | PASS；0 High/Critical，4 Moderate |
 | `git diff --check` | PASS |
 | `docker compose config` | PASS |
-| `git status --short` | 仅保留用户既有未提交后端、Vite、CHANGELOG、package.json 与演示文档改动；本轮提交文件无未提交残留 |
+| `git status --short` | PASS；独立合并 worktree 干净，用户原工作区未提交内容未被带入 |
 
 ## GitHub Actions
 
-运行：https://github.com/mxz-dddd/SCM/actions/runs/29559264648
+- PR 当前 Checks：https://github.com/mxz-dddd/SCM/pull/1/checks
+- 分支 Actions 查询：https://github.com/mxz-dddd/SCM/actions?query=branch%3Acodex%2Ffrontend-parity
+- 合并前已验证成功的 Run：https://github.com/mxz-dddd/SCM/actions/runs/29559990602
+- `29559990602` 对应 `abc3229a1f7ef92c3c38773e4098aa95c364ffa1`；最终合并前以 PR 当前最新 HEAD 的 Checks 为准。
 
-| Job | 结果 |
+| Job | Run 29559990602 结果 |
 | --- | --- |
 | verify | SUCCESS |
 | v2-runtime-e2e | SUCCESS |
