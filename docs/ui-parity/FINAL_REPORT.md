@@ -6,13 +6,13 @@
 - `main` baseline：`2ffe648820ce484e3ee3b6b09695f0a0f8820d54`
 - 本轮目标起点：`6f242491bc964ea1a3924400f8e53ad30c543365`
 - 已验证实现 HEAD：`4c1f0b3e93d88a7772e2aefb79d32d50d9726aad`
-- 报告文档提交：本文件所在 `HEAD`；提交对象不能在自身内容中固定写入自己的 SHA，最终 SHA 以 Git 为准。
+- 报告首次发布提交：`dc897b956990a224b46187904d30df8fada3c3ad`；本次 CI 隔离修订与测试修复位于同一 `HEAD`，提交对象不能在自身内容中固定写入自己的 SHA。
 - Draft PR：https://github.com/mxz-dddd/SCM/pull/1
 - 对比范围是 517 个参考业务叶子和 10 个目录视图的脱敏审计映射，以及 22 条代表性本地路由；不把参考取证数量表述成本地实现了 517 个页面。
 
 ## 完整提交范围
 
-相对 `main` 共 27 个提交，分为 13 个 V2 运行时提交、6 个本轮开始前已有的 UI 对标提交、7 个本轮新增实现提交和 1 个本报告提交。
+相对 `main` 共 28 个提交，分为 13 个 V2 运行时提交、6 个本轮开始前已有的 UI 对标提交、8 个本轮新增实现提交和 1 个本报告提交。
 
 ### V2 运行时提交（13）
 
@@ -39,7 +39,7 @@
 5. `e05f3590cb3b78743216c2439cf48a637ab24763` docs(ui-parity): correct parity totals
 6. `6f242491bc964ea1a3924400f8e53ad30c543365` feat(ui-parity): complete reference audit and split transport views
 
-### 本轮新增实现提交（7）
+### 本轮新增实现提交（8）
 
 1. `b347394ef4a6917feae3e3a2e33f85023984088f` feat(ui-parity): resolve audited long-tail navigation families
 2. `09a45ba2bd55af18a9df59bd2b4cce9d5a886b5b` test(ui-parity): add redacted evidence and visual gates
@@ -48,8 +48,9 @@
 5. `e5ec69e01cbadd5d10bd29c58cabea3d236a63f3` test(ui-parity): stabilize cross-platform CI evidence
 6. `a1ddd97de6f13149fcc0077fcdb18ab79216eb6c` test(ui-parity): validate platform-specific baselines
 7. `4c1f0b3e93d88a7772e2aefb79d32d50d9726aad` test(ui-parity): adopt reviewed runner baselines
+8. 本文件所在 `HEAD`：test(web): isolate workspace state across app routes
 
-本报告本身构成第 27 个提交，其 SHA 以最终分支 `HEAD` 为准；完整 SHA 清单使用 `git log main..HEAD` 读取，避免自引用改变提交对象标识。
+本报告首次发布提交为 `dc897b956990a224b46187904d30df8fada3c3ad`。第 28 个提交同时修订本报告并隔离 Web 路由测试的 Session/Workspace 单例状态，其 SHA 以最终分支 `HEAD` 为准；完整 SHA 清单使用 `git log main..HEAD` 读取，避免自引用改变提交对象标识。
 
 ## Catalog 审计
 

@@ -5,9 +5,28 @@ import {
   waitFor,
   within,
 } from '@testing-library/react';
-import { describe, expect, it } from 'vitest';
+import { beforeEach, describe, expect, it } from 'vitest';
 import { App } from './App';
+import { useSessionStore } from './platform/session-store';
 import { ADMIN_ROUTE_REGISTRY } from './router/route-registry';
+import { useWorkspaceStore } from './workspace/workspace-store';
+
+beforeEach(() => {
+  useSessionStore.setState({ accessToken: undefined, claims: undefined });
+  useWorkspaceStore.setState({
+    activeTabId: 'workbench',
+    context: { language: 'zh-CN', tenantId: 'unselected' },
+    tabs: [
+      { dirty: false, id: 'workbench', route: '/workbench', title: '工作台' },
+      {
+        dirty: false,
+        id: 'identity',
+        route: '/platform/identity',
+        title: '租户与认证',
+      },
+    ],
+  });
+});
 
 async function openRoute(name: string) {
   const route = ADMIN_ROUTE_REGISTRY.find(({ navLabel }) => navLabel === name);
