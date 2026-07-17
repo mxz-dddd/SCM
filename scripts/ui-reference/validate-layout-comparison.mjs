@@ -58,6 +58,11 @@ assert(
   Object.keys(baseline.referenceMetrics ?? {}).length === 8,
   'Expected eight redacted reference metric families',
 );
+assert(
+  JSON.stringify(baseline.visualSnapshotPlatforms) ===
+    JSON.stringify(['darwin', 'linux']),
+  'Expected reviewed darwin and linux visual baseline platforms',
+);
 
 for (const comparison of baseline.comparisons) {
   for (const field of requiredFields) {
@@ -108,16 +113,21 @@ for (const comparison of baseline.comparisons) {
 for (const [file, expectedSha] of Object.entries(
   baseline.visualSnapshots ?? {},
 )) {
-  const bytes = await readFile(path.join(repositoryRoot, file)).catch(
-    () => null,
-  );
-  assert(Boolean(bytes), `Missing visual snapshot: ${file}`);
-  if (bytes) {
-    const actualSha = createHash('sha256').update(bytes).digest('hex');
-    assert(
-      actualSha === expectedSha,
-      `Visual snapshot digest changed: ${file}`,
+  const directory = path.dirname(file);
+  const name = path.basename(file);
+  for (const platform of baseline.visualSnapshotPlatforms ?? []) {
+    const platformFile = path.join(directory, platform, name);
+    const bytes = await readFile(path.join(repositoryRoot, platformFile)).catch(
+      () => null,
     );
+    assert(Boolean(bytes), `Missing visual snapshot: ${platformFile}`);
+    if (bytes && platform === 'darwin') {
+      const actualSha = createHash('sha256').update(bytes).digest('hex');
+      assert(
+        actualSha === expectedSha,
+        `Visual snapshot digest changed: ${platformFile}`,
+      );
+    }
   }
 }
 

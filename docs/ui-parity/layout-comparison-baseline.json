@@ -43,6 +43,7 @@
       "source": "READ_ONLY_BROWSER_GEOMETRY"
     }
   },
+  "visualSnapshotPlatforms": ["darwin", "linux"],
   "visualSnapshots": {
     "tests/ui-parity/ui-parity.visual.spec.ts-snapshots/application-shell.png": "963590ef14afc9c6c2394979404e85b6568d9e03dbf94897d7cb695f2ff08a5f",
     "tests/ui-parity/ui-parity.visual.spec.ts-snapshots/command-modal.png": "2c244ce765df2c0fce4d967b162845564877d07d9f3d5adfc304c1d9d09ca781",
