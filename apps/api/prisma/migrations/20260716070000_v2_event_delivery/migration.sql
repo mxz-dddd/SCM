@@ -1,3 +1,6 @@
+-- phase: expand
+-- online-index-safe: new-table
+
 CREATE TYPE "platform"."EventConsumerMode" AS ENUM ('EVERY_EVENT', 'LATEST_STATE');
 CREATE TYPE "platform"."EventDeliveryStatus" AS ENUM ('PENDING', 'PROCESSING', 'PROCESSED', 'FAILED', 'IGNORED', 'DEAD_LETTER');
 

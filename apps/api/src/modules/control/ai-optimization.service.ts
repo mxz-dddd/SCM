@@ -188,7 +188,7 @@ export class AiOptimizationService {
           inputSnapshot: json(payload),
           placementSnapshot: [],
           requestHash: hashIdempotencyRequest(payload),
-          solverVersion: 'ortools-9.14.6206',
+          solverVersion: 'ortools-9.15.6755',
           tenantId: context.tenantId,
           updatedBy: context.accountId,
         },

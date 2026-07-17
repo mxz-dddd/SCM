@@ -58,7 +58,7 @@ services:
       - minio-data:/data
 
   optimizer:
-    image: scm-optimizer:9.14.6206
+    image: scm-optimizer:9.15.6755
     build:
       context: ./services/optimizer
       dockerfile: Dockerfile

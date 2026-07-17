@@ -10,7 +10,7 @@ from typing import Any
 from ortools.constraint_solver import pywrapcp, routing_enums_pb2
 from ortools.sat.python import cp_model
 
-SOLVER_VERSION = "ortools-9.14.6206"
+SOLVER_VERSION = "ortools-9.15.6755"
 MAX_BODY_BYTES = 2_000_000
 MAX_LOCATIONS = 500
 MAX_VEHICLES = 100

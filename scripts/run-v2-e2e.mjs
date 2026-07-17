@@ -187,6 +187,7 @@ try {
     logPath: `${artifacts}/migration.log`,
   });
   run('pnpm', ['--filter', '@scm/api', 'db:seed'], { environment });
+  run('pnpm', ['--filter', '@scm/ui', 'build'], { environment });
 
   startService(
     'api',

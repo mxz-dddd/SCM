@@ -7,7 +7,9 @@ state, audit, idempotency, result immutability, and domain events.
 Runtime pins:
 
 - Base image: `python:3.12.11-slim-bookworm@sha256:519591d6871b7bc437060736b9f7456b8731f1499a57e22e6c285135ae657bf7`
-- Solver: `ortools==9.14.6206`
+- Debian packages are upgraded to the current Bookworm security level during
+  the image build.
+- Solver: `ortools==9.15.6755`
 - Every transitive Python package is exact-version pinned in `requirements.txt`.
 
 Narrow JSON API:
@@ -26,9 +28,9 @@ not contain or infer SCM domain state.
 Build and test:
 
 ```bash
-docker build -t scm-optimizer:9.14.6206 services/optimizer
+docker build -t scm-optimizer:9.15.6755 services/optimizer
 docker run --rm \
   -v "$PWD/services/optimizer/test_server.py:/opt/scm-optimizer/test_server.py:ro" \
-  --entrypoint python scm-optimizer:9.14.6206 \
+  --entrypoint python scm-optimizer:9.15.6755 \
   -m unittest -v test_server.py
 ```
